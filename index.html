@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>心屿 · 你的情绪小岛</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+      background: #FFF8F0;
+      color: #5B5350;
+      line-height: 1.8;
+    }
+    .nav {
+      display: flex; align-items: center; gap: 28px;
+      max-width: 960px; margin: 0 auto; padding: 20px 24px;
+    }
+    .logo { font-size: 20px; font-weight: 500; color: #E8834A; text-decoration: none; }
+    .nav a { color: #8A807B; text-decoration: none; font-size: 15px; }
+    .nav a:hover { color: #E8834A; }
+    .hero {
+      max-width: 960px; margin: 0 auto; padding: 72px 24px 48px;
+      text-align: center;
+    }
+    .hero h1 { font-size: 30px; color: #4A4340; font-weight: 500; margin-bottom: 12px; }
+    .hero p  { color: #8A807B; margin-bottom: 32px; }
+    .btn {
+      display: inline-block; background: #F2A65A; color: #FFF;
+      padding: 12px 36px; border-radius: 999px; text-decoration: none;
+      font-size: 16px;
+    }
+    .btn:hover { background: #E8834A; }
+    .mood {
+      max-width: 960px; margin: 0 auto; padding: 8px 24px 40px; text-align: center;
+    }
+    .mood-box {
+      display: inline-block; background: #EAF3E6; color: #6E8F6B;
+      padding: 14px 32px; border-radius: 16px; font-size: 15px;
+    }
+    .cards {
+      max-width: 960px; margin: 0 auto; padding: 8px 24px 56px;
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px;
+    }
+    .card {
+      background: #FFF; border-radius: 16px; padding: 24px;
+      border: 1px solid #F5E6D8;
+    }
+    .card h3 { font-size: 16px; color: #4A4340; font-weight: 500; margin-bottom: 8px; }
+    .card p  { font-size: 14px; color: #A39A94; }
+    .tag {
+      display: inline-block; font-size: 12px; color: #E8834A;
+      background: #FDF0E4; border-radius: 999px; padding: 2px 12px; margin-bottom: 10px;
+    }
+    footer {
+      text-align: center; padding: 24px; color: #C4BBB4; font-size: 13px;
+      border-top: 1px solid #F5E6D8;
+    }
+  </style>
+</head>
+<body>
+  <nav class="nav">
+    <a class="logo" href="#">心屿</a>
+    <a href="#">首页</a>
+    <a href="#">测评</a>
+    <a href="#">文章</a>
+    <a href="#">关于我</a>
+  </nav>
+
+  <header class="hero">
+    <h1>深夜也好，清晨也好，这里都为你亮着</h1>
+    <p>一座安放心绪的小岛 · 涨知识，缓情绪，认识自己</p>
+    <a class="btn" href="#">大五人格测评 · 建设中</a>
+  </header>
+
+  <section class="mood">
+    <div class="mood-box">我 emo 了，点这里（Day 14 上线：随机温柔话）</div>
+  </section>
+
+  <section class="cards">
+    <div class="card">
+      <span class="tag">科普 · 占位</span>
+      <h3>认识你的情绪</h3>
+      <p>文章占位卡，Day 10-13 填入真实科普内容。</p>
+    </div>
+    <div class="card">
+      <span class="tag">科普 · 占位</span>
+      <h3>焦虑是身体的警报</h3>
+      <p>文章占位卡，先看排版感觉。</p>
+    </div>
+    <div class="card">
+      <span class="tag">科普 · 占位</span>
+      <h3>睡前把心放下</h3>
+      <p>文章占位卡，温暖治愈调性。</p>
+    </div>
+  </section>
+
+  <footer>© 2026 心屿 · Day 2 占位首页 · MVP 于 Day 7 动工</footer>
+</body>
+</html>
