@@ -81,6 +81,7 @@
 - 题面指定示范路线，课程后续教学也对齐这套。
 - 13 个页面**共享导航、页脚求助入口、登录态、API 封装**——SPA + 组件化把 v1.0 里「每页复制一遍页脚」的重复消掉了；路由守业逻辑（答完才可进结果页）也有了统一落点。
 - **组件文件长度放宽为软约束**：单文件尽量 ≤ 200 行，超了就拆组件——原硬约束「每页 1 个 JS ≤ 200 行」随路线一并放宽（见第 11 节 PRD 影响 #1）。
+- **前端语言用 TypeScript**（Day 6 开发原则定案：强类型、同一类型只允许一个定义源）。本文件第 4 节结构里的 `.js` / `.jsx` 自 Day 7 动工起按 `.ts` / `.tsx` 执行；数据文件（题库、文案、号码）同样用 `.ts`，用接口约束字段形状。
 
 ---
 
@@ -91,28 +92,28 @@
 ├── frontend/                     # React + Vite 前端
 │   ├── index.html
 │   ├── package.json              # ← v1.0「仓库无 package.json」约束就此翻篇
-│   ├── vite.config.js
+│   ├── vite.config.ts
 │   ├── .env.example              # VITE_TCB_ENV_ID= （示例文件入库；真值 .env 已被 .gitignore 拦截）
 │   └── src/
-│       ├── main.jsx              # 入口：初始化 CloudBase SDK + 匿名登录 + 路由
-│       ├── App.jsx               # 布局壳：导航 + 页脚（页脚常驻危机入口，全站 ≤1 次点击）
+│       ├── main.tsx              # 入口：初始化 CloudBase SDK + 匿名登录 + 路由
+│       ├── App.tsx               # 布局壳：导航 + 页脚（页脚常驻危机入口，全站 ≤1 次点击）
 │       ├── pages/                # 13 个组件，与 PRD 第 6 节页面清单一一对应
-│       │   ├── Home.jsx          # 分区首页（index）
-│       │   ├── Assessments.jsx / Test.jsx / Result.jsx / ResultLight.jsx
-│       │   ├── Checkup.jsx / Breathe.jsx / Abc.jsx / Records.jsx
-│       │   ├── Articles.jsx / Article.jsx / Help.jsx / About.jsx
+│       │   ├── Home.tsx          # 分区首页（index）
+│       │   ├── Assessments.tsx / Test.tsx / Result.tsx / ResultLight.tsx
+│       │   ├── Checkup.tsx / Breathe.tsx / Abc.tsx / Records.tsx
+│       │   ├── Articles.tsx / Article.tsx / Help.tsx / About.tsx
 │       ├── components/           # 得分条、安慰卡、危机提示条、加载/错误态等复用件
 │       ├── lib/
-│       │   ├── api.js            # callFunction 统一封装：超时/重试/错误码翻译（见第 8 节）
-│       │   ├── auth.js           # 匿名登录、uid 获取、登录态恢复
-│       │   ├── scoring.js        # 大五 5 维度 + 30 侧面算分（原 score.js 平移，纯算术）
-│       │   ├── crisis.js         # 三种固定信号的判断（原 checkup.js 判断逻辑平移）
-│       │   └── storage.js        # 本地草稿层：断网兜底（见 8.1），不是主存储
+│       │   ├── api.ts            # callFunction 统一封装：超时/重试/错误码翻译（见第 8 节）
+│       │   ├── auth.ts           # 匿名登录、uid 获取、登录态恢复
+│       │   ├── scoring.ts        # 大五 5 维度 + 30 侧面算分（原 score.js 平移，纯算术）
+│       │   ├── crisis.ts         # 三种固定信号的判断（原 checkup.js 判断逻辑平移）
+│       │   └── storage.ts        # 本地草稿层：断网兜底（见 8.1），不是主存储
 │       └── data/                 # 打包进构建的静态内容（题库/文案/号码），不是数据库
-│           ├── ipip-neo.js       # 大五 120 题（含反向计分标记）
-│           ├── lite-scales.js / lite-readings.js
-│           ├── checkup.js / quotes.js / articles.js
-│           └── hotlines.js       # 危机号码独立成文件：help 页断网可用的依据
+│           ├── ipip-neo.ts       # 大五 120 题（含反向计分标记）
+│           ├── lite-scales.ts / lite-readings.ts
+│           ├── checkup.ts / quotes.ts / articles.ts
+│           └── hotlines.ts       # 危机号码独立成文件：help 页断网可用的依据
 ├── cloudfunctions/
 │   └── api/                      # 单一入口云函数（Node.js），按 action 分发
 │       ├── index.js              # 路由：action → 处理器；统一 {code, message, data} 响应
