@@ -1,0 +1,143 @@
+/* 心屿全局样式：温暖治愈调性——奶油底 + 蜜桃橙 + 雾绿；全站禁红色警示色 */
+
+:root {
+  --cream: #fff8f0;
+  --card: #ffffff;
+  --border: #f5e6d8;
+  --peach: #e8834a;
+  --peach-soft: #f2a65a;
+  --peach-bg: #fdf0e4;
+  --mist: #6e8f6b;
+  --mist-bg: #eaf3e6;
+  --ink: #4a4340;
+  --ink-soft: #5b5350;
+  --ink-mute: #6e6660;
+  --focus: #6e8f6b;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+  background: var(--cream);
+  color: var(--ink-soft);
+  line-height: 1.8;
+}
+
+a { color: inherit; }
+
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+
+.app { min-height: 100vh; display: flex; flex-direction: column; }
+.main { flex: 1; width: 100%; }
+
+/* ---------- 导航 ---------- */
+.nav {
+  display: flex; align-items: center; gap: 24px;
+  max-width: 960px; margin: 0 auto; padding: 18px 24px;
+}
+.logo { font-size: 20px; font-weight: 500; color: var(--peach); text-decoration: none; }
+.nav a:not(.logo) { color: var(--ink-mute); text-decoration: none; font-size: 15px; min-height: 44px; display: inline-flex; align-items: center; }
+.nav a:not(.logo):hover { color: var(--peach); }
+.nav-help { margin-left: auto; color: var(--mist) !important; font-weight: 500; }
+
+/* ---------- 首页 ---------- */
+.hero { max-width: 960px; margin: 0 auto; padding: 56px 24px 40px; text-align: center; }
+.hero h1 { font-size: 28px; color: var(--ink); font-weight: 500; margin-bottom: 10px; }
+.hero-sub { color: var(--ink-mute); margin-bottom: 6px; }
+.hero-note { color: var(--mist); margin-bottom: 28px; }
+
+.btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-height: 44px; padding: 10px 34px; border-radius: 999px;
+  text-decoration: none; font-size: 16px; border: none; cursor: pointer;
+}
+.btn-primary { background: var(--peach-soft); color: #fff; font-weight: 500; }
+.btn-primary:hover { background: var(--peach); }
+.btn-quiet { background: var(--mist-bg); color: var(--mist); }
+.btn-quiet:hover { background: #dcebd6; }
+
+.zone { max-width: 960px; margin: 0 auto; padding: 20px 24px 8px; }
+.zone h2 { font-size: 20px; color: var(--ink); font-weight: 500; margin-bottom: 2px; }
+.zone-tip { font-size: 14px; color: var(--ink-mute); margin-bottom: 16px; }
+
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 18px; }
+
+.card {
+  background: var(--card); border: 1px solid var(--border); border-radius: 16px;
+  padding: 22px 24px; text-decoration: none; display: block;
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+.card:hover { transform: translateY(-2px); border-color: var(--peach-soft); }
+.card h3 { font-size: 16px; color: var(--ink); font-weight: 500; margin-bottom: 6px; }
+.card p { font-size: 14px; color: var(--ink-mute); }
+.card-tag {
+  display: inline-block; font-size: 12px; color: var(--peach);
+  background: var(--peach-bg); border-radius: 999px; padding: 2px 12px; margin-bottom: 10px;
+}
+.card-crisis { background: var(--mist-bg); border-color: var(--mist); }
+.card-crisis h3 { color: var(--mist); }
+.card-crisis .card-tag { color: var(--mist); background: #fff; }
+.card-disabled { opacity: 0.75; }
+
+/* ---------- 危机资源页 ---------- */
+.help { max-width: 720px; margin: 0 auto; padding: 40px 24px 48px; }
+.help h1 { font-size: 24px; color: var(--ink); font-weight: 500; margin-bottom: 8px; }
+.help-note { color: var(--mist); margin-bottom: 24px; }
+
+.emergency { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin-bottom: 32px; }
+.emergency-btn {
+  background: var(--mist-bg); border-radius: 16px; padding: 18px 20px;
+  text-decoration: none; display: flex; flex-direction: column; gap: 4px;
+}
+.emergency-btn:hover { background: #dcebd6; }
+.emergency-btn strong { font-size: 26px; color: var(--ink); font-weight: 600; }
+.emergency-btn span { font-size: 13px; color: var(--ink-mute); }
+
+.help-section { margin-bottom: 32px; }
+.help-section h2 { font-size: 18px; color: var(--ink); font-weight: 500; margin-bottom: 12px; }
+.help-meta { font-size: 13px; color: var(--ink-mute); margin-bottom: 12px; }
+.help-tip { font-size: 15px; color: var(--mist); margin-top: 12px; }
+
+.hotline-list { list-style: none; display: grid; gap: 12px; }
+.hotline-item {
+  background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+  padding: 14px 18px;
+}
+.hotline-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 14px; padding: 10px 18px; }
+.hotline-number { font-size: 19px; font-weight: 600; color: var(--ink); text-decoration: none; }
+.hotline-number:hover { color: var(--peach); }
+.hotline-org { font-size: 14px; color: var(--ink-soft); }
+.hotline-meta { font-size: 13px; color: var(--ink-mute); }
+.hotline-region { font-size: 15px; color: var(--ink); font-weight: 500; }
+
+.facelist { list-style: none; display: grid; gap: 8px; padding-left: 0; }
+.facelist li { padding-left: 20px; position: relative; font-size: 14px; color: var(--ink-soft); }
+.facelist li::before { content: "·"; position: absolute; left: 6px; color: var(--mist); }
+.facelist strong { color: var(--ink); font-weight: 500; }
+
+/* ---------- 占位页 ---------- */
+.wip { max-width: 720px; margin: 0 auto; padding: 64px 24px; text-align: center; }
+.wip h1 { font-size: 24px; color: var(--ink); font-weight: 500; margin-bottom: 10px; }
+.wip p { color: var(--ink-mute); margin-bottom: 8px; }
+.wip-actions { display: flex; gap: 14px; justify-content: center; margin-top: 24px; flex-wrap: wrap; }
+
+/* ---------- 页脚 ---------- */
+.footer {
+  text-align: center; padding: 22px 24px 26px;
+  border-top: 1px solid var(--border);
+}
+.footer-help { color: var(--mist); font-size: 14px; text-decoration: none; display: inline-block; min-height: 44px; line-height: 44px; }
+.footer-help:hover { text-decoration: underline; }
+.footer p { font-size: 13px; color: var(--ink-mute); }
+
+/* ---------- 移动端 ---------- */
+@media (max-width: 600px) {
+  .nav { gap: 16px; padding: 14px 16px; }
+  .nav a:not(.logo) { font-size: 14px; }
+  .hero { padding: 40px 16px 28px; }
+  .hero h1 { font-size: 22px; }
+  .zone { padding: 16px 16px 8px; }
+  .help { padding: 28px 16px 40px; }
+  .emergency { grid-template-columns: 1fr; }
+}
