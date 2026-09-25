@@ -1,6 +1,7 @@
 import { Link, Route, Routes } from 'react-router-dom'
 import Home from './pages/Home'
 import Help from './pages/Help'
+import Breathe from './pages/Breathe'
 import UnderConstruction from './pages/UnderConstruction'
 
 function App() {
@@ -25,7 +26,7 @@ function App() {
           <Route path="/result" element={<UnderConstruction name="测评结果" />} />
           <Route path="/result-light" element={<UnderConstruction name="轻量表结果" />} />
           <Route path="/checkup" element={<UnderConstruction name="情绪自评" />} />
-          <Route path="/breathe" element={<UnderConstruction name="呼吸练习" />} />
+          <Route path="/breathe" element={<Breathe />} />
           <Route path="/abc" element={<UnderConstruction name="认知纠正" />} />
           <Route path="/records" element={<UnderConstruction name="我的记录" />} />
           <Route path="/articles" element={<UnderConstruction name="知识库" />} />

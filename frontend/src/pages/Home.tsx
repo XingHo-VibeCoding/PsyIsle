@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import ComfortCard from '../components/ComfortCard'
 
 // F11 分区首页：按「用户此刻的状态」分三区，不用行业词
 // 措辞禁令：分区标题不得出现「应急/探索/深度/模块/板块/专区」
@@ -27,11 +28,7 @@ function Home() {
             <h3>呼吸练习</h3>
             <p>跟着节奏吸 4 秒 · 屏 7 秒 · 呼 8 秒</p>
           </Link>
-          <div className="card card-disabled">
-            <span className="card-tag">接下来上线</span>
-            <h3>安慰卡</h3>
-            <p>点一下，抽一句温柔的话</p>
-          </div>
+          <ComfortCard />
         </div>
       </section>
 
