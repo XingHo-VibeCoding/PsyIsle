@@ -47,13 +47,22 @@
 
 ```
 心屿/
-├── index.html          # 占位首页（Day 2，云端版动工后将由 React 单页应用取代）
+├── frontend/           # React + Vite + TypeScript 前端（Day 7 起的网站本体，13 个页面 = 13 个路由）
+│   ├── index.html / package.json / vite.config.ts / tsconfig*.json
+│   ├── .env.example    # VITE_TCB_ENV_ID= （示例文件入库；真值 .env 已被 .gitignore 拦截）
+│   └── src/
+│       ├── App.tsx / main.tsx      # 布局壳（导航+页脚常驻危机入口）与路由
+│       ├── pages/                  # 页面组件，与 PRD 第 6 节页面清单一一对应
+│       ├── components/             # 复用件（安慰卡等）
+│       ├── lib/                    # 算分 / 危机判断 / 本地草稿层（随功能逐步落位）
+│       └── data/                   # 打包进构建的静态内容（危机号码等）
 ├── research.md         # 需求研究（Day 3）：产品比较、不做清单、第一版范围
 ├── PRD.md              # 产品需求文档（Day 4，v4.0.1）：13 个 P0 功能（MVP 7 + 加分 8）+ 5 个测评 + 13 个页面 + 9 个数据字段 + 25 个单日任务 + 路线 A（25 天）⚠️ v5.0 重写排队中（改云端路线）
 ├── PRD-自检报告.md     # 按验收标准的 AI 自检结论（Day 4，v4.0）
 ├── PRD-题面符合性诊断.md # 对课程题面的逐条对照与缺口处理记录（Day 4，v4.0.1）
 ├── TECH_DESIGN.md      # 技术设计（Day 5，v2.0 云端全栈版）：三方案对照、项目结构、PG 数据模型、API 列表、数据流图、错误处理、环境变量、迁移注意（v1.0 纯静态版见 git 历史 f0f4033）
 ├── 云端方案对比与影响评估.md # 决策记录：云端 vs 静态全量对比 + 两次决策反转记录（不随课程提交，备查）
+├── 运行说明.md         # 本地运行与验证步骤（Day 7 存档）
 ├── .gitignore          # 忽略规则（保护 .env、密钥、数据库等）
 └── .env                # 本地配置文件（已被忽略，永不上传）——云端版起正式启用：VITE_TCB_ENV_ID 等
 ```

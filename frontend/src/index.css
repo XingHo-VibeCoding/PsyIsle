@@ -78,7 +78,30 @@ a { color: inherit; }
 .card-crisis { background: var(--mist-bg); border-color: var(--mist); }
 .card-crisis h3 { color: var(--mist); }
 .card-crisis .card-tag { color: var(--mist); background: #fff; }
-.card-disabled { opacity: 0.75; }
+
+/* ---------- 安慰卡 ---------- */
+.comfort-card button { margin-top: 12px; padding: 8px 26px; }
+.comfort-text { font-size: 16px; color: var(--ink); min-height: 58px; display: flex; align-items: center; }
+.comfort-guide { margin-top: 12px; font-size: 13px; color: var(--mist); }
+.comfort-guide a { color: var(--mist); }
+
+/* ---------- 呼吸练习 ---------- */
+.breathe { max-width: 720px; margin: 0 auto; padding: 40px 24px 48px; text-align: center; }
+.breathe h1 { font-size: 24px; color: var(--ink); font-weight: 500; margin-bottom: 6px; }
+.breathe-sub { font-size: 14px; color: var(--ink-mute); margin-bottom: 24px; }
+
+.breathe-stage { display: flex; justify-content: center; padding: 20px 0; }
+.breathe-circle {
+  width: 220px; height: 220px; border-radius: 50%;
+  background: var(--mist-bg); border: 2px solid var(--mist);
+  display: flex; align-items: center; justify-content: center;
+}
+@media (max-width: 375px) { .breathe-circle { width: 180px; height: 180px; } }
+.breathe-phase { font-size: 18px; color: var(--mist); font-weight: 500; }
+.breathe-hint { min-height: 30px; font-size: 14px; color: var(--ink-mute); margin-bottom: 6px; }
+.breathe-meta { font-size: 13px; color: var(--ink-mute); margin-bottom: 6px; }
+.breathe-done { color: var(--mist); margin: 8px 0 16px; }
+.breathe-actions { display: flex; gap: 14px; justify-content: center; margin-top: 16px; flex-wrap: wrap; }
 
 /* ---------- 危机资源页 ---------- */
 .help { max-width: 720px; margin: 0 auto; padding: 40px 24px 48px; }
