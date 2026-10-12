@@ -13,6 +13,9 @@
   --ink-soft: #5b5350;
   --ink-mute: #6e6660;
   --focus: #6e8f6b;
+  /* Day 9 对比度修复：--peach/--mist 只留给边框和底色，文字一律用下面两个深色（对奶油底均 ≥4.5:1） */
+  --peach-deep: #a84a20;
+  --mist-ink: #4a6b48;
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -32,33 +35,38 @@ a { color: inherit; }
 .main { flex: 1; width: 100%; }
 
 /* ---------- 导航 ---------- */
+/* width:100% 必须显式声明：列向 flex 里 auto margin 会把 .nav 收缩成 fit-content 并居中，
+   导致 logo 与正文左缘错位、「求助」的 margin-left:auto 失效（Day 9 审查发现） */
 .nav {
-  display: flex; align-items: center; gap: 24px;
+  display: flex; align-items: center; gap: 24px; width: 100%;
   max-width: 960px; margin: 0 auto; padding: 18px 24px;
 }
-.logo { font-size: 20px; font-weight: 500; color: var(--peach); text-decoration: none; }
+.logo { font-size: 20px; font-weight: 500; color: var(--peach-deep); text-decoration: none; }
 .nav a:not(.logo) { color: var(--ink-mute); text-decoration: none; font-size: 15px; min-height: 44px; display: inline-flex; align-items: center; }
-.nav a:not(.logo):hover { color: var(--peach); }
-.nav-help { margin-left: auto; color: var(--mist) !important; font-weight: 500; }
+.nav a:not(.logo):hover { color: var(--peach-deep); }
+.nav-help { margin-left: auto; color: var(--mist-ink) !important; font-weight: 500; }
 
 /* ---------- 首页 ---------- */
-.hero { max-width: 960px; margin: 0 auto; padding: 56px 24px 40px; text-align: center; }
+.hero { max-width: 960px; margin: 0 auto; padding: 56px 24px 20px; text-align: center; }
 .hero h1 { font-size: 28px; color: var(--ink); font-weight: 500; margin-bottom: 10px; }
 .hero-sub { color: var(--ink-mute); margin-bottom: 6px; }
-.hero-note { color: var(--mist); margin-bottom: 28px; }
+.hero-note { color: var(--mist-ink); }
 
+/* 按钮统一一套 padding：次要按钮此前是 8px 26px、主按钮 10px 34px，同组件两种尺寸 */
 .btn {
   display: inline-flex; align-items: center; justify-content: center;
-  min-height: 44px; padding: 10px 34px; border-radius: 999px;
+  min-height: 44px; padding: 10px 30px; border-radius: 999px;
   text-decoration: none; font-size: 16px; border: none; cursor: pointer;
 }
-.btn-primary { background: var(--peach-soft); color: #fff; font-weight: 500; }
-.btn-primary:hover { background: var(--peach); }
-.btn-quiet { background: var(--mist-bg); color: var(--mist); }
+.btn-primary { background: var(--peach-deep); color: #fff; font-weight: 500; }
+.btn-primary:hover { background: #8f3d18; }
+.btn-quiet { background: var(--mist-bg); color: var(--mist-ink); }
 .btn-quiet:hover { background: #dcebd6; }
 
-.zone { max-width: 960px; margin: 0 auto; padding: 20px 24px 8px; }
-.zone h2 { font-size: 20px; color: var(--ink); font-weight: 500; margin-bottom: 2px; }
+/* 区块垂直节奏统一为 40px：区块自身上下各留 20px，两区块相接 = 40，
+   hero 底部也留 20px 与之对齐（修复前 hero→首区块 ≈88px、区块间 28px） */
+.zone { max-width: 960px; margin: 0 auto; padding: 20px 24px; }
+.zone h2 { font-size: 20px; color: var(--ink); font-weight: 500; margin-bottom: 6px; }
 .zone-tip { font-size: 14px; color: var(--ink-mute); margin-bottom: 16px; }
 
 .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 18px; }
@@ -72,18 +80,18 @@ a { color: inherit; }
 .card h3 { font-size: 16px; color: var(--ink); font-weight: 500; margin-bottom: 6px; }
 .card p { font-size: 14px; color: var(--ink-mute); }
 .card-tag {
-  display: inline-block; font-size: 12px; color: var(--peach);
+  display: inline-block; font-size: 13px; color: var(--peach-deep);
   background: var(--peach-bg); border-radius: 999px; padding: 2px 12px; margin-bottom: 10px;
 }
 .card-crisis { background: var(--mist-bg); border-color: var(--mist); }
-.card-crisis h3 { color: var(--mist); }
-.card-crisis .card-tag { color: var(--mist); background: #fff; }
+.card-crisis h3 { color: var(--mist-ink); }
+.card-crisis .card-tag { color: var(--mist-ink); background: #fff; }
 
 /* ---------- 安慰卡 ---------- */
-.comfort-card button { margin-top: 12px; padding: 8px 26px; }
+.comfort-card button { margin-top: 12px; }
 .comfort-text { font-size: 16px; color: var(--ink); min-height: 58px; display: flex; align-items: center; }
-.comfort-guide { margin-top: 12px; font-size: 13px; color: var(--mist); }
-.comfort-guide a { color: var(--mist); }
+.comfort-guide { margin-top: 12px; font-size: 13px; color: var(--mist-ink); }
+.comfort-guide a { color: var(--mist-ink); }
 
 /* ---------- 呼吸练习 ---------- */
 .breathe { max-width: 720px; margin: 0 auto; padding: 40px 24px 48px; text-align: center; }
@@ -97,16 +105,16 @@ a { color: inherit; }
   display: flex; align-items: center; justify-content: center;
 }
 @media (max-width: 375px) { .breathe-circle { width: 180px; height: 180px; } }
-.breathe-phase { font-size: 18px; color: var(--mist); font-weight: 500; }
+.breathe-phase { font-size: 18px; color: var(--mist-ink); font-weight: 500; }
 .breathe-hint { min-height: 30px; font-size: 14px; color: var(--ink-mute); margin-bottom: 6px; }
 .breathe-meta { font-size: 13px; color: var(--ink-mute); margin-bottom: 6px; }
-.breathe-done { color: var(--mist); margin: 8px 0 16px; }
+.breathe-done { color: var(--mist-ink); margin: 8px 0 16px; }
 .breathe-actions { display: flex; gap: 14px; justify-content: center; margin-top: 16px; flex-wrap: wrap; }
 
 /* ---------- 危机资源页 ---------- */
 .help { max-width: 720px; margin: 0 auto; padding: 40px 24px 48px; }
 .help h1 { font-size: 24px; color: var(--ink); font-weight: 500; margin-bottom: 8px; }
-.help-note { color: var(--mist); margin-bottom: 24px; }
+.help-note { color: var(--mist-ink); margin-bottom: 24px; }
 
 .emergency { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin-bottom: 32px; }
 .emergency-btn {
@@ -120,16 +128,17 @@ a { color: inherit; }
 .help-section { margin-bottom: 32px; }
 .help-section h2 { font-size: 18px; color: var(--ink); font-weight: 500; margin-bottom: 12px; }
 .help-meta { font-size: 13px; color: var(--ink-mute); margin-bottom: 12px; }
-.help-tip { font-size: 15px; color: var(--mist); margin-top: 12px; }
+.help-tip { font-size: 15px; color: var(--mist-ink); margin-top: 12px; }
 
 .hotline-list { list-style: none; display: grid; gap: 12px; }
 .hotline-item {
   background: var(--card); border: 1px solid var(--border); border-radius: 14px;
   padding: 14px 18px;
 }
-.hotline-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 14px; padding: 10px 18px; }
+/* hotline-row 只负责横排布局，padding 沿用 .hotline-item 的 14px 18px（此前两套卡片一厚一薄） */
+.hotline-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 14px; }
 .hotline-number { font-size: 19px; font-weight: 600; color: var(--ink); text-decoration: none; }
-.hotline-number:hover { color: var(--peach); }
+.hotline-number:hover { color: var(--peach-deep); }
 .hotline-org { font-size: 14px; color: var(--ink-soft); }
 .hotline-meta { font-size: 13px; color: var(--ink-mute); }
 .hotline-region { font-size: 15px; color: var(--ink); font-weight: 500; }
@@ -157,12 +166,11 @@ a { color: inherit; }
   background: var(--card); border: 1px solid var(--border);
   color: var(--ink-mute); font-size: 15px; font-family: inherit;
 }
-.chip:hover { border-color: var(--peach-soft); color: var(--peach); }
-.chip-on { background: var(--peach-bg); border-color: var(--peach-soft); color: var(--peach); font-weight: 500; }
+.chip:hover { border-color: var(--peach-soft); color: var(--peach-deep); }
+.chip-on { background: var(--peach-bg); border-color: var(--peach-soft); color: var(--peach-deep); font-weight: 500; }
 
 .task-spotlight { border-color: var(--peach-soft); }
 .task-actions { display: flex; gap: 12px; margin-top: 16px; flex-wrap: wrap; }
-.task-actions .btn { padding: 8px 26px; }
 
 .task-list { list-style: none; display: grid; gap: 12px; }
 .task-item { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 16px 20px; }
@@ -170,11 +178,11 @@ a { color: inherit; }
 .task-head strong { font-size: 15px; color: var(--ink); font-weight: 500; }
 .task-min { font-size: 13px; color: var(--ink-mute); }
 .task-hint { font-size: 14px; color: var(--ink-mute); margin-top: 4px; }
-.task-link { display: inline-flex; align-items: center; min-height: 44px; margin-top: 4px; font-size: 14px; color: var(--peach); text-decoration: none; }
+.task-link { display: inline-flex; align-items: center; min-height: 44px; margin-top: 4px; font-size: 14px; color: var(--peach-deep); text-decoration: none; }
 .task-link:hover { text-decoration: underline; }
 
 .lib-group { margin-top: 20px; }
-.lib-kind { font-size: 15px; color: var(--mist); font-weight: 500; margin-bottom: 10px; }
+.lib-kind { font-size: 15px; color: var(--mist-ink); font-weight: 500; margin-bottom: 10px; }
 .lib-list { list-style: none; display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
 .lib-item { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 16px 20px; }
 .lib-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; }
@@ -186,7 +194,7 @@ a { color: inherit; }
 .card-pending .card-tag { background: #fff; }
 
 .guide-foot { font-size: 14px; color: var(--ink-mute); margin-top: 28px; }
-.guide-foot a { color: var(--mist); }
+.guide-foot a { color: var(--mist-ink); }
 
 /* ---------- 关于与免责 ---------- */
 .about { max-width: 720px; margin: 0 auto; padding: 40px 24px 48px; }
@@ -196,7 +204,7 @@ a { color: inherit; }
 .about-section h2 { font-size: 18px; color: var(--ink); font-weight: 500; margin-bottom: 10px; }
 .about-section p { font-size: 15px; color: var(--ink-soft); }
 .about-section p + p { margin-top: 8px; }
-.about-section a { color: var(--mist); }
+.about-section a { color: var(--mist-ink); }
 .about-list { list-style: none; display: grid; gap: 10px; }
 .about-list li { font-size: 15px; color: var(--ink-soft); padding-left: 20px; position: relative; }
 .about-list li::before { content: "·"; position: absolute; left: 6px; color: var(--mist); }
@@ -208,7 +216,7 @@ a { color: inherit; }
   text-align: center; padding: 22px 24px 26px;
   border-top: 1px solid var(--border);
 }
-.footer-help { color: var(--mist); font-size: 14px; text-decoration: none; display: inline-block; min-height: 44px; line-height: 44px; }
+.footer-help { color: var(--mist-ink); font-size: 14px; text-decoration: none; display: inline-block; min-height: 44px; line-height: 44px; }
 .footer-help:hover { text-decoration: underline; }
 .footer p { font-size: 13px; color: var(--ink-mute); }
 .footer-about { color: var(--ink-mute); font-size: 13px; text-decoration: none; }
@@ -216,11 +224,11 @@ a { color: inherit; }
 
 /* ---------- 移动端 ---------- */
 @media (max-width: 600px) {
-  .nav { gap: 16px; padding: 14px 16px; }
+  .nav { gap: 16px; padding: 14px 16px; flex-wrap: wrap; row-gap: 4px; }
   .nav a:not(.logo) { font-size: 14px; }
-  .hero { padding: 40px 16px 28px; }
+  .hero { padding: 40px 16px 16px; }
   .hero h1 { font-size: 22px; }
-  .zone { padding: 16px 16px 8px; }
+  .zone { padding: 16px 16px; }
   .zone-flat { padding-left: 0; padding-right: 0; }
   .help { padding: 28px 16px 40px; }
   .guide { padding: 28px 16px 40px; }
