@@ -1,62 +1,45 @@
 import { Link } from 'react-router-dom'
-import ComfortCard from '../components/ComfortCard'
 
-// F11 分区首页：按「用户此刻的状态」分三区，不用行业词
-// 措辞禁令：分区标题不得出现「应急/探索/深度/模块/板块/专区」
+// 首页 = 三段式入口：倾诉树洞 / 指路灯 / 日常管家
+// 三张卡的说明取自 PRD v5.0 第 2 节的模块定义，不另造营销话术
 function Home() {
   return (
     <>
       <header className="hero">
-        <h1>深夜也好，清晨也好，这里都为你亮着</h1>
-        <p className="hero-sub">一座安放心绪的小岛：涨知识 · 缓情绪 · 认识自己</p>
-        <p className="hero-note">不用注册、完全免费、打开就能用</p>
-        {/* 主 CTA 指向大五人格测评（不是文章） */}
-        <Link to="/test" className="btn btn-primary">大五人格测评</Link>
+        <h1>一个出口，一盏灯，一个每天在的伴</h1>
+        <p className="hero-sub">给说不清哪里不对、就是觉得没什么意思的你</p>
+        <p className="hero-note">免费 · 打开就能用 · 没有必须完成的步骤</p>
       </header>
 
       <section className="zone">
-        <h2>现在有点难受</h2>
-        <p className="zone-tip">30 秒内就能拿到的东西</p>
+        <h2>从哪扇门进都可以</h2>
+        <p className="zone-tip">三件事，没有先后，也没有进度要求</p>
+        <div className="cards">
+          <Link to="/talk" className="card">
+            <span className="card-tag">想说点什么的时候</span>
+            <h3>倾诉树洞</h3>
+            <p>说说今天的事。AI 会听着，不评价、不劝你</p>
+          </Link>
+          <Link to="/guide" className="card">
+            <span className="card-tag">不知道该往哪走的时候</span>
+            <h3>指路灯</h3>
+            <p>做个小测评、领一件十分钟的小事、看一段书影音 —— 你自己挑</p>
+          </Link>
+          <Link to="/daily" className="card">
+            <span className="card-tag">想留个记号的时候</span>
+            <h3>日常管家</h3>
+            <p>记一下今天的心情，或者那件小到不用努力的事。不想写就不写</p>
+          </Link>
+        </div>
+      </section>
+
+      <section className="zone">
+        {/* 首页再给危机入口一个显眼位置：导航与页脚已保证「任意页 1 次点击可达」 */}
         <div className="cards">
           <Link to="/help" className="card card-crisis">
-            <span className="card-tag">最显眼的入口</span>
+            <span className="card-tag">现在很难熬的话，先看这里</span>
             <h3>我需要求助资源</h3>
-            <p>热线号码、该找谁、怎么面诊</p>
-          </Link>
-          <Link to="/breathe" className="card">
-            <span className="card-tag">1 分钟</span>
-            <h3>呼吸练习</h3>
-            <p>跟着节奏吸 4 秒 · 屏 7 秒 · 呼 8 秒</p>
-          </Link>
-          <ComfortCard />
-        </div>
-      </section>
-
-      <section className="zone">
-        <h2>想弄明白自己</h2>
-        <p className="zone-tip">3~20 分钟，答完就能看到描述性解读</p>
-        <div className="cards">
-          <Link to="/assessments" className="card">
-            <span className="card-tag">5 个测评</span>
-            <h3>测评总览</h3>
-            <p>大五人格、自我价值感、自我效能感、思考风格、情绪自评</p>
-          </Link>
-          <Link to="/abc" className="card">
-            <span className="card-tag">写给自己</span>
-            <h3>认知纠正工作台</h3>
-            <p>把一件事拆成五步，看清念头从哪来</p>
-          </Link>
-        </div>
-      </section>
-
-      <section className="zone">
-        <h2>想看点东西</h2>
-        <p className="zone-tip">随时可读的心理学科普</p>
-        <div className="cards">
-          <Link to="/articles" className="card">
-            <span className="card-tag">4 篇文章</span>
-            <h3>知识库</h3>
-            <p>焦虑、睡眠、求助指南……慢慢看</p>
+            <p>热线号码、该找谁、怎么去医院</p>
           </Link>
         </div>
       </section>

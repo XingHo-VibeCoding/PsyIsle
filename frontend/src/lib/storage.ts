@@ -27,3 +27,19 @@ export const bumpCounter = (key: string): number => {
   writeRaw(key, String(next))
   return next
 }
+
+// 结构化偏好的本地读写（如指路灯勾选的主题）。读失败一律回 null，由调用方给默认值——
+// 不做版本迁移：这些值只是偏好，丢了也只需用户重新点一次，不值得为它引入迁移逻辑
+export const readJson = <T>(key: string): T | null => {
+  const raw = readRaw(key)
+  if (raw === null) return null
+  try {
+    return JSON.parse(raw) as T
+  } catch {
+    return null
+  }
+}
+
+export const writeJson = (key: string, value: unknown): void => {
+  writeRaw(key, JSON.stringify(value))
+}

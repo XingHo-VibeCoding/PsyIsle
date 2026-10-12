@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>心屿 · 项目结构图</title>
+<style>
+  :root{
+    --cream:#fff8f0; --card:#fff; --border:#f5e6d8;
+    --peach:#e8834a; --peach-soft:#f2a65a; --peach-bg:#fdf0e4;
+    --mist:#6e8f6b; --mist-bg:#eaf3e6;
+    --ink:#4a4340; --ink-soft:#5b5350; --ink-mute:#6e6660;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font-family:"Microsoft YaHei","PingFang SC",sans-serif;
+    background:var(--cream); color:var(--ink-soft); line-height:1.75;
+    padding:40px 20px 64px;
+  }
+  .wrap{max-width:1000px;margin:0 auto}
+  h1{font-size:26px;color:var(--ink);font-weight:500}
+  .sub{color:var(--ink-mute);font-size:14px;margin-top:4px}
+  .slogan{
+    background:var(--peach-bg);border-radius:14px;padding:14px 20px;
+    margin:22px 0 26px;font-size:15px;color:var(--ink)
+  }
+  .legend{display:flex;flex-wrap:wrap;gap:18px;margin-bottom:22px;font-size:13px;color:var(--ink-mute)}
+  .legend span{display:inline-flex;align-items:center;gap:7px}
+  .dot{width:11px;height:11px;border-radius:50%;display:inline-block}
+  .d-ok{background:var(--mist)}
+  .d-reuse{background:var(--peach-soft)}
+  .d-todo{background:#d8d2cc}
+  .cols{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:22px}
+  @media (max-width:820px){.cols{grid-template-columns:1fr}}
+  .panel{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px 22px}
+  .panel h2{font-size:16px;color:var(--ink);font-weight:500;margin-bottom:12px}
+  pre{
+    font-family:ui-monospace,Consolas,"Courier New",monospace;
+    font-size:12.5px;line-height:1.85;color:var(--ink-soft);
+    overflow-x:auto;white-space:pre;
+  }
+  .notes{display:grid;gap:12px}
+  .note{border-left:3px solid var(--mist);padding-left:12px;font-size:13.5px}
+  .note strong{color:var(--ink);font-weight:500}
+  .note.warn{border-left-color:var(--peach)}
+  .absent{
+    margin-top:22px;background:var(--mist-bg);border-radius:14px;padding:16px 20px;font-size:14px
+  }
+  .absent h2{font-size:15px;color:var(--mist);font-weight:500;margin-bottom:8px}
+  .absent code{font-family:ui-monospace,Consolas,monospace;background:#fff;border-radius:5px;padding:1px 7px;font-size:12.5px;color:var(--ink)}
+  .foot{margin-top:28px;font-size:12.5px;color:var(--ink-mute);text-align:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>心屿 · 项目结构图</h1>
+  <p class="sub">2026-10-12 生成 ｜ 依据仓库实际文件（不含<code>node_modules</code> / <code>dist</code>）｜ 现行文档：PRD v5.0 ／ TECH_DESIGN v3.0</p>
+
+  <div class="slogan">
+    一句话读法：<strong>根目录只放「现在还算数」的东西</strong>——六份文档 + 两个目录。
+    作废的历史文档一份没删，全在 <code>docs/备查/</code> 里，进不去交付路径。
+  </div>
+
+  <div class="legend">
+    <span><i class="dot d-ok"></i> 已实现，能跑</span>
+    <span><i class="dot d-reuse"></i> 沿用旧版（v4.0.1 时期）</span>
+    <span><i class="dot d-todo"></i> 占位 / 未开工</span>
+  </div>
+
+  <div class="cols">
+    <div class="panel">
+      <h2>目录树</h2>
+<pre>
+心屿/
+├── frontend/                    <span style="color:var(--ink-mute)"># React + Vite + TS，PWA 本体</span>
+│   ├── index.html / vite.config.ts / package.json
+│   └── src/
+│       ├── main.tsx             <span style="color:var(--ink-mute)"># 挂载入口</span>
+│       ├── App.tsx              <span style="color:var(--ink-mute)"># 布局壳：导航 + 页脚常驻危机入口 + 路由</span>
+│       ├── index.css            <span style="color:var(--ink-mute)"># 全局样式（奶油底 / 蜜桃橙 / 雾绿）</span>
+│       ├── pages/
+│       │   ├── Home.tsx         <span style="color:var(--peach)">✅</span> 三段式首页
+│       │   ├── Guide.tsx        <span style="color:var(--peach)">✅</span> 指路灯（本次新增）
+│       │   ├── About.tsx        <span style="color:var(--peach)">✅</span> 关于与免责（本次新增）
+│       │   ├── Help.tsx         <span style="color:var(--peach)">✅</span> 危机资源页 · 不可砍
+│       │   ├── Breathe.tsx      <span style="color:var(--peach)">✅</span> 呼吸练习
+│       │   └── UnderConstruction.tsx  <span style="color:var(--ink-mute)">⏳</span> 占位（树洞 / 管家在用）
+│       ├── components/
+│       │   └── ComfortCard.tsx  <span style="color:var(--peach)">✅</span> 安慰卡（本次挂进指路灯）
+│       ├── lib/
+│       │   └── storage.ts       <span style="color:var(--peach)">✅</span> 本地草稿层（localStorage 封装）
+│       └── data/                <span style="color:var(--ink-mute)"># 打包进构建的静态内容，断网可用</span>
+│           ├── hotlines.ts      <span style="color:var(--peach)">✅</span> 危机号码
+│           ├── quotes.ts        <span style="color:var(--peach)">✅</span> 安慰文案 30 条
+│           ├── themes.ts        <span style="color:var(--peach)">✅</span> 主题轴（本次新增）
+│           ├── tasks.ts         <span style="color:var(--peach)">✅</span> 行动小事 13 件（本次新增）
+│           └── library.ts       <span style="color:var(--peach)">✅</span> 书影音 18 条（本次新增）
+├── docs/
+│   ├── 开发原则.md               <span style="color:var(--ink-mute)"># 开发规则唯一源</span>
+│   ├── 项目结构图.html            <span style="color:var(--ink-mute)"># ← 本文件</span>
+│   └── 备查/                    <span style="color:var(--ink-mute)"># 5 份作废文档，带作废标注，一份未删</span>
+├── README.md                    <span style="color:var(--ink-mute)"># 门面：三个模块 + 三条底线 + 状态</span>
+├── PRD.md                       <span style="color:var(--ink-mute)"># v5.0 现行产品定义</span>
+├── TECH_DESIGN.md               <span style="color:var(--ink-mute)"># v3.0 技术设计</span>
+├── research.md                  <span style="color:var(--ink-mute)"># 需求研究</span>
+├── 运行说明.md                   <span style="color:var(--ink-mute)"># 怎么跑起来（含验证清单）</span>
+├── AGENTS.md                    <span style="color:var(--ink-mute)"># 项目规则</span>
+└── .gitignore
+</pre>
+    </div>
+
+    <div>
+      <div class="panel">
+        <h2>怎么读这棵树</h2>
+        <div class="notes">
+          <div class="note"><strong>一条主线：</strong>用户手指 → 页面（pages）→ 数据（data / 本地草稿）→ 渲染回来。现在全在浏览器里，云服务第 2 周才开。</div>
+          <div class="note"><strong>data/ 是内容层：</strong>危机号码、安慰文案、主题、小事、书影音全在这里，跟着构建一起打包，断网也在。</div>
+          <div class="note"><strong>lib/ 是纯逻辑层：</strong>不画界面、不写死文案，只做一件事（现在只装了本地存储）。</div>
+          <div class="note"><strong>components/ 是复用件：</strong>被两个以上页面用到才放这里；只用一次的留在自己页面里。</div>
+          <div class="note warn"><strong>页面的三档状态写死在路由里：</strong><code>pages/</code> 下的文件名就代表做没做——占位页一律走 <code>UnderConstruction.tsx</code>，不做死路（能回首页、能到求助页）。</div>
+        </div>
+      </div>
+
+      <div class="absent">
+        <h2>刻意不存在的目录</h2>
+        <p><code>cloudfunctions/</code>、<code>sql/migrations/</code> —— v2.0（CloudBase 时期）有，v3.0 取消：后端改成托管云服务，没有自建服务端代码，建表也不靠迁移脚本。</p>
+        <p style="margin-top:8px"><code>node_modules/</code>、<code>dist/</code> —— 构建产物，已进 <code>.gitignore</code>，不进仓库。</p>
+      </div>
+    </div>
+  </div>
+
+  <p class="foot">心屿 · 给「空心」的人一个出口、一盏灯、一个每天在的伴</p>
+</div>
+</body>
+</html>

@@ -145,6 +145,64 @@ a { color: inherit; }
 .wip p { color: var(--ink-mute); margin-bottom: 8px; }
 .wip-actions { display: flex; gap: 14px; justify-content: center; margin-top: 24px; flex-wrap: wrap; }
 
+/* ---------- 指路灯 ---------- */
+.guide { max-width: 960px; margin: 0 auto; padding: 40px 24px 48px; }
+.guide h1 { font-size: 24px; color: var(--ink); font-weight: 500; margin-bottom: 6px; }
+.guide-sub { color: var(--ink-mute); }
+.zone-flat { padding-left: 0; padding-right: 0; }
+
+.chips { display: flex; flex-wrap: wrap; gap: 10px; }
+.chip {
+  min-height: 44px; padding: 8px 22px; border-radius: 999px; cursor: pointer;
+  background: var(--card); border: 1px solid var(--border);
+  color: var(--ink-mute); font-size: 15px; font-family: inherit;
+}
+.chip:hover { border-color: var(--peach-soft); color: var(--peach); }
+.chip-on { background: var(--peach-bg); border-color: var(--peach-soft); color: var(--peach); font-weight: 500; }
+
+.task-spotlight { border-color: var(--peach-soft); }
+.task-actions { display: flex; gap: 12px; margin-top: 16px; flex-wrap: wrap; }
+.task-actions .btn { padding: 8px 26px; }
+
+.task-list { list-style: none; display: grid; gap: 12px; }
+.task-item { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 16px 20px; }
+.task-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; }
+.task-head strong { font-size: 15px; color: var(--ink); font-weight: 500; }
+.task-min { font-size: 13px; color: var(--ink-mute); }
+.task-hint { font-size: 14px; color: var(--ink-mute); margin-top: 4px; }
+.task-link { display: inline-flex; align-items: center; min-height: 44px; margin-top: 4px; font-size: 14px; color: var(--peach); text-decoration: none; }
+.task-link:hover { text-decoration: underline; }
+
+.lib-group { margin-top: 20px; }
+.lib-kind { font-size: 15px; color: var(--mist); font-weight: 500; margin-bottom: 10px; }
+.lib-list { list-style: none; display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+.lib-item { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 16px 20px; }
+.lib-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; }
+.lib-head strong { font-size: 15px; color: var(--ink); font-weight: 500; }
+.lib-by { font-size: 13px; color: var(--ink-mute); }
+.lib-note { font-size: 14px; color: var(--ink-mute); margin-top: 4px; }
+
+.card-pending { background: var(--peach-bg); }
+.card-pending .card-tag { background: #fff; }
+
+.guide-foot { font-size: 14px; color: var(--ink-mute); margin-top: 28px; }
+.guide-foot a { color: var(--mist); }
+
+/* ---------- 关于与免责 ---------- */
+.about { max-width: 720px; margin: 0 auto; padding: 40px 24px 48px; }
+.about h1 { font-size: 24px; color: var(--ink); font-weight: 500; margin-bottom: 8px; }
+.about-lead { font-size: 16px; color: var(--ink-soft); }
+.about-section { margin-top: 28px; }
+.about-section h2 { font-size: 18px; color: var(--ink); font-weight: 500; margin-bottom: 10px; }
+.about-section p { font-size: 15px; color: var(--ink-soft); }
+.about-section p + p { margin-top: 8px; }
+.about-section a { color: var(--mist); }
+.about-list { list-style: none; display: grid; gap: 10px; }
+.about-list li { font-size: 15px; color: var(--ink-soft); padding-left: 20px; position: relative; }
+.about-list li::before { content: "·"; position: absolute; left: 6px; color: var(--mist); }
+.about-list strong { color: var(--ink); font-weight: 500; }
+.about-actions { display: flex; gap: 14px; margin-top: 32px; flex-wrap: wrap; }
+
 /* ---------- 页脚 ---------- */
 .footer {
   text-align: center; padding: 22px 24px 26px;
@@ -153,6 +211,8 @@ a { color: inherit; }
 .footer-help { color: var(--mist); font-size: 14px; text-decoration: none; display: inline-block; min-height: 44px; line-height: 44px; }
 .footer-help:hover { text-decoration: underline; }
 .footer p { font-size: 13px; color: var(--ink-mute); }
+.footer-about { color: var(--ink-mute); font-size: 13px; text-decoration: none; }
+.footer-about:hover { color: var(--peach); text-decoration: underline; }
 
 /* ---------- 移动端 ---------- */
 @media (max-width: 600px) {
@@ -161,6 +221,9 @@ a { color: inherit; }
   .hero { padding: 40px 16px 28px; }
   .hero h1 { font-size: 22px; }
   .zone { padding: 16px 16px 8px; }
+  .zone-flat { padding-left: 0; padding-right: 0; }
   .help { padding: 28px 16px 40px; }
+  .guide { padding: 28px 16px 40px; }
+  .about { padding: 28px 16px 40px; }
   .emergency { grid-template-columns: 1fr; }
 }

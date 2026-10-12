@@ -17,6 +17,10 @@ credentials*.json
 # 依赖目录（有 package.json 就能重装，体积巨大）
 node_modules/
 
+# 构建产物（跑 npm run build 生成，每次都能重建）
+dist/
+dist-ssr/
+
 # ============ 绝不上传：本地数据 ============
 # 本地数据库文件
 *.db
