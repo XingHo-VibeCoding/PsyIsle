@@ -169,7 +169,7 @@ export const library: LibraryItem[] = [
     kind: 'podcast',
     title: 'Steve说',
     by: 'Steve',
-    note: '偏心理学的长对话，一期听很久，适合通勤或做家务。',
+    note: '偏心理学的长对话，每期都挺长，适合通勤或做家务。',
     themes: ['worth', 'meaning'],
   },
   {
