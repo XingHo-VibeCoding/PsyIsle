@@ -153,7 +153,7 @@ function Guide() {
         <h2>小测评</h2>
         <div className="card card-pending">
           <span className="card-tag">还在准备</span>
-          <h3>第一周内上线</h3>
+          <h3>很快就能用</h3>
           <p>
             做完会给你一段描述，和「接下来可以看看什么」。不会有总分，不会有档位，也不会告诉你你是哪种人。
           </p>

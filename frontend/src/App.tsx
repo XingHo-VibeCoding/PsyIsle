@@ -24,7 +24,7 @@ function App() {
           <Route path="/" element={<Home />} />
           {/* 树洞与管家按排期还没轮到，先占位（不做出死路：能回首页、能到危机页） */}
           <Route path="/talk" element={<UnderConstruction name="倾诉树洞" />} />
-          {/* 指路灯：第 1 周做内容层——主题多选 + 行动小任务 + 书影音，全部是静态内容，零依赖 */}
+          {/* 指路灯：阶段 1（课程 Day 7–12）做内容层——主题多选 + 行动小任务 + 书影音，全部是静态内容，零依赖 */}
           <Route path="/guide" element={<Guide />} />
           <Route path="/daily" element={<UnderConstruction name="日常管家" />} />
           {/* 已实现页面原样沿用：危机页不可砍；呼吸练习已并入「指路灯 · 行动小任务」 */}
