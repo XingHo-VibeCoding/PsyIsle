@@ -48,7 +48,7 @@
 | | |
 |---|---|
 | **目标** | 手机浏览器打开 → 「添加到主屏幕」→ 有图标、全屏、断网也能开壳 |
-| **改哪些文件** | 新增 `frontend/public/manifest.webmanifest`（name / short_name / start_url / display: standalone / theme_color `#FFF8F0` / background_color / icons 192+512）<br>新增 `frontend/public/icon-192.png`、`frontend/public/icon-512.png`（蜜桃橙底 + 岛屿）<br>改 `frontend/index.html`：加 `<link rel="manifest">`、`<meta name="theme-color">`、`<link rel="apple-touch-icon">` |
+| **改哪些文件** | 新增 `frontend/public/manifest.webmanifest`（name / short_name / start_url / display: standalone / theme_color `#F7FBF9` / background_color / icons 192+512）<br>新增 `frontend/public/icon-192.png`、`frontend/public/icon-512.png`（夜森林绿底 + 月光岛屿，2026-10-13 深夜随全站配色改，旧蜜桃橙底作废）<br>改 `frontend/index.html`：加 `<link rel="manifest">`、`<meta name="theme-color">`、`<link rel="apple-touch-icon">` |
 | **怎么跑** | `cd frontend && npm run dev -- --host`，手机与电脑连同一 Wi-Fi，浏览器开 `http://<电脑局域网IP>:5173` |
 | **怎么验证** | ① 桌面 Chrome 地址栏出现「安装」图标；② DevTools → Application → Manifest 无红色报错，192/512 两个图标都能加载；③ 手机「添加到主屏幕」→ 桌面出现带图标的心屿 → 点开全屏、无地址栏；④ `npm run build` + `npm run preview` 后 ①②③ 依然成立（**PWA 装的是产物，dev 通过不算数**） |
 | **这一步不碰** | 登录、云服务、AI、任何业务逻辑；一行业务代码都不写 |

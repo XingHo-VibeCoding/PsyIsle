@@ -1,7 +1,9 @@
 /* ==========================================================================
    心屿设计系统 v1.0
    --------------------------------------------------------------------------
-   气质：小王子式的治愈——夜空里的一点星、麦子的金、沙一样柔的底。
+   气质：小王子式的治愈——夜空里的一点星、森林深处的一层雾、安静的海。色彩主体是
+   夜森林绿（深青绿），点缀只留冷调淡紫与星点的一点暖黄光。旧的蜜桃橙/暖米白整套退役
+   （2026-10-13 深夜老板定调：全站不得再出现旧的亮黄暖色）。
    克制优先：装饰永远退到内容后面（本产品的灵魂是「不催你」）。
 
    SSOT：颜色 / 字号 / 字重 / 行高 / 间距 / 圆角 / 阴影 / 动效 只在本节定义。
@@ -13,36 +15,33 @@
    1. 设计令牌
    ========================================================================== */
 :root {
-  /* ---- 1.1 品牌色阶 · 蜜桃橙（动作色）：色阶越深越实，700 起才允许承载文字 ---- */
-  --peach-50: #fdf0e4;
-  --peach-100: #f9ddc3;
-  --peach-300: #f2a65a;
-  --peach-500: #e8834a;
-  --peach-700: #a84a20; /* 文字 / 主按钮底：对奶油底 5.7:1 */
-  --peach-800: #8a3b17; /* hover */
-  --peach-900: #6e2e11; /* active */
+  /* ---- 1.1 品牌色阶 · 夜森林绿（动作色 + 安抚色合一）----
+     2026-10-13 深夜老板定调：旧的蜜桃橙/暖黄整套退役，全站统一到首页插画那套
+     深青绿（月亮与波浪的画里色）。原「雾绿（安抚色）」与它本是两族绿，一并并入，
+     少一族色也少一处不一致。700 起才允许承载文字。 */
+  --forest-50: #e9f3ee;  /* 标签底 / 选中底 */
+  --forest-100: #d7e9df;
+  --forest-300: #86b8a1; /* 悬停描边（只做装饰） */
+  --forest-500: #4f8f75; /* 焦点框：对白 3.8:1（图形需 ≥3） */
+  --forest-700: #2c6a52; /* 文字 / 主按钮底：对冷米白 6.1:1、白字压其上 6.4:1 */
+  --forest-800: #235743; /* hover */
+  --forest-900: #1b4435; /* active */
 
-  /* ---- 1.2 平静色阶 · 雾绿（安抚色）：危机页与所有「慢下来」的场景 ---- */
-  --mist-50: #eaf3e6;
-  --mist-100: #dcebd6;
-  --mist-500: #6e8f6b;
-  --mist-700: #4a6b48; /* 文字：对奶油底 5.4:1 */
-  --mist-800: #3b5439; /* hover / active 底 */
-
-  /* ---- 1.4 淡紫（马卡龙氛围色）· 2026-10-13 晚老板定调：奶油白/淡紫/蜜桃橙 ----
+  /* ---- 1.4 淡紫（冷调氛围色）：只做点缀与小角色，不参与动作色 ----
      300 只做装饰（小角色身体、晕染）；700 起才可承载文字。 */
   --lav-50: #f4f1fb;
   --lav-100: #eae4f8;
   --lav-300: #cfc2ee;
   --lav-500: #a08ccf;
-  --lav-700: #5f5196; /* 文字：对 lav-50 实测 6.1:1、对白 6.8:1 */
+  --lav-700: #5f5196; /* 文字：对冷米白实测 6.5:1 */
 
-  /* ---- 1.5 表面与描边 ---- */
-  --cream: #fff8f0;
-  --sand: #efe0cc;
+  /* ---- 1.5 表面与描边：全部去暖（2026-10-13 深夜随品牌色一起转冷，
+     暖米白 + 暖调描边会把绿色衬得发脏，也会漏出旧配色）---- */
+  --cream: #f7fbf9;
+  --sand: #dfeae4;
   --card: #ffffff;
-  --line: #f0e2d3;
-  --line-strong: #e4d2be;
+  --line: #e3ede8;
+  --line-strong: #cbdcd4;
 
   /* ---- 1.5b 场景色 · 首页插画专用 ----
      2026-10-13 深夜定稿：月亮+波浪构图重绘为深青绿水彩。画面整体偏深，
@@ -50,7 +49,7 @@
      「写一写」这类打字页沿用插画时若底图变花，再按页加厚纱，字永远比画重要。 */
   --scene-veil-top: rgba(10, 34, 30, 0.58); /* 手机上问候语正落月亮亮面，纱要够深白字才立得住 */
   --scene-veil-bottom: rgba(8, 28, 24, 0.5);
-  --door-bg: rgba(255, 252, 247, 0.92); /* 门卡磨砂底：白纸盖在画面上 */
+  --door-bg: rgba(250, 253, 251, 0.92); /* 门卡磨砂底：白纸盖在画面上（随表面一起转冷） */
 
   /* ---- 1.5c 星黄 · 门卡图标专用（2026-10-13 老板要求：门卡图标别用橙色，
      要和插画里的月亮与星点呼应）。50 是星点那种淡淡的暖黄光；700 是同色系
@@ -58,13 +57,14 @@
   --star-50: #fdf4d9;
   --star-700: #806a1f; /* 对 star-50 实测 4.7:1 */
 
-  /* ---- 1.6 文字：四档全部实测 ≥4.5:1（见 docs/设计规范.md）---- */
-  --ink: #3c3634;      /* 标题 */
-  --ink-soft: #524b48; /* 正文 */
-  --ink-mute: #6b635d; /* 次要说明 */
+  /* ---- 1.6 文字：四档全部实测 ≥4.5:1（见 docs/设计规范.md）----
+     2026-10-13 深夜随品牌色转冷：原暖褐系（#3c3634 等）在冷绿底上会显浑。 */
+  --ink: #2e3a35;      /* 标题：对冷米白 11.4:1 */
+  --ink-soft: #46524c; /* 正文：7.8:1 */
+  --ink-mute: #66736d; /* 次要说明：4.8:1 */
   --on-dark: #ffffff;  /* 深底上的字 */
 
-  --focus: var(--mist-500);
+  --focus: var(--forest-500);
 
   /* ---- 1.7 字体族：iOS/macOS 命中苹方，Windows 命中微软雅黑，system-ui 兜底 ---- */
   --font-sans: -apple-system, BlinkMacSystemFont, "PingFang SC", "HarmonyOS Sans SC",
@@ -114,9 +114,10 @@
   --r-pill: 999px;
 
   /* ---- 1.13 阴影：暖调。灰黑阴影会把奶油底压脏 ---- */
-  --sh-1: 0 1px 2px rgba(110, 74, 42, 0.06);
-  --sh-2: 0 6px 18px -6px rgba(110, 74, 42, 0.14);
-  --sh-3: 0 14px 34px -14px rgba(110, 74, 42, 0.22);
+  /* 阴影用冷调（原来的暖褐色投影落在冷底卡上会泛黄，正是要清掉的那种旧暖） */
+  --sh-1: 0 1px 2px rgba(20, 54, 44, 0.06);
+  --sh-2: 0 6px 18px -6px rgba(20, 54, 44, 0.14);
+  --sh-3: 0 14px 34px -14px rgba(20, 54, 44, 0.22);
 
   /* ---- 1.14 动效 ---- */
   --t-fast: 120ms ease;
@@ -249,27 +250,27 @@ button {
 }
 
 .btn-primary {
-  background: var(--peach-700);
+  background: var(--forest-700);
   color: var(--on-dark);
   box-shadow: var(--sh-1);
 }
 .btn-primary:hover {
-  background: var(--peach-800);
+  background: var(--forest-800);
   box-shadow: var(--sh-2);
 }
 .btn-primary:active {
-  background: var(--peach-900);
+  background: var(--forest-900);
 }
 
 .btn-quiet {
-  background: var(--mist-50);
-  color: var(--mist-700);
+  background: var(--forest-50);
+  color: var(--forest-700);
 }
 .btn-quiet:hover {
-  background: var(--mist-100);
+  background: var(--forest-100);
 }
 .btn-quiet:active {
-  background: var(--mist-800);
+  background: var(--forest-800);
   color: var(--on-dark);
 }
 
@@ -290,17 +291,17 @@ button {
     transform var(--t-fast);
 }
 .chip:hover {
-  border-color: var(--peach-300);
-  color: var(--peach-700);
+  border-color: var(--forest-300);
+  color: var(--forest-700);
 }
 .chip:active {
   transform: translateY(1px);
 }
 /* 选中态同时变底、变边、变字重、加 aria-pressed —— 四种信号，色盲用户也能分辨 */
 .chip-on {
-  background: var(--peach-50);
-  border-color: var(--peach-500);
-  color: var(--peach-700);
+  background: var(--forest-50);
+  border-color: var(--forest-500);
+  color: var(--forest-700);
   font-weight: var(--fw-bold);
 }
 
@@ -328,27 +329,27 @@ button {
     transform var(--t-fast);
 }
 .copy-btn:hover {
-  border-color: var(--peach-300);
-  color: var(--peach-700);
+  border-color: var(--forest-300);
+  color: var(--forest-700);
 }
 .copy-btn:active {
-  background: var(--peach-50);
-  border-color: var(--peach-500);
+  background: var(--forest-50);
+  border-color: var(--forest-500);
   transform: translateY(1px);
 }
 /* 已复制：换成安抚色（雾绿），和危机页的平静基调一致；图标同时换成对勾，
    不让颜色单独承担状态（色盲用户只看字与图标也分得清） */
 .copy-btn-done {
-  background: var(--mist-50);
-  border-color: var(--mist-500);
-  color: var(--mist-700);
+  background: var(--forest-50);
+  border-color: var(--forest-500);
+  color: var(--forest-700);
   font-weight: var(--fw-bold);
 }
 /* 结果态不该再被悬停改写：这两秒里用户要看的是「刚才发生了什么」 */
 .copy-btn-done:hover {
-  background: var(--mist-50);
-  border-color: var(--mist-500);
-  color: var(--mist-700);
+  background: var(--forest-50);
+  border-color: var(--forest-500);
+  color: var(--forest-700);
 }
 /* 失败：撤回无彩色，不制造紧张。文案会变成「手动复制」 */
 .copy-btn-error {
@@ -381,7 +382,7 @@ button {
 /* 只有真能点的卡片（<a>）才浮起来；纯容器卡片保持安静 */
 a.card:hover {
   transform: translateY(-2px);
-  border-color: var(--peach-300);
+  border-color: var(--forest-300);
   box-shadow: var(--sh-2);
 }
 a.card:active {
@@ -395,9 +396,9 @@ a.card:active {
   align-items: center;
   padding: var(--sp-1) var(--sp-3);
   margin-bottom: var(--sp-3);
-  background: var(--peach-50);
+  background: var(--forest-50);
   border-radius: var(--r-pill);
-  color: var(--peach-700);
+  color: var(--forest-700);
   font-size: var(--fs-meta);
 }
 
@@ -424,7 +425,7 @@ a.card:active {
   padding-right: var(--sp-1);
   font-size: var(--fs-h2);
   font-weight: var(--fw-bold);
-  color: var(--peach-700);
+  color: var(--forest-700);
   text-decoration: none;
 }
 .nav a:not(.logo) {
@@ -438,7 +439,7 @@ a.card:active {
   transition: color var(--t-fast);
 }
 .nav a:not(.logo):hover {
-  color: var(--peach-700);
+  color: var(--forest-700);
 }
 /* 选择器写到 a.nav-help：原来的 !important 是靠优先级硬压的，这里用结构解决。
    padding 往左借、右边留 0：既把点击区补到 44px，又让「求助」保持贴右缘对齐正文 */
@@ -447,7 +448,7 @@ a.card:active {
   padding-left: var(--sp-4);
   padding-right: 0;
   font-weight: var(--fw-bold);
-  color: var(--mist-700);
+  color: var(--forest-700);
 }
 
 /* ---- 首页沉浸模式：导航浮在插画上，字换浅色；页脚隐藏（危机入口由导航「求助」承担，
@@ -471,7 +472,7 @@ a.card:active {
   color: var(--on-dark);
 }
 .app-immersive .nav a.nav-help {
-  color: var(--mist-50); /* 浅雾绿在深色画面上既醒目又不刺眼 */
+  color: var(--forest-50); /* 浅雾绿在深色画面上既醒目又不刺眼 */
 }
 .app-immersive .footer {
   display: none;
@@ -487,7 +488,7 @@ a.card:active {
   align-items: center;
   min-height: var(--tap);
   padding: 0 var(--sp-2);
-  color: var(--mist-700);
+  color: var(--forest-700);
   font-size: var(--fs-body);
   text-decoration: none;
 }
@@ -509,7 +510,7 @@ a.card:active {
   transition: color var(--t-fast);
 }
 .footer-about:hover {
-  color: var(--peach-700);
+  color: var(--forest-700);
   text-decoration: underline;
 }
 
@@ -660,7 +661,8 @@ a.door:active {
   width: 14px;
   height: 7px;
   border-radius: var(--r-pill);
-  background: rgba(232, 131, 74, 0.32);
+  /* 腮红也跟着转冷：原来借的是蜜桃橙，现在取小角色身体同族的淡紫压深一点 */
+  background: rgba(122, 104, 176, 0.3);
 }
 .mascot-blush-l { left: 22%; }
 .mascot-blush-r { right: 22%; }
@@ -740,7 +742,7 @@ a.door:active {
 }
 
 .task-spotlight {
-  border-color: var(--peach-300);
+  border-color: var(--forest-300);
   box-shadow: var(--sh-2);
 }
 .task-actions {
@@ -786,7 +788,7 @@ a.door:active {
   align-items: center;
   min-height: var(--tap);
   margin-top: var(--sp-1);
-  color: var(--peach-700);
+  color: var(--forest-700);
   font-size: var(--fs-meta);
   text-decoration: none;
 }
@@ -797,9 +799,14 @@ a.door:active {
 .lib-group {
   margin-top: var(--sp-5);
 }
+/* 筛选后没有条目时，空态顶在筛选行下面——给它和列表一样的留白，
+   否则提示会紧贴 chips，看起来像 chips 的一部分 */
+.lib-empty {
+  margin-top: var(--sp-5);
+}
 .lib-kind {
   font-size: var(--fs-h3);
-  color: var(--mist-700);
+  color: var(--forest-700);
   margin-bottom: var(--sp-2);
 }
 .lib-list {
@@ -836,7 +843,7 @@ a.door:active {
 }
 
 .card-pending {
-  background: var(--peach-50);
+  background: var(--forest-50);
 }
 .card-pending .card-tag {
   background: var(--card);
@@ -848,7 +855,7 @@ a.door:active {
   margin-top: var(--sp-8);
 }
 .guide-foot a {
-  color: var(--mist-700);
+  color: var(--forest-700);
 }
 /* 正文里夹着的行内链接：给纵向 padding 撑开点击区。
    行内元素（display:inline）的纵向 padding 不撑行高、不影响排版，
@@ -872,11 +879,11 @@ a.door:active {
 }
 .comfort-guide {
   margin-top: var(--sp-3);
-  color: var(--mist-700);
+  color: var(--forest-700);
   font-size: var(--fs-meta);
 }
 .comfort-guide a {
-  color: var(--mist-700);
+  color: var(--forest-700);
 }
 
 /* ==========================================================================
@@ -908,15 +915,15 @@ a.door:active {
   justify-content: center;
   width: 220px;
   height: 220px;
-  background: var(--mist-50);
-  border: 2px solid var(--mist-500);
+  background: var(--forest-50);
+  border: 2px solid var(--forest-500);
   border-radius: 50%;
   box-shadow: var(--sh-2);
 }
 .breathe-phase {
   font-size: var(--fs-h3);
   font-weight: var(--fw-bold);
-  color: var(--mist-700);
+  color: var(--forest-700);
 }
 .breathe-hint {
   min-height: 30px;
@@ -930,7 +937,7 @@ a.door:active {
   margin-bottom: var(--sp-2);
 }
 .breathe-done {
-  color: var(--mist-700);
+  color: var(--forest-700);
   margin: var(--sp-2) 0 var(--sp-4);
 }
 .breathe-actions {
@@ -954,7 +961,7 @@ a.door:active {
   margin-bottom: var(--sp-3);
 }
 .help-note {
-  color: var(--mist-700);
+  color: var(--forest-700);
   margin-bottom: var(--sp-6);
 }
 
@@ -970,16 +977,16 @@ a.door:active {
   gap: var(--sp-1);
   min-height: var(--tap);
   padding: var(--sp-5);
-  background: var(--mist-50);
+  background: var(--forest-50);
   border-radius: var(--r-lg);
   text-decoration: none;
   transition: background-color var(--t-fast), transform var(--t-fast);
 }
 .emergency-btn:hover {
-  background: var(--mist-100);
+  background: var(--forest-100);
 }
 .emergency-btn:active {
-  background: var(--mist-800);
+  background: var(--forest-800);
   transform: translateY(1px);
 }
 /* 号码用 display 级字号：这是全站唯一允许「比页面标题还大」的元素，
@@ -1014,7 +1021,7 @@ a.door:active {
 }
 .help-tip {
   font-size: var(--fs-body);
-  color: var(--mist-700);
+  color: var(--forest-700);
   margin-top: var(--sp-3);
 }
 
@@ -1059,10 +1066,10 @@ a.door:active {
   transition: color var(--t-fast);
 }
 .hotline-number:hover {
-  color: var(--peach-700);
+  color: var(--forest-700);
 }
 .hotline-number:active {
-  color: var(--peach-900);
+  color: var(--forest-900);
 }
 .hotline-org {
   font-size: var(--fs-meta);
@@ -1095,11 +1102,11 @@ a.door:active {
   max-width: 100%;
   padding: var(--sp-3) var(--sp-5);
   background: var(--card);
-  border: 1px solid var(--mist-500);
+  border: 1px solid var(--forest-500);
   border-radius: var(--r-pill);
   box-shadow: var(--sh-3);
   font-size: var(--fs-meta);
-  color: var(--mist-700);
+  color: var(--forest-700);
   animation: toast-rise var(--t-base) both;
 }
 .help-toast-quiet {
@@ -1134,7 +1141,7 @@ a.door:active {
   content: '·';
   position: absolute;
   left: 6px;
-  color: var(--mist-500);
+  color: var(--forest-500);
 }
 .facelist strong {
   color: var(--ink);
@@ -1172,7 +1179,7 @@ a.door:active {
   margin-top: var(--sp-2);
 }
 .about-section a {
-  color: var(--mist-700);
+  color: var(--forest-700);
 }
 .about-list {
   list-style: none;
@@ -1189,7 +1196,7 @@ a.door:active {
   content: '·';
   position: absolute;
   left: 6px;
-  color: var(--mist-500);
+  color: var(--forest-500);
 }
 .about-list strong {
   color: var(--ink);
