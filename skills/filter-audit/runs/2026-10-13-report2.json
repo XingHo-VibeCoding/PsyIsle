@@ -1,0 +1,80 @@
+{
+  "log": [
+    {
+      "tag": "起点",
+      "path": "/guide",
+      "origin": "http://localhost:5177",
+      "themeOn": [],
+      "kindOn": [
+        "全部"
+      ],
+      "libCount": 19,
+      "stored": {
+        "themes": null,
+        "kind": null
+      }
+    },
+    {
+      "tag": "选中后",
+      "path": "/guide",
+      "origin": "http://localhost:5177",
+      "themeOn": [
+        "孤独"
+      ],
+      "kindOn": [
+        "书"
+      ],
+      "libCount": 2,
+      "stored": {
+        "themes": "[\"lonely\"]",
+        "kind": "\"book\""
+      }
+    },
+    {
+      "tag": "刷新后（应恢复 孤独 + 书）",
+      "path": "/guide",
+      "origin": "http://localhost:5177",
+      "themeOn": [
+        "孤独"
+      ],
+      "kindOn": [
+        "书"
+      ],
+      "libCount": 2,
+      "stored": {
+        "themes": "[\"lonely\"]",
+        "kind": "\"book\""
+      }
+    },
+    {
+      "tag": "非法 kind 后（应回落 全部）",
+      "path": "/guide",
+      "origin": "http://localhost:5177",
+      "themeOn": [
+        "孤独"
+      ],
+      "kindOn": [
+        "全部"
+      ],
+      "libCount": 5,
+      "stored": {
+        "themes": "[\"lonely\"]",
+        "kind": "bogus-kind"
+      }
+    },
+    {
+      "tag": "Tab 到类型按钮时的焦点样式",
+      "text": "全部",
+      "group": "按类型筛选",
+      "outlineStyle": "solid",
+      "outlineWidth": "3px",
+      "outlineColor": "rgb(79, 143, 117)",
+      "matchesFocusVisible": true
+    },
+    {
+      "tag": "页面错误",
+      "errors": []
+    }
+  ],
+  "errors": []
+}

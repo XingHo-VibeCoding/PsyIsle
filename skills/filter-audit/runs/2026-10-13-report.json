@@ -1,0 +1,308 @@
+{
+  "log": [
+    {
+      "tag": "C0 初始（无任何筛选）",
+      "path": "/guide",
+      "themeOn": [],
+      "kindOn": [
+        "全部"
+      ],
+      "themeChipCount": 5,
+      "kindChipCount": 5,
+      "libItemCount": 19,
+      "libTitles": [
+        "活出意义来",
+        "孤独六讲",
+        "也许你该找个人聊聊",
+        "非暴力沟通",
+        "当呼吸化为空气",
+        "山茶文具店",
+        "海边的曼彻斯特",
+        "心灵奇旅",
+        "千与千寻",
+        "爱在黎明破晓前",
+        "步履不停",
+        "Merry Christmas Mr. Lawrence",
+        "Near Light",
+        "Summer（菊次郎的夏天）",
+        "山丘",
+        "一生所爱",
+        "随机波动",
+        "Steve说",
+        "声东击西"
+      ],
+      "kindGroups": [
+        "书",
+        "电影",
+        "音乐",
+        "播客"
+      ],
+      "hasEmptyText": false,
+      "emptyText": null,
+      "emptyRole": null,
+      "themeGroupRole": "group",
+      "kindGroupRole": "group",
+      "stored": {
+        "themes": null,
+        "kind": null
+      }
+    },
+    {
+      "tag": "C1 有结果（孤独 + 书）",
+      "path": "/guide",
+      "themeOn": [
+        "孤独"
+      ],
+      "kindOn": [
+        "书"
+      ],
+      "themeChipCount": 5,
+      "kindChipCount": 5,
+      "libItemCount": 2,
+      "libTitles": [
+        "孤独六讲",
+        "山茶文具店"
+      ],
+      "kindGroups": [
+        "书"
+      ],
+      "hasEmptyText": false,
+      "emptyText": null,
+      "emptyRole": null,
+      "themeGroupRole": "group",
+      "kindGroupRole": "group",
+      "stored": {
+        "themes": "[\"lonely\"]",
+        "kind": "\"book\""
+      }
+    },
+    {
+      "tag": "C2 无结果（孤独 + 播客）",
+      "path": "/guide",
+      "themeOn": [
+        "孤独"
+      ],
+      "kindOn": [
+        "播客"
+      ],
+      "themeChipCount": 5,
+      "kindChipCount": 5,
+      "libItemCount": 0,
+      "libTitles": [],
+      "kindGroups": [],
+      "hasEmptyText": true,
+      "emptyText": "这个条件下暂时没有条目，换个条件看看。",
+      "emptyRole": "status",
+      "themeGroupRole": "group",
+      "kindGroupRole": "group",
+      "stored": {
+        "themes": "[\"lonely\"]",
+        "kind": "\"podcast\""
+      }
+    },
+    {
+      "tag": "C3 清空恢复（全部取消）",
+      "path": "/guide",
+      "themeOn": [],
+      "kindOn": [
+        "全部"
+      ],
+      "themeChipCount": 5,
+      "kindChipCount": 5,
+      "libItemCount": 19,
+      "libTitles": [
+        "活出意义来",
+        "孤独六讲",
+        "也许你该找个人聊聊",
+        "非暴力沟通",
+        "当呼吸化为空气",
+        "山茶文具店",
+        "海边的曼彻斯特",
+        "心灵奇旅",
+        "千与千寻",
+        "爱在黎明破晓前",
+        "步履不停",
+        "Merry Christmas Mr. Lawrence",
+        "Near Light",
+        "Summer（菊次郎的夏天）",
+        "山丘",
+        "一生所爱",
+        "随机波动",
+        "Steve说",
+        "声东击西"
+      ],
+      "kindGroups": [
+        "书",
+        "电影",
+        "音乐",
+        "播客"
+      ],
+      "hasEmptyText": false,
+      "emptyText": null,
+      "emptyRole": null,
+      "themeGroupRole": "group",
+      "kindGroupRole": "group",
+      "stored": {
+        "themes": "[]",
+        "kind": "\"all\""
+      }
+    },
+    {
+      "tag": "C4a 触控尺寸",
+      "total": 10,
+      "under": [],
+      "minH": 44,
+      "minW": 56
+    },
+    {
+      "tag": "C4b 焦点可见",
+      "text": "孤独",
+      "outlineStyle": "none",
+      "outlineWidth": "3px",
+      "outlineColor": "rgb(44, 106, 82)"
+    },
+    {
+      "tag": "C4b 键盘 Enter 切换",
+      "before": "false",
+      "after": "true",
+      "changed": true
+    },
+    {
+      "tag": "C4b Tab 顺序",
+      "seq": [
+        "BUTTON:意义|pressed=false",
+        "BUTTON:自我价值|pressed=false",
+        "BUTTON:关系|pressed=false",
+        "BUTTON:失去|pressed=false",
+        "BUTTON:换一件",
+        "A:现在就去",
+        "A:去做这一件",
+        "BUTTON:全部|pressed=true",
+        "BUTTON:书|pressed=false",
+        "BUTTON:电影|pressed=false",
+        "BUTTON:音乐|pressed=false",
+        "BUTTON:播客|pressed=false",
+        "A:如果现在很难熬，",
+        "A:需要马上找人说说"
+      ]
+    },
+    {
+      "tag": "C4c 刷新后（主题应从本地恢复）",
+      "path": "/guide",
+      "themeOn": [],
+      "kindOn": [
+        "全部"
+      ],
+      "themeChipCount": 5,
+      "kindChipCount": 5,
+      "libItemCount": 19,
+      "libTitles": [
+        "活出意义来",
+        "孤独六讲",
+        "也许你该找个人聊聊",
+        "非暴力沟通",
+        "当呼吸化为空气",
+        "山茶文具店",
+        "海边的曼彻斯特",
+        "心灵奇旅",
+        "千与千寻",
+        "爱在黎明破晓前",
+        "步履不停",
+        "Merry Christmas Mr. Lawrence",
+        "Near Light",
+        "Summer（菊次郎的夏天）",
+        "山丘",
+        "一生所爱",
+        "随机波动",
+        "Steve说",
+        "声东击西"
+      ],
+      "kindGroups": [
+        "书",
+        "电影",
+        "音乐",
+        "播客"
+      ],
+      "hasEmptyText": false,
+      "emptyText": null,
+      "emptyRole": null,
+      "themeGroupRole": "group",
+      "kindGroupRole": "group",
+      "stored": {
+        "themes": "[]",
+        "kind": "\"all\""
+      }
+    },
+    {
+      "tag": "C4c 存储值",
+      "storedAfterPick": {
+        "themes": "[]",
+        "kind": "\"all\""
+      }
+    },
+    {
+      "tag": "C4d 非法 kind 值（应回落「全部」）",
+      "path": "/guide",
+      "themeOn": [],
+      "kindOn": [
+        "全部"
+      ],
+      "themeChipCount": 5,
+      "kindChipCount": 5,
+      "libItemCount": 19,
+      "libTitles": [
+        "活出意义来",
+        "孤独六讲",
+        "也许你该找个人聊聊",
+        "非暴力沟通",
+        "当呼吸化为空气",
+        "山茶文具店",
+        "海边的曼彻斯特",
+        "心灵奇旅",
+        "千与千寻",
+        "爱在黎明破晓前",
+        "步履不停",
+        "Merry Christmas Mr. Lawrence",
+        "Near Light",
+        "Summer（菊次郎的夏天）",
+        "山丘",
+        "一生所爱",
+        "随机波动",
+        "Steve说",
+        "声东击西"
+      ],
+      "kindGroups": [
+        "书",
+        "电影",
+        "音乐",
+        "播客"
+      ],
+      "hasEmptyText": false,
+      "emptyText": null,
+      "emptyRole": null,
+      "themeGroupRole": "group",
+      "kindGroupRole": "group",
+      "stored": {
+        "themes": "[]",
+        "kind": "bogus-kind"
+      }
+    },
+    {
+      "tag": "溢出 375px",
+      "viewport": 375,
+      "docWidth": 375,
+      "overflow": false
+    },
+    {
+      "tag": "溢出 320px",
+      "viewport": 320,
+      "docWidth": 320,
+      "overflow": false
+    },
+    {
+      "tag": "页面错误",
+      "errors": []
+    }
+  ],
+  "errors": []
+}

@@ -10,9 +10,27 @@ import { readJson, writeJson } from '../lib/storage'
 // 三条线都由「我现在在意什么」驱动
 // 页面设计立场：不排序、不推荐「最适合你的」、不显示完成了多少——用户挑哪件都行，不挑也行
 const THEME_KEY = 'xinyu.guide.themes'
+const KIND_KEY = 'xinyu.guide.kind'
+
+// 书影音的类型筛选：'all' = 不筛。主题是「我在意什么」（长期），
+// 类型是「我此刻想看哪种」（当次），所以分开存、互不干扰。
+type KindFilter = LibraryKind | 'all'
+
+const kindOptions: { id: KindFilter; label: string }[] = [
+  { id: 'all', label: '全部' },
+  ...kindOrder.map((k) => ({ id: k, label: kindLabel[k] })),
+]
+
+// 本地存的值可能被手改过或来自旧版本，先校验再进 state——
+// 坏值只该安静地退回默认，不该让整页白掉
+const readKind = (): KindFilter => {
+  const saved = readJson<KindFilter>(KIND_KEY)
+  return saved === 'all' || kindOrder.includes(saved as LibraryKind) ? (saved as KindFilter) : 'all'
+}
 
 function Guide() {
   const [picked, setPicked] = useState<ThemeId[]>(() => readJson<ThemeId[]>(THEME_KEY) ?? [])
+  const [kind, setKind] = useState<KindFilter>(readKind)
   const [spotlightId, setSpotlightId] = useState<string | null>(null)
 
   const visibleTasks = useMemo(
@@ -20,8 +38,8 @@ function Guide() {
     [picked],
   )
   const visibleLibrary = useMemo(
-    () => library.filter((i) => matchThemes(i.themes, picked)),
-    [picked],
+    () => library.filter((i) => matchThemes(i.themes, picked) && (kind === 'all' || i.kind === kind)),
+    [picked, kind],
   )
 
   const spotlight = visibleTasks.find((t) => t.id === spotlightId) ?? visibleTasks[0]
@@ -30,6 +48,11 @@ function Guide() {
     const next = picked.includes(id) ? picked.filter((t) => t !== id) : [...picked, id]
     setPicked(next)
     writeJson(THEME_KEY, next)
+  }
+
+  const pickKind = (next: KindFilter) => {
+    setKind(next)
+    writeJson(KIND_KEY, next)
   }
 
   const shuffle = () => {
@@ -50,7 +73,7 @@ function Guide() {
       <section className="zone zone-flat">
         <h2>你现在在意什么</h2>
         <p className="zone-tip">勾几个都行，一个不勾也行——不勾就全部都给你看</p>
-        <div className="chips">
+        <div className="chips" role="group" aria-label="按主题筛选">
           {themes.map((t) => {
             const on = picked.includes(t.id)
             return (
@@ -127,12 +150,28 @@ function Guide() {
       <section className="zone zone-flat">
         <h2>书影音</h2>
         <p className="zone-tip">只给条目和一句话，不用写读后感，看完也不用告诉谁</p>
-        {kindOrder.map((kind) => {
-          const items = byKind(kind)
+        <div className="chips" role="group" aria-label="按类型筛选">
+          {kindOptions.map((k) => {
+            const on = kind === k.id
+            return (
+              <button
+                key={k.id}
+                type="button"
+                className={on ? 'chip chip-on' : 'chip'}
+                aria-pressed={on}
+                onClick={() => pickKind(k.id)}
+              >
+                {k.label}
+              </button>
+            )
+          })}
+        </div>
+        {kindOrder.map((group) => {
+          const items = byKind(group)
           if (items.length === 0) return null
           return (
-            <div key={kind} className="lib-group">
-              <h3 className="lib-kind">{kindLabel[kind]}</h3>
+            <div key={group} className="lib-group">
+              <h3 className="lib-kind">{kindLabel[group]}</h3>
               <ul className="lib-list">
                 {items.map((item) => (
                   <li key={item.id} className="lib-item">
@@ -147,7 +186,11 @@ function Guide() {
             </div>
           )
         })}
-        {visibleLibrary.length === 0 && <p className="zone-tip">这个主题下暂时没有条目，换个主题看看。</p>}
+        {visibleLibrary.length === 0 && (
+          <p className="zone-tip lib-empty" role="status">
+            这个条件下暂时没有条目，换个条件看看。
+          </p>
+        )}
       </section>
 
       <section className="zone zone-flat">
