@@ -45,9 +45,11 @@
   --line-strong: #e4d2be;
 
   /* ---- 1.5b 场景色 · 首页插画专用 ----
-     2026-10-13 深夜老板换图为浅底薄荷绿月亮夜（扁平插画）：画面自身浅底深波浪，
-     文字直接用深色即可，不再需要压暗纱（此前的夜森林黑纱随图退役）。
-     「写一写」这类打字页沿用插画时若底图变花，再按页加薄纱，字永远比画重要。 */
+     2026-10-13 深夜定稿：月亮+波浪构图重绘为深青绿水彩。画面整体偏深，
+     纱只需要薄薄一层帮白字和门卡「沉」进画面（比夜森林时期的浓度低）。
+     「写一写」这类打字页沿用插画时若底图变花，再按页加厚纱，字永远比画重要。 */
+  --scene-veil-top: rgba(10, 34, 30, 0.58); /* 手机上问候语正落月亮亮面，纱要够深白字才立得住 */
+  --scene-veil-bottom: rgba(8, 28, 24, 0.5);
   --door-bg: rgba(255, 252, 247, 0.92); /* 门卡磨砂底：白纸盖在画面上 */
 
   /* ---- 1.6 文字：四档全部实测 ≥4.5:1（见 docs/设计规范.md）---- */
@@ -364,10 +366,10 @@ a.card:active {
   color: var(--mist-700);
 }
 
-/* ---- 首页沉浸模式：导航浮在插画上；页脚隐藏（危机入口由导航「求助」承担，
+/* ---- 首页沉浸模式：导航浮在插画上，字换浅色；页脚隐藏（危机入口由导航「求助」承担，
    红线不变：仍 1 次点击可达）。.app 是列向 flex，导航改 absolute 脱离文档流，
    场景（.scene 的 min-height:100dvh）才能占满整屏。
-   画面顶部是浅薄荷天，导航直接用深字（2026-10-13 换浅底图后由白字翻转）。 */
+   画面整体偏深（2026-10-13 定稿的水彩画风），导航用浅字。 */
 .app-immersive .nav {
   position: absolute;
   top: 0;
@@ -376,16 +378,16 @@ a.card:active {
   z-index: 10;
 }
 .app-immersive .logo {
-  color: var(--ink);
+  color: var(--on-dark);
 }
 .app-immersive .nav a:not(.logo) {
-  color: var(--ink-soft);
+  color: rgba(255, 255, 255, 0.88);
 }
 .app-immersive .nav a:not(.logo):hover {
-  color: var(--ink);
+  color: var(--on-dark);
 }
 .app-immersive .nav a.nav-help {
-  color: var(--mist-800); /* 深雾绿在浅薄荷天上既醒目又不刺眼 */
+  color: var(--mist-50); /* 浅雾绿在深色画面上既醒目又不刺眼 */
 }
 .app-immersive .footer {
   display: none;
@@ -431,12 +433,11 @@ a.card:active {
    5. 页面层 · 首页
    ========================================================================== */
 
-/* ---- 场景 = 一整幅插画（2026-10-13 深夜老板给定：薄荷绿月亮夜，扁平治愈风）----
-   结构：插画铺满整屏 → 顶部只留问候语 → 底部一排三张小门卡。
-   画面是浅底（天空）压深底（波浪），深字浅字各有地盘：问候语在浅天上用深色，
-   白门卡落在深波浪上。插画是氛围主体、纯装饰（alt 空）；导航浮在画面上
+/* ---- 场景 = 一整幅插画（2026-10-13 深夜定稿：月亮+星+波浪构图，深青绿水彩画风）----
+   结构：插画铺满整屏 → 薄纱压边 → 顶部只留问候语 → 底部一排三张小门卡。
+   画面整体偏深，文字用浅色；插画是氛围主体、纯装饰（alt 空）；导航浮在画面上
    （.app-immersive），页脚在首页隐藏。
-   之后的「写一写」这类要打字的页面沿用插画时：底图调淡或加薄纱，字永远比画重要。 */
+   之后的「写一写」这类要打字的页面沿用插画时：底图调淡或加厚纱，字永远比画重要。 */
 .scene {
   position: relative;
   display: flex;
@@ -455,18 +456,27 @@ a.card:active {
   /* 月亮在原图左上：手机竖屏裁切后要保住它，取景锚在左上角 */
   object-position: left top;
 }
+.scene-veil {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background:
+    linear-gradient(180deg, var(--scene-veil-top) 0%, transparent 30%),
+    linear-gradient(0deg, var(--scene-veil-bottom) 0%, transparent 36%);
+  pointer-events: none;
+}
 .scene-greet {
   padding: calc(var(--sp-16) + var(--sp-6)) var(--sp-6) 0; /* 顶部让开浮动导航 */
   text-align: center;
-  color: var(--ink);
+  color: var(--on-dark);
 }
 .scene-greet h1 {
-  color: var(--ink);
+  color: var(--on-dark);
   font-size: var(--fs-h1);
   margin-bottom: var(--sp-1);
 }
 .scene-greet p {
-  color: var(--ink-soft);
+  color: rgba(255, 255, 255, 0.85);
   font-size: var(--fs-meta);
 }
 

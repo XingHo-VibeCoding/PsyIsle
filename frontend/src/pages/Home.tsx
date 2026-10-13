@@ -1,9 +1,9 @@
 import { Link } from 'react-router-dom'
 import { Compass, MessageCircle, NotebookPen } from 'lucide-react'
-import homeImg from '../assets/home-mint.jpg'
+import homeImg from '../assets/home-watercolor.jpg'
 
-// 首页 = 一整幅插画（2026-10-13 深夜老板直接给定此图：薄荷绿月亮夜，扁平治愈风；
-// 此前的 AI 夜森林插画同日退役）。画面浅底，文字用深色——字比画重要。
+// 首页 = 一整幅插画（2026-10-13 深夜老板定稿：月亮+星+波浪的构图不变，
+// 画风与色调重绘成深青绿水彩、光斑氤氲的治愈风）。画面整体偏深，文字用浅色。
 // 顶部只留问候语；三个入口收进底部一排小卡；名称与引导语仍是老板原话，不自造。
 // 插画是氛围主体，纯装饰，alt 留空不进无障碍树。
 // 危机入口不放在画面里：导航「求助」仍全站 1 次点击可达（红线，永久不可砍）。
@@ -20,6 +20,8 @@ function Home() {
   return (
     <section className="scene">
       <img className="scene-bg" src={homeImg} alt="" aria-hidden="true" />
+      {/* 上下两层薄纱：画面偏深但问候语正落月亮亮面，纱帮白字「沉」住 */}
+      <div className="scene-veil" aria-hidden="true" />
 
       <header className="scene-greet">
         <h1>{greeting()}</h1>
