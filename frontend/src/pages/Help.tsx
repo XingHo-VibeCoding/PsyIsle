@@ -1,8 +1,36 @@
+import { useEffect, useRef, useState } from 'react'
+import CopyNumber from '../components/CopyNumber'
 import { emergencyHotlines, nationalHotlines, regionHotlines, HOTLINES_VERIFIED_AT } from '../data/hotlines'
 
 // F12 危机资源页：全站优先级最高的页面
 // 红线：首屏不滚动可见 120/110/12356；禁红色警示色；无广告、无表单、无劝慰
+// 首屏三个大号码仍只做「拨打」一件事——最紧张的时候路径要最短，
+// 复制按钮只加在下面两张完整名单里（那里才是「先把号码记下来」的场景）。
+const TOAST_MS = 3200
+
 function Help() {
+  const [toast, setToast] = useState<{ ok: boolean; text: string } | null>(null)
+  const toastTimer = useRef<number | null>(null)
+
+  const clearToastTimer = () => {
+    if (toastTimer.current !== null) {
+      window.clearTimeout(toastTimer.current)
+      toastTimer.current = null
+    }
+  }
+
+  // 连点不同号码：先清旧定时器，保证页面上任何时刻最多只有一条提示
+  const showToast = (ok: boolean, number: string) => {
+    clearToastTimer()
+    setToast({
+      ok,
+      text: ok ? `${number} 已复制，粘到拨号盘就能打` : '没能自动复制，长按号码自己选中',
+    })
+    toastTimer.current = window.setTimeout(() => setToast(null), TOAST_MS)
+  }
+
+  useEffect(() => () => clearToastTimer(), [])
+
   return (
     <div className="help">
       <h1>需要帮助的时候，可以找谁</h1>
@@ -22,7 +50,10 @@ function Help() {
         <ul className="hotline-list">
           {nationalHotlines.map((h) => (
             <li key={h.number} className="hotline-item">
-              <a href={`tel:${h.number}`} className="hotline-number">{h.number}</a>
+              <div className="hotline-head">
+                <a href={`tel:${h.number}`} className="hotline-number">{h.number}</a>
+                <CopyNumber number={h.number} onResult={showToast} />
+              </div>
               <p className="hotline-org">{h.organizer}</p>
               <p className="hotline-meta">服务时间：{h.hours}</p>
               <p className="hotline-meta">什么情况用：{h.scenario}</p>
@@ -39,6 +70,7 @@ function Help() {
             <li key={h.number} className="hotline-item hotline-row">
               <span className="hotline-region">{h.region}</span>
               <a href={`tel:${h.number}`} className="hotline-number">{h.number}</a>
+              <CopyNumber number={h.number} onResult={showToast} />
               <span className="hotline-meta">{h.note} · 核实于 {h.verifiedAt}</span>
             </li>
           ))}
@@ -55,7 +87,14 @@ function Help() {
         </ul>
       </section>
 
-      <p className="help-meta">号码核实日期：{HOTLINES_VERIFIED_AT}。本页不申请定位权限、不收集手机号。</p>
+      <p className="help-meta">号码核实日期：{HOTLINES_VERIFIED_AT}。本页不申请定位权限、不收集手机号；复制的号码只进你自己的剪贴板，不经过本站。</p>
+
+      {/* 页面级确认：button 自己的文案变化读屏不一定播报，这里用 role="status" 兜住 */}
+      <div className="help-toast-layer" role="status" aria-live="polite">
+        {toast ? (
+          <p className={toast.ok ? 'help-toast' : 'help-toast help-toast-quiet'}>{toast.text}</p>
+        ) : null}
+      </div>
     </div>
   )
 }

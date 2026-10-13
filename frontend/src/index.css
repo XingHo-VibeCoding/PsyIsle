@@ -176,6 +176,21 @@ button {
   border-radius: var(--r-sm);
 }
 
+/* 只给屏幕阅读器读、视觉上不占位的文本。
+   不能用 display:none（整块移出无障碍树），也不能用 visibility/opacity
+   （部分读屏会跳过），所以走「1px + 裁切」这条老路。 */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
 .app {
   min-height: 100vh;
   display: flex;
@@ -281,6 +296,69 @@ button {
   border-color: var(--peach-500);
   color: var(--peach-700);
   font-weight: var(--fw-bold);
+}
+
+/* ---- 3.4 复制按钮：待复制 / 悬停 / 按下 / 已复制 / 失败 ----
+   用在危机页的完整名单里。手机上点号码会直接跳拨号盘，有些人还没准备好就被带走；
+   先把号码记下来是门槛更低的一步。桌面浏览器里 tel: 链接更是点了没反应，
+   这个按钮在那台设备上甚至是唯一有效的动作。
+   结果态由按钮自己的字与色承担（离手指最近），页面级提示条只做远端确认。
+   失败态禁用红色（产品红线），改用「退回无彩 + 换文案」表达「这里要你再动一下」。 */
+.copy-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--tap);
+  min-width: var(--tap);
+  padding: var(--sp-2) var(--sp-4);
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  color: var(--ink-mute);
+  font-family: inherit;
+  font-size: var(--fs-meta);
+  cursor: pointer;
+  transition: background-color var(--t-fast), border-color var(--t-fast), color var(--t-fast),
+    transform var(--t-fast);
+}
+.copy-btn:hover {
+  border-color: var(--peach-300);
+  color: var(--peach-700);
+}
+.copy-btn:active {
+  background: var(--peach-50);
+  border-color: var(--peach-500);
+  transform: translateY(1px);
+}
+/* 已复制：换成安抚色（雾绿），和危机页的平静基调一致；图标同时换成对勾，
+   不让颜色单独承担状态（色盲用户只看字与图标也分得清） */
+.copy-btn-done {
+  background: var(--mist-50);
+  border-color: var(--mist-500);
+  color: var(--mist-700);
+  font-weight: var(--fw-bold);
+}
+/* 结果态不该再被悬停改写：这两秒里用户要看的是「刚才发生了什么」 */
+.copy-btn-done:hover {
+  background: var(--mist-50);
+  border-color: var(--mist-500);
+  color: var(--mist-700);
+}
+/* 失败：撤回无彩色，不制造紧张。文案会变成「手动复制」 */
+.copy-btn-error {
+  border-color: var(--line-strong);
+  color: var(--ink-soft);
+}
+.copy-btn-error:hover {
+  border-color: var(--line-strong);
+  color: var(--ink-soft);
+}
+
+.copy-btn-face {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  white-space: nowrap;
 }
 
 /* ---- 3.3 卡片 ---- */
@@ -943,6 +1021,14 @@ a.door:active {
   border: 1px solid var(--line);
   border-radius: var(--r-md);
 }
+/* 号码与复制按钮同一行：号码照旧整块可点（拨打），复制落在右端——
+   左「打」右「记」，两个动作不互相挤 */
+.hotline-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+}
 /* hotline-row 只负责横排布局，内边距沿用 .hotline-item */
 .hotline-row {
   display: flex;
@@ -982,6 +1068,47 @@ a.door:active {
   font-size: var(--fs-body);
   font-weight: var(--fw-bold);
   color: var(--ink);
+}
+
+/* 复制结果的远端确认：页面底部一条，不挡号码、不截断正在做的事。
+   pointer-events:none 是必需的——它固定在底部，别把下面的号码压住点不了。 */
+.help-toast-layer {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: var(--sp-6);
+  display: flex;
+  justify-content: center;
+  padding: 0 var(--sp-4);
+  pointer-events: none;
+  z-index: 10;
+}
+.help-toast {
+  max-width: 100%;
+  padding: var(--sp-3) var(--sp-5);
+  background: var(--card);
+  border: 1px solid var(--mist-500);
+  border-radius: var(--r-pill);
+  box-shadow: var(--sh-3);
+  font-size: var(--fs-meta);
+  color: var(--mist-700);
+  animation: toast-rise var(--t-base) both;
+}
+.help-toast-quiet {
+  border-color: var(--line-strong);
+  color: var(--ink-soft);
+}
+/* 从下 8px 浮上来：让「刚刚发生了一件事」被眼角余光接住。
+   prefers-reduced-motion 的全局兜底会把时长压到 0.01ms，位移不会真的发生。 */
+@keyframes toast-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 .facelist {
@@ -1161,6 +1288,7 @@ a.door:active {
   }
   .btn:active,
   .chip:active,
+  .copy-btn:active,
   a.card:hover,
   .emergency-btn:active {
     transform: none;
