@@ -1,49 +1,57 @@
 import { Link } from 'react-router-dom'
+import { Compass, MessageCircle, NotebookPen } from 'lucide-react'
+import forestImg from '../assets/forest-home.jpg'
 
-// 首页 = 三段式入口：倾诉树洞 / 指路灯 / 日常管家
-// 三张卡的说明取自 PRD v5.0 第 2 节的模块定义，不另造营销话术
+// 首页 = 一整幅夜森林插画（2026-10-13 晚老板定调：不要格子卡片，画面要完整，
+// 功能收进屏幕边缘——参考「不背单词 / now 冥想」）。
+// 顶部只留问候语；三个入口收进底部一排小卡；名称与引导语仍是老板原话，不自造。
+// 插画为 AI 生成（不可用老板原图，版权）；它是氛围主体，纯装饰，alt 留空不进无障碍树。
+// 危机入口不放在画面里：导航「求助」仍全站 1 次点击可达（红线，永久不可砍）。
+function greeting() {
+  const h = new Date().getHours()
+  if (h < 5) return '夜深了'
+  if (h < 11) return '早上好'
+  if (h < 14) return '中午好'
+  if (h < 18) return '下午好'
+  return '晚上好'
+}
+
 function Home() {
   return (
-    <>
-      <header className="hero">
-        <h1>一个出口，一盏灯，一个每天在的伴</h1>
-        <p className="hero-sub">给说不清哪里不对、就是觉得没什么意思的你</p>
-        <p className="hero-note">免费 · 打开就能用 · 没有必须完成的步骤</p>
+    <section className="scene">
+      <img className="scene-bg" src={forestImg} alt="" aria-hidden="true" />
+      {/* 上下两层薄纱：压暗插画边缘，保证问候语与门卡的可读性，也让画面更「沉」 */}
+      <div className="scene-veil" aria-hidden="true" />
+
+      <header className="scene-greet">
+        <h1>{greeting()}</h1>
+        <p>这里很安静，想待多久都行。</p>
       </header>
 
-      <section className="zone">
-        <h2>从哪扇门进都可以</h2>
-        <p className="zone-tip">三件事，没有先后，也没有进度要求</p>
-        <div className="cards">
-          <Link to="/talk" className="card">
-            <span className="card-tag">想说点什么的时候</span>
-            <h3>倾诉树洞</h3>
-            <p>说说今天的事。AI 会听着，不评价、不劝你</p>
-          </Link>
-          <Link to="/guide" className="card">
-            <span className="card-tag">不知道该往哪走的时候</span>
-            <h3>指路灯</h3>
-            <p>做个小测评、领一件十分钟的小事、看一段书影音 —— 你自己挑</p>
-          </Link>
-          <Link to="/daily" className="card">
-            <span className="card-tag">想留个记号的时候</span>
-            <h3>日常管家</h3>
-            <p>记一下今天的心情，或者那件小到不用努力的事。不想写就不写</p>
-          </Link>
-        </div>
-      </section>
-
-      <section className="zone">
-        {/* 首页再给危机入口一个显眼位置：导航与页脚已保证「任意页 1 次点击可达」 */}
-        <div className="cards">
-          <Link to="/help" className="card card-crisis">
-            <span className="card-tag">现在很难熬的话，先看这里</span>
-            <h3>我需要求助资源</h3>
-            <p>热线号码、该找谁、怎么去医院</p>
-          </Link>
-        </div>
-      </section>
-    </>
+      <nav className="scene-door" aria-label="三个入口">
+        <Link to="/talk" className="door">
+          <span className="door-icon" aria-hidden="true">
+            <MessageCircle size={18} strokeWidth={1.75} />
+          </span>
+          <h3>听你说</h3>
+          <p>想说就说，AI 会认真听。</p>
+        </Link>
+        <Link to="/guide" className="door">
+          <span className="door-icon" aria-hidden="true">
+            <Compass size={18} strokeWidth={1.75} />
+          </span>
+          <h3>找方向</h3>
+          <p>做个小测评、领一件小事，帮你找到方向。</p>
+        </Link>
+        <Link to="/daily" className="door">
+          <span className="door-icon" aria-hidden="true">
+            <NotebookPen size={18} strokeWidth={1.75} />
+          </span>
+          <h3>写一写</h3>
+          <p>记下今天的心情，想写就写，不写也行。</p>
+        </Link>
+      </nav>
+    </section>
   )
 }
 

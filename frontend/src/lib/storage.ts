@@ -28,7 +28,7 @@ export const bumpCounter = (key: string): number => {
   return next
 }
 
-// 结构化偏好的本地读写（如指路灯勾选的主题）。读失败一律回 null，由调用方给默认值——
+// 结构化偏好的本地读写（如找方向勾选的主题）。读失败一律回 null，由调用方给默认值——
 // 不做版本迁移：这些值只是偏好，丢了也只需用户重新点一次，不值得为它引入迁移逻辑
 export const readJson = <T>(key: string): T | null => {
   const raw = readRaw(key)

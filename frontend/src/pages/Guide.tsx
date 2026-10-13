@@ -6,7 +6,8 @@ import { microTasks } from '../data/tasks'
 import { matchThemes, themeLabel, themes, type ThemeId } from '../data/themes'
 import { readJson, writeJson } from '../lib/storage'
 
-// 指路灯（PRD v5.0 模块二）＝ 测评 + 行动小任务 + 书影音，三条线都由「我现在在意什么」驱动
+// 找方向（PRD v5.0 模块二，原稿叫「指路灯」，2026-10-13 老板改定名）＝ 测评 + 行动小任务 + 书影音，
+// 三条线都由「我现在在意什么」驱动
 // 页面设计立场：不排序、不推荐「最适合你的」、不显示完成了多少——用户挑哪件都行，不挑也行
 const THEME_KEY = 'xinyu.guide.themes'
 
@@ -41,7 +42,7 @@ function Guide() {
 
   return (
     <div className="guide">
-      <h1>指路灯</h1>
+      <h1>找方向</h1>
       <p className="guide-sub">
         不知道该往哪走的时候，从这里挑一件。三样东西没有顺序，也不用都做。
       </p>

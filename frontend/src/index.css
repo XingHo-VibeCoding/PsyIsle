@@ -1,237 +1,1165 @@
-/* 心屿全局样式：温暖治愈调性——奶油底 + 蜜桃橙 + 雾绿；全站禁红色警示色 */
+/* ==========================================================================
+   心屿设计系统 v1.0
+   --------------------------------------------------------------------------
+   气质：小王子式的治愈——夜空里的一点星、麦子的金、沙一样柔的底。
+   克制优先：装饰永远退到内容后面（本产品的灵魂是「不催你」）。
 
+   SSOT：颜色 / 字号 / 字重 / 行高 / 间距 / 圆角 / 阴影 / 动效 只在本节定义。
+   组件与页面区一律引用 var(--token)，不再写字面量；改视觉只改第 1 节。
+   漏掉某个 token 时会掉回浏览器默认值，所以新写样式前先来这一节挑一个。
+   ========================================================================== */
+
+/* ==========================================================================
+   1. 设计令牌
+   ========================================================================== */
 :root {
+  /* ---- 1.1 品牌色阶 · 蜜桃橙（动作色）：色阶越深越实，700 起才允许承载文字 ---- */
+  --peach-50: #fdf0e4;
+  --peach-100: #f9ddc3;
+  --peach-300: #f2a65a;
+  --peach-500: #e8834a;
+  --peach-700: #a84a20; /* 文字 / 主按钮底：对奶油底 5.7:1 */
+  --peach-800: #8a3b17; /* hover */
+  --peach-900: #6e2e11; /* active */
+
+  /* ---- 1.2 平静色阶 · 雾绿（安抚色）：危机页与所有「慢下来」的场景 ---- */
+  --mist-50: #eaf3e6;
+  --mist-100: #dcebd6;
+  --mist-500: #6e8f6b;
+  --mist-700: #4a6b48; /* 文字：对奶油底 5.4:1 */
+  --mist-800: #3b5439; /* hover / active 底 */
+
+  /* ---- 1.4 淡紫（马卡龙氛围色）· 2026-10-13 晚老板定调：奶油白/淡紫/蜜桃橙 ----
+     300 只做装饰（小角色身体、晕染）；700 起才可承载文字。 */
+  --lav-50: #f4f1fb;
+  --lav-100: #eae4f8;
+  --lav-300: #cfc2ee;
+  --lav-500: #a08ccf;
+  --lav-700: #5f5196; /* 文字：对 lav-50 实测 6.1:1、对白 6.8:1 */
+
+  /* ---- 1.5 表面与描边 ---- */
   --cream: #fff8f0;
+  --sand: #efe0cc;
   --card: #ffffff;
-  --border: #f5e6d8;
-  --peach: #e8834a;
-  --peach-soft: #f2a65a;
-  --peach-bg: #fdf0e4;
-  --mist: #6e8f6b;
-  --mist-bg: #eaf3e6;
-  --ink: #4a4340;
-  --ink-soft: #5b5350;
-  --ink-mute: #6e6660;
-  --focus: #6e8f6b;
-  /* Day 9 对比度修复：--peach/--mist 只留给边框和底色，文字一律用下面两个深色（对奶油底均 ≥4.5:1） */
-  --peach-deep: #a84a20;
-  --mist-ink: #4a6b48;
+  --line: #f0e2d3;
+  --line-strong: #e4d2be;
+
+  /* ---- 1.5b 场景色 · 首页夜森林插画专用（2026-10-13 晚老板定调：整幅插画，画面完整优先）----
+     纱是压在插画上的黑色薄层，让白字与门卡不用跟树影打架 */
+  --scene-veil-top: rgba(12, 38, 33, 0.52);
+  --scene-veil-bottom: rgba(9, 30, 25, 0.6);
+  --door-bg: rgba(255, 252, 247, 0.92); /* 门卡磨砂底：白纸盖在画面上 */
+
+  /* ---- 1.6 文字：四档全部实测 ≥4.5:1（见 docs/设计规范.md）---- */
+  --ink: #3c3634;      /* 标题 */
+  --ink-soft: #524b48; /* 正文 */
+  --ink-mute: #6b635d; /* 次要说明 */
+  --on-dark: #ffffff;  /* 深底上的字 */
+
+  --focus: var(--mist-500);
+
+  /* ---- 1.7 字体族：iOS/macOS 命中苹方，Windows 命中微软雅黑，system-ui 兜底 ---- */
+  --font-sans: -apple-system, BlinkMacSystemFont, "PingFang SC", "HarmonyOS Sans SC",
+    "Microsoft YaHei", "Source Han Sans SC", system-ui, "Segoe UI", sans-serif;
+
+  /* ---- 1.8 字号：6 档，相邻至少差 2px ----
+     改前是全站 11 档（13/14/15/16/18/19/20/22/24/26/28），13–16 四档只差 1px、
+     视觉上分不出层级；现在收敛到 6 档。 */
+  --fs-display: 2.125rem; /* 34px 首页主标语、危机页号码：一眼就要看到 */
+  --fs-h1: 1.625rem;      /* 26px 页面标题 */
+  --fs-h2: 1.25rem;       /* 20px 区块标题 */
+  --fs-h3: 1.125rem;      /* 18px 卡片标题 */
+  --fs-body: 1rem;        /* 16px 正文 */
+  --fs-meta: 0.875rem;    /* 14px 次要说明（全站最小：13px 在深夜使用的产品里太小） */
+
+  /* ---- 1.9 字重：只用 400 / 600 ----
+     500 在「Microsoft YaHei」上没有对应字重、会被回退成 400，
+     于是标题与正文同重、层级只剩字号在撑。600 两个平台都有真字重。 */
+  --fw-normal: 400;
+  --fw-bold: 600;
+
+  /* ---- 1.10 行高：标题紧、正文松 ----
+     改前 body 的 1.8 被标题继承，28px 标题行高 50.4px，层级被拉散。 */
+  --lh-title: 1.35;
+  --lh-body: 1.8;
+
+  /* ---- 1.11 间距：4px 基准 ----
+     改前实测出现过 2/8/10/12/14/16/18/20/22/24/26/30/40/48/56 共 15 种，
+     其中 14/18/22/26/30 都不在 4 的倍数上。 */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+  --sp-8: 32px;
+  --sp-10: 40px;
+  --sp-12: 48px;
+  --sp-16: 64px;
+
+  /* ---- 1.12 圆角：4 档（--r-lg 24 是普通卡片，
+     2026-10-13 晚老板要求「所有卡片都做大圆角」后从 20 提上来；
+     曾有的 --r-xl 28 随 bento 门卡一起退役）---- */
+  --r-sm: 8px;
+  --r-md: 14px;
+  --r-lg: 24px;
+  --r-pill: 999px;
+
+  /* ---- 1.13 阴影：暖调。灰黑阴影会把奶油底压脏 ---- */
+  --sh-1: 0 1px 2px rgba(110, 74, 42, 0.06);
+  --sh-2: 0 6px 18px -6px rgba(110, 74, 42, 0.14);
+  --sh-3: 0 14px 34px -14px rgba(110, 74, 42, 0.22);
+
+  /* ---- 1.14 动效 ---- */
+  --t-fast: 120ms ease;
+  --t-base: 200ms ease;
+
+  /* ---- 1.15 布局 ---- */
+  --w-page: 720px; /* 长文阅读宽 */
+  --w-wide: 960px; /* 卡片栅格宽 */
+  --tap: 44px;     /* 触控目标最小边长（WCAG 2.5.5 AA 级为 24px，这里是移动端留的余量） */
 }
 
-* { margin: 0; padding: 0; box-sizing: border-box; }
+/* ==========================================================================
+   2. 基础层
+   ========================================================================== */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 100%;
+  -webkit-text-size-adjust: 100%; /* 横屏时不自动放大字号 */
+}
 
 body {
-  font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
-  background: var(--cream);
+  font-family: var(--font-sans);
+  font-size: var(--fs-body);
+  font-weight: var(--fw-normal);
+  line-height: var(--lh-body);
   color: var(--ink-soft);
-  line-height: 1.8;
+  background: var(--cream);
 }
 
-a { color: inherit; }
+/* 标题统一走「紧行高 + 真 600」；字号由各自的作用域决定 */
+h1,
+h2,
+h3 {
+  font-weight: var(--fw-bold);
+  line-height: var(--lh-title);
+  color: var(--ink);
+}
 
-:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+a {
+  color: inherit;
+}
 
-.app { min-height: 100vh; display: flex; flex-direction: column; }
-.main { flex: 1; width: 100%; }
+button {
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+}
 
-/* ---------- 导航 ---------- */
+/* 键盘焦点：全站统一，不用改各组件 */
+:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: var(--r-sm);
+}
+
+.app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+.main {
+  flex: 1;
+  width: 100%;
+}
+
+/* ---- 字号工具类：新页面直接套类名，不要再写死 px ---- */
+.t-display { font-size: var(--fs-display); }
+.t-h1 { font-size: var(--fs-h1); }
+.t-h2 { font-size: var(--fs-h2); }
+.t-h3 { font-size: var(--fs-h3); }
+.t-body { font-size: var(--fs-body); }
+.t-meta { font-size: var(--fs-meta); color: var(--ink-mute); }
+
+/* ==========================================================================
+   3. 基础组件
+   ========================================================================== */
+
+/* ---- 3.1 按钮：默认 / hover / active / 禁用 四态齐全 ----
+   触屏设备没有 hover。没有 :active 的按钮，手指按下去毫无反应，
+   在手机上就等于「按钮是坏的」——所以按下反馈不是锦上添花。 */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--tap);
+  padding: var(--sp-3) var(--sp-8);
+  border: none;
+  border-radius: var(--r-pill);
+  font-size: var(--fs-body);
+  font-weight: var(--fw-bold);
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color var(--t-fast), color var(--t-fast), transform var(--t-fast),
+    box-shadow var(--t-fast);
+}
+.btn:active {
+  transform: translateY(1px);
+}
+.btn:disabled,
+.btn[aria-disabled='true'] {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.btn-primary {
+  background: var(--peach-700);
+  color: var(--on-dark);
+  box-shadow: var(--sh-1);
+}
+.btn-primary:hover {
+  background: var(--peach-800);
+  box-shadow: var(--sh-2);
+}
+.btn-primary:active {
+  background: var(--peach-900);
+}
+
+.btn-quiet {
+  background: var(--mist-50);
+  color: var(--mist-700);
+}
+.btn-quiet:hover {
+  background: var(--mist-100);
+}
+.btn-quiet:active {
+  background: var(--mist-800);
+  color: var(--on-dark);
+}
+
+/* ---- 3.2 选择芯片：未选 / 悬停 / 选中 / 按下 ---- */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap);
+  padding: var(--sp-2) var(--sp-5);
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  color: var(--ink-mute);
+  font-family: inherit;
+  font-size: var(--fs-meta);
+  cursor: pointer;
+  transition: background-color var(--t-fast), border-color var(--t-fast), color var(--t-fast),
+    transform var(--t-fast);
+}
+.chip:hover {
+  border-color: var(--peach-300);
+  color: var(--peach-700);
+}
+.chip:active {
+  transform: translateY(1px);
+}
+/* 选中态同时变底、变边、变字重、加 aria-pressed —— 四种信号，色盲用户也能分辨 */
+.chip-on {
+  background: var(--peach-50);
+  border-color: var(--peach-500);
+  color: var(--peach-700);
+  font-weight: var(--fw-bold);
+}
+
+/* ---- 3.3 卡片 ---- */
+.card {
+  display: block;
+  padding: var(--sp-6);
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  box-shadow: var(--sh-1);
+  text-decoration: none;
+  transition: transform var(--t-base), border-color var(--t-base), box-shadow var(--t-base);
+}
+/* 只有真能点的卡片（<a>）才浮起来；纯容器卡片保持安静 */
+a.card:hover {
+  transform: translateY(-2px);
+  border-color: var(--peach-300);
+  box-shadow: var(--sh-2);
+}
+a.card:active {
+  transform: translateY(0);
+  box-shadow: var(--sh-1);
+}
+
+/* ---- 3.4 卡片标签 ---- */
+.card-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--sp-1) var(--sp-3);
+  margin-bottom: var(--sp-3);
+  background: var(--peach-50);
+  border-radius: var(--r-pill);
+  color: var(--peach-700);
+  font-size: var(--fs-meta);
+}
+
+/* ==========================================================================
+   4. 页面层 · 导航与页脚
+   ========================================================================== */
+
 /* width:100% 必须显式声明：列向 flex 里 auto margin 会把 .nav 收缩成 fit-content 并居中，
    导致 logo 与正文左缘错位、「求助」的 margin-left:auto 失效（Day 9 审查发现） */
 .nav {
-  display: flex; align-items: center; gap: 24px; width: 100%;
-  max-width: 960px; margin: 0 auto; padding: 18px 24px;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-6);
+  width: 100%;
+  max-width: var(--w-wide);
+  margin: 0 auto;
+  padding: var(--sp-4) var(--sp-6);
 }
-.logo { font-size: 20px; font-weight: 500; color: var(--peach-deep); text-decoration: none; }
-.nav a:not(.logo) { color: var(--ink-mute); text-decoration: none; font-size: 15px; min-height: 44px; display: inline-flex; align-items: center; }
-.nav a:not(.logo):hover { color: var(--peach-deep); }
-.nav-help { margin-left: auto; color: var(--mist-ink) !important; font-weight: 500; }
-
-/* ---------- 首页 ---------- */
-.hero { max-width: 960px; margin: 0 auto; padding: 56px 24px 20px; text-align: center; }
-.hero h1 { font-size: 28px; color: var(--ink); font-weight: 500; margin-bottom: 10px; }
-.hero-sub { color: var(--ink-mute); margin-bottom: 6px; }
-.hero-note { color: var(--mist-ink); }
-
-/* 按钮统一一套 padding：次要按钮此前是 8px 26px、主按钮 10px 34px，同组件两种尺寸 */
-.btn {
-  display: inline-flex; align-items: center; justify-content: center;
-  min-height: 44px; padding: 10px 30px; border-radius: 999px;
-  text-decoration: none; font-size: 16px; border: none; cursor: pointer;
+/* 五个入口全部按 --tap 撑开：logo 40×36、求助 30×44 曾都点不中 */
+.logo {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap);
+  padding-right: var(--sp-1);
+  font-size: var(--fs-h2);
+  font-weight: var(--fw-bold);
+  color: var(--peach-700);
+  text-decoration: none;
 }
-.btn-primary { background: var(--peach-deep); color: #fff; font-weight: 500; }
-.btn-primary:hover { background: #8f3d18; }
-.btn-quiet { background: var(--mist-bg); color: var(--mist-ink); }
-.btn-quiet:hover { background: #dcebd6; }
-
-/* 区块垂直节奏统一为 40px：区块自身上下各留 20px，两区块相接 = 40，
-   hero 底部也留 20px 与之对齐（修复前 hero→首区块 ≈88px、区块间 28px） */
-.zone { max-width: 960px; margin: 0 auto; padding: 20px 24px; }
-.zone h2 { font-size: 20px; color: var(--ink); font-weight: 500; margin-bottom: 6px; }
-.zone-tip { font-size: 14px; color: var(--ink-mute); margin-bottom: 16px; }
-
-.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 18px; }
-
-.card {
-  background: var(--card); border: 1px solid var(--border); border-radius: 16px;
-  padding: 22px 24px; text-decoration: none; display: block;
-  transition: transform 0.15s ease, border-color 0.15s ease;
+.nav a:not(.logo) {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap);
+  padding: 0 var(--sp-1);
+  color: var(--ink-mute);
+  font-size: var(--fs-meta);
+  text-decoration: none;
+  transition: color var(--t-fast);
 }
-.card:hover { transform: translateY(-2px); border-color: var(--peach-soft); }
-.card h3 { font-size: 16px; color: var(--ink); font-weight: 500; margin-bottom: 6px; }
-.card p { font-size: 14px; color: var(--ink-mute); }
-.card-tag {
-  display: inline-block; font-size: 13px; color: var(--peach-deep);
-  background: var(--peach-bg); border-radius: 999px; padding: 2px 12px; margin-bottom: 10px;
+.nav a:not(.logo):hover {
+  color: var(--peach-700);
 }
-.card-crisis { background: var(--mist-bg); border-color: var(--mist); }
-.card-crisis h3 { color: var(--mist-ink); }
-.card-crisis .card-tag { color: var(--mist-ink); background: #fff; }
-
-/* ---------- 安慰卡 ---------- */
-.comfort-card button { margin-top: 12px; }
-.comfort-text { font-size: 16px; color: var(--ink); min-height: 58px; display: flex; align-items: center; }
-.comfort-guide { margin-top: 12px; font-size: 13px; color: var(--mist-ink); }
-.comfort-guide a { color: var(--mist-ink); }
-
-/* ---------- 呼吸练习 ---------- */
-.breathe { max-width: 720px; margin: 0 auto; padding: 40px 24px 48px; text-align: center; }
-.breathe h1 { font-size: 24px; color: var(--ink); font-weight: 500; margin-bottom: 6px; }
-.breathe-sub { font-size: 14px; color: var(--ink-mute); margin-bottom: 24px; }
-
-.breathe-stage { display: flex; justify-content: center; padding: 20px 0; }
-.breathe-circle {
-  width: 220px; height: 220px; border-radius: 50%;
-  background: var(--mist-bg); border: 2px solid var(--mist);
-  display: flex; align-items: center; justify-content: center;
+/* 选择器写到 a.nav-help：原来的 !important 是靠优先级硬压的，这里用结构解决。
+   padding 往左借、右边留 0：既把点击区补到 44px，又让「求助」保持贴右缘对齐正文 */
+.nav a.nav-help {
+  margin-left: auto;
+  padding-left: var(--sp-4);
+  padding-right: 0;
+  font-weight: var(--fw-bold);
+  color: var(--mist-700);
 }
-@media (max-width: 375px) { .breathe-circle { width: 180px; height: 180px; } }
-.breathe-phase { font-size: 18px; color: var(--mist-ink); font-weight: 500; }
-.breathe-hint { min-height: 30px; font-size: 14px; color: var(--ink-mute); margin-bottom: 6px; }
-.breathe-meta { font-size: 13px; color: var(--ink-mute); margin-bottom: 6px; }
-.breathe-done { color: var(--mist-ink); margin: 8px 0 16px; }
-.breathe-actions { display: flex; gap: 14px; justify-content: center; margin-top: 16px; flex-wrap: wrap; }
 
-/* ---------- 危机资源页 ---------- */
-.help { max-width: 720px; margin: 0 auto; padding: 40px 24px 48px; }
-.help h1 { font-size: 24px; color: var(--ink); font-weight: 500; margin-bottom: 8px; }
-.help-note { color: var(--mist-ink); margin-bottom: 24px; }
-
-.emergency { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin-bottom: 32px; }
-.emergency-btn {
-  background: var(--mist-bg); border-radius: 16px; padding: 18px 20px;
-  text-decoration: none; display: flex; flex-direction: column; gap: 4px;
+/* ---- 首页沉浸模式：导航浮在插画上，字换浅色；页脚隐藏（危机入口由导航「求助」承担，
+   红线不变：仍 1 次点击可达）。.app 是列向 flex，导航改 absolute 脱离文档流，
+   场景（.scene 的 min-height:100dvh）才能占满整屏。 */
+.app-immersive .nav {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 10;
 }
-.emergency-btn:hover { background: #dcebd6; }
-.emergency-btn strong { font-size: 26px; color: var(--ink); font-weight: 600; }
-.emergency-btn span { font-size: 13px; color: var(--ink-mute); }
-
-.help-section { margin-bottom: 32px; }
-.help-section h2 { font-size: 18px; color: var(--ink); font-weight: 500; margin-bottom: 12px; }
-.help-meta { font-size: 13px; color: var(--ink-mute); margin-bottom: 12px; }
-.help-tip { font-size: 15px; color: var(--mist-ink); margin-top: 12px; }
-
-.hotline-list { list-style: none; display: grid; gap: 12px; }
-.hotline-item {
-  background: var(--card); border: 1px solid var(--border); border-radius: 14px;
-  padding: 14px 18px;
+.app-immersive .logo {
+  color: var(--on-dark);
 }
-/* hotline-row 只负责横排布局，padding 沿用 .hotline-item 的 14px 18px（此前两套卡片一厚一薄） */
-.hotline-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 14px; }
-.hotline-number { font-size: 19px; font-weight: 600; color: var(--ink); text-decoration: none; }
-.hotline-number:hover { color: var(--peach-deep); }
-.hotline-org { font-size: 14px; color: var(--ink-soft); }
-.hotline-meta { font-size: 13px; color: var(--ink-mute); }
-.hotline-region { font-size: 15px; color: var(--ink); font-weight: 500; }
-
-.facelist { list-style: none; display: grid; gap: 8px; padding-left: 0; }
-.facelist li { padding-left: 20px; position: relative; font-size: 14px; color: var(--ink-soft); }
-.facelist li::before { content: "·"; position: absolute; left: 6px; color: var(--mist); }
-.facelist strong { color: var(--ink); font-weight: 500; }
-
-/* ---------- 占位页 ---------- */
-.wip { max-width: 720px; margin: 0 auto; padding: 64px 24px; text-align: center; }
-.wip h1 { font-size: 24px; color: var(--ink); font-weight: 500; margin-bottom: 10px; }
-.wip p { color: var(--ink-mute); margin-bottom: 8px; }
-.wip-actions { display: flex; gap: 14px; justify-content: center; margin-top: 24px; flex-wrap: wrap; }
-
-/* ---------- 指路灯 ---------- */
-.guide { max-width: 960px; margin: 0 auto; padding: 40px 24px 48px; }
-.guide h1 { font-size: 24px; color: var(--ink); font-weight: 500; margin-bottom: 6px; }
-.guide-sub { color: var(--ink-mute); }
-.zone-flat { padding-left: 0; padding-right: 0; }
-
-.chips { display: flex; flex-wrap: wrap; gap: 10px; }
-.chip {
-  min-height: 44px; padding: 8px 22px; border-radius: 999px; cursor: pointer;
-  background: var(--card); border: 1px solid var(--border);
-  color: var(--ink-mute); font-size: 15px; font-family: inherit;
+.app-immersive .nav a:not(.logo) {
+  color: rgba(255, 255, 255, 0.88);
 }
-.chip:hover { border-color: var(--peach-soft); color: var(--peach-deep); }
-.chip-on { background: var(--peach-bg); border-color: var(--peach-soft); color: var(--peach-deep); font-weight: 500; }
+.app-immersive .nav a:not(.logo):hover {
+  color: var(--on-dark);
+}
+.app-immersive .nav a.nav-help {
+  color: var(--mist-50); /* 浅雾绿在深绿画面上既醒目又不刺眼 */
+}
+.app-immersive .footer {
+  display: none;
+}
 
-.task-spotlight { border-color: var(--peach-soft); }
-.task-actions { display: flex; gap: 12px; margin-top: 16px; flex-wrap: wrap; }
-
-.task-list { list-style: none; display: grid; gap: 12px; }
-.task-item { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 16px 20px; }
-.task-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; }
-.task-head strong { font-size: 15px; color: var(--ink); font-weight: 500; }
-.task-min { font-size: 13px; color: var(--ink-mute); }
-.task-hint { font-size: 14px; color: var(--ink-mute); margin-top: 4px; }
-.task-link { display: inline-flex; align-items: center; min-height: 44px; margin-top: 4px; font-size: 14px; color: var(--peach-deep); text-decoration: none; }
-.task-link:hover { text-decoration: underline; }
-
-.lib-group { margin-top: 20px; }
-.lib-kind { font-size: 15px; color: var(--mist-ink); font-weight: 500; margin-bottom: 10px; }
-.lib-list { list-style: none; display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
-.lib-item { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 16px 20px; }
-.lib-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; }
-.lib-head strong { font-size: 15px; color: var(--ink); font-weight: 500; }
-.lib-by { font-size: 13px; color: var(--ink-mute); }
-.lib-note { font-size: 14px; color: var(--ink-mute); margin-top: 4px; }
-
-.card-pending { background: var(--peach-bg); }
-.card-pending .card-tag { background: #fff; }
-
-.guide-foot { font-size: 14px; color: var(--ink-mute); margin-top: 28px; }
-.guide-foot a { color: var(--mist-ink); }
-
-/* ---------- 关于与免责 ---------- */
-.about { max-width: 720px; margin: 0 auto; padding: 40px 24px 48px; }
-.about h1 { font-size: 24px; color: var(--ink); font-weight: 500; margin-bottom: 8px; }
-.about-lead { font-size: 16px; color: var(--ink-soft); }
-.about-section { margin-top: 28px; }
-.about-section h2 { font-size: 18px; color: var(--ink); font-weight: 500; margin-bottom: 10px; }
-.about-section p { font-size: 15px; color: var(--ink-soft); }
-.about-section p + p { margin-top: 8px; }
-.about-section a { color: var(--mist-ink); }
-.about-list { list-style: none; display: grid; gap: 10px; }
-.about-list li { font-size: 15px; color: var(--ink-soft); padding-left: 20px; position: relative; }
-.about-list li::before { content: "·"; position: absolute; left: 6px; color: var(--mist); }
-.about-list strong { color: var(--ink); font-weight: 500; }
-.about-actions { display: flex; gap: 14px; margin-top: 32px; flex-wrap: wrap; }
-
-/* ---------- 页脚 ---------- */
 .footer {
-  text-align: center; padding: 22px 24px 26px;
-  border-top: 1px solid var(--border);
+  padding: var(--sp-6) var(--sp-6) var(--sp-8);
+  border-top: 1px solid var(--line);
+  text-align: center;
 }
-.footer-help { color: var(--mist-ink); font-size: 14px; text-decoration: none; display: inline-block; min-height: 44px; line-height: 44px; }
-.footer-help:hover { text-decoration: underline; }
-.footer p { font-size: 13px; color: var(--ink-mute); }
-.footer-about { color: var(--ink-mute); font-size: 13px; text-decoration: none; }
-.footer-about:hover { color: var(--peach); text-decoration: underline; }
+.footer-help {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap);
+  padding: 0 var(--sp-2);
+  color: var(--mist-700);
+  font-size: var(--fs-body);
+  text-decoration: none;
+}
+.footer-help:hover {
+  text-decoration: underline;
+}
+.footer p {
+  color: var(--ink-mute);
+  font-size: var(--fs-meta);
+}
+.footer-about {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap);
+  padding: 0 var(--sp-2);
+  color: var(--ink-mute);
+  font-size: var(--fs-meta);
+  text-decoration: none;
+  transition: color var(--t-fast);
+}
+.footer-about:hover {
+  color: var(--peach-700);
+  text-decoration: underline;
+}
 
-/* ---------- 移动端 ---------- */
+/* ==========================================================================
+   5. 页面层 · 首页
+   ========================================================================== */
+
+/* ---- 场景 = 一整幅夜森林插画（2026-10-13 晚老板定调：不要格子卡片，画面要完整，
+   功能收进屏幕边缘，参考「不背单词 / now 冥想」的克制）----
+   结构：插画铺满整屏 → 上下两层黑纱压边 → 顶部只留问候语 → 底部一排三张小门卡。
+   插画是氛围主体、纯装饰（alt 空）；导航浮在画面上（.app-immersive），页脚在首页隐藏。
+   之后的「写一写」这类要打字的页面沿用插画时：底图调淡或加厚纱，字永远比画重要。 */
+.scene {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  min-height: 100dvh; /* 手机地址栏收起时不跳动 */
+  overflow: hidden;
+}
+.scene-bg {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  /* 视线落点：画里的小人与石阶在画面中轴，中上偏移让它不被门卡遮住 */
+  object-position: center 30%;
+}
+.scene-veil {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background:
+    linear-gradient(180deg, var(--scene-veil-top) 0%, transparent 30%),
+    linear-gradient(0deg, var(--scene-veil-bottom) 0%, transparent 36%);
+  pointer-events: none;
+}
+.scene-greet {
+  padding: calc(var(--sp-16) + var(--sp-6)) var(--sp-6) 0; /* 顶部让开浮动导航 */
+  text-align: center;
+  color: var(--on-dark);
+}
+.scene-greet h1 {
+  color: var(--on-dark);
+  font-size: var(--fs-h1);
+  margin-bottom: var(--sp-1);
+}
+.scene-greet p {
+  color: rgba(255, 255, 255, 0.85);
+  font-size: var(--fs-meta);
+}
+
+/* ---- 门卡：底部一排三张磨砂小卡。卡片是白纸、画面是画，边界靠磨砂不靠描边 ---- */
+.scene-door {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--sp-3);
+  width: 100%;
+  max-width: 640px;
+  margin: auto auto 0;
+  padding: var(--sp-10) var(--sp-4) var(--sp-6); /* 顶距兼作画面留白 */
+}
+.door {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  min-height: var(--tap);
+  padding: var(--sp-4) var(--sp-2);
+  background: var(--door-bg);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-radius: var(--r-lg);
+  box-shadow: var(--sh-2);
+  text-decoration: none;
+  transition: transform var(--t-base), box-shadow var(--t-base);
+}
+a.door:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--sh-3);
+}
+a.door:active {
+  transform: translateY(0);
+  box-shadow: var(--sh-1);
+}
+.door-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 36px;
+  height: 36px;
+  margin-bottom: var(--sp-2);
+  border-radius: var(--r-pill);
+  background: var(--peach-50);
+  color: var(--peach-700);
+}
+.door h3 {
+  font-size: var(--fs-body);
+  margin-bottom: var(--sp-1);
+}
+.door p {
+  color: var(--ink-mute);
+  font-size: var(--fs-meta);
+  line-height: 1.6;
+}
+
+/* ---- 拟人小角色：纯 CSS 画（不引图片、不手绘 SVG）----
+   纪律：只陪伴不功能——不承载信息、不可点、aria-hidden 不进无障碍树；
+   同屏最多一只；呼吸浮动 4s 一轮，prefers-reduced-motion 的全局兜底会让它静止。 */
+.mascot {
+  flex: none;
+}
+.mascot-body {
+  position: relative;
+  display: block;
+  width: 72px;
+  height: 66px;
+  border-radius: 48% 48% 46% 46% / 56% 56% 44% 44%;
+  background:
+    radial-gradient(130% 130% at 30% 18%, #ffffff 0%, transparent 48%),
+    linear-gradient(160deg, var(--lav-300) 0%, var(--lav-100) 82%);
+  box-shadow: var(--sh-2);
+  animation: mascot-breathe 4s ease-in-out infinite;
+}
+.wip .mascot-body {
+  /* 占位页里是它的「出场位」，放大一号（首页已换成整幅插画，hero 不在了） */
+  width: 116px;
+  height: 106px;
+}
+.mascot-eye {
+  position: absolute;
+  top: 40%;
+  width: 7px;
+  height: 10px;
+  border-radius: var(--r-pill);
+  background: var(--ink);
+}
+.mascot-eye-l { left: 36%; }
+.mascot-eye-r { right: 36%; }
+.mascot-blush {
+  position: absolute;
+  top: 57%;
+  width: 14px;
+  height: 7px;
+  border-radius: var(--r-pill);
+  background: rgba(232, 131, 74, 0.32);
+}
+.mascot-blush-l { left: 22%; }
+.mascot-blush-r { right: 22%; }
+.mascot-smile {
+  position: absolute;
+  top: 52%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 16px;
+  height: 9px;
+  border: 2.5px solid var(--ink);
+  border-top: none;
+  border-left-color: transparent;
+  border-right-color: transparent;
+  border-radius: 0 0 var(--r-pill) var(--r-pill);
+}
+@keyframes mascot-breathe {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+.zone {
+  max-width: var(--w-wide);
+  margin: 0 auto;
+  padding: var(--sp-5) var(--sp-6);
+}
+.zone h2 {
+  font-size: var(--fs-h2);
+  margin-bottom: var(--sp-1);
+}
+.zone-tip {
+  color: var(--ink-mute);
+  font-size: var(--fs-meta);
+  margin-bottom: var(--sp-4);
+}
+/* 嵌在 .guide 里的区块不再重复左右内边距，由 .guide 统一给 */
+.zone-flat {
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--sp-5);
+}
+.card h3 {
+  font-size: var(--fs-h3);
+  margin-bottom: var(--sp-2);
+}
+
+.card p {
+  color: var(--ink-mute);
+  font-size: var(--fs-meta);
+}
+
+/* ==========================================================================
+   6. 页面层 · 找方向
+   ========================================================================== */
+.guide {
+  max-width: var(--w-wide);
+  margin: 0 auto;
+  padding: var(--sp-10) var(--sp-6) var(--sp-12);
+}
+.guide h1 {
+  font-size: var(--fs-h1);
+  margin-bottom: var(--sp-2);
+}
+.guide-sub {
+  color: var(--ink-mute);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+}
+
+.task-spotlight {
+  border-color: var(--peach-300);
+  box-shadow: var(--sh-2);
+}
+.task-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-3);
+  margin-top: var(--sp-4);
+}
+
+.task-list {
+  list-style: none;
+  display: grid;
+  gap: var(--sp-3);
+}
+.task-item {
+  padding: var(--sp-4) var(--sp-5);
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+}
+.task-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--sp-1) var(--sp-3);
+}
+.task-head strong {
+  color: var(--ink);
+  font-size: var(--fs-body);
+  font-weight: var(--fw-bold);
+}
+.task-min {
+  color: var(--ink-mute);
+  font-size: var(--fs-meta);
+}
+.task-hint {
+  color: var(--ink-mute);
+  font-size: var(--fs-meta);
+  margin-top: var(--sp-1);
+}
+.task-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap);
+  margin-top: var(--sp-1);
+  color: var(--peach-700);
+  font-size: var(--fs-meta);
+  text-decoration: none;
+}
+.task-link:hover {
+  text-decoration: underline;
+}
+
+.lib-group {
+  margin-top: var(--sp-5);
+}
+.lib-kind {
+  font-size: var(--fs-h3);
+  color: var(--mist-700);
+  margin-bottom: var(--sp-2);
+}
+.lib-list {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: var(--sp-3);
+}
+.lib-item {
+  padding: var(--sp-4) var(--sp-5);
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+}
+.lib-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--sp-1) var(--sp-3);
+}
+.lib-head strong {
+  color: var(--ink);
+  font-size: var(--fs-body);
+  font-weight: var(--fw-bold);
+}
+.lib-by {
+  color: var(--ink-mute);
+  font-size: var(--fs-meta);
+}
+.lib-note {
+  color: var(--ink-mute);
+  font-size: var(--fs-meta);
+  margin-top: var(--sp-1);
+}
+
+.card-pending {
+  background: var(--peach-50);
+}
+.card-pending .card-tag {
+  background: var(--card);
+}
+
+.guide-foot {
+  color: var(--ink-mute);
+  font-size: var(--fs-meta);
+  margin-top: var(--sp-8);
+}
+.guide-foot a {
+  color: var(--mist-700);
+}
+/* 正文里夹着的行内链接：给纵向 padding 撑开点击区。
+   行内元素（display:inline）的纵向 padding 不撑行高、不影响排版，
+   只把可点范围向上向下各扩 16px —— 这是修「一行字里的链接点不准」最干净的办法。 */
+.guide-foot a,
+.about-section a,
+.comfort-guide a {
+  padding: var(--sp-4) 0;
+}
+
+/* ---- 安慰卡：内容是情绪本身，字号提到 h3 级让它被看见 ---- */
+.comfort-card button {
+  margin-top: var(--sp-3);
+}
+.comfort-text {
+  display: flex;
+  align-items: center;
+  min-height: 58px;
+  font-size: var(--fs-h3);
+  color: var(--ink);
+}
+.comfort-guide {
+  margin-top: var(--sp-3);
+  color: var(--mist-700);
+  font-size: var(--fs-meta);
+}
+.comfort-guide a {
+  color: var(--mist-700);
+}
+
+/* ==========================================================================
+   7. 页面层 · 呼吸练习
+   ========================================================================== */
+.breathe {
+  max-width: var(--w-page);
+  margin: 0 auto;
+  padding: var(--sp-10) var(--sp-6) var(--sp-12);
+  text-align: center;
+}
+.breathe h1 {
+  font-size: var(--fs-h1);
+  margin-bottom: var(--sp-2);
+}
+.breathe-sub {
+  color: var(--ink-mute);
+  font-size: var(--fs-meta);
+  margin-bottom: var(--sp-6);
+}
+.breathe-stage {
+  display: flex;
+  justify-content: center;
+  padding: var(--sp-5) 0;
+}
+.breathe-circle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 220px;
+  height: 220px;
+  background: var(--mist-50);
+  border: 2px solid var(--mist-500);
+  border-radius: 50%;
+  box-shadow: var(--sh-2);
+}
+.breathe-phase {
+  font-size: var(--fs-h3);
+  font-weight: var(--fw-bold);
+  color: var(--mist-700);
+}
+.breathe-hint {
+  min-height: 30px;
+  font-size: var(--fs-meta);
+  color: var(--ink-mute);
+  margin-bottom: var(--sp-2);
+}
+.breathe-meta {
+  font-size: var(--fs-meta);
+  color: var(--ink-mute);
+  margin-bottom: var(--sp-2);
+}
+.breathe-done {
+  color: var(--mist-700);
+  margin: var(--sp-2) 0 var(--sp-4);
+}
+.breathe-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--sp-3);
+  margin-top: var(--sp-4);
+}
+
+/* ==========================================================================
+   8. 页面层 · 危机资源页（全站最高优先级）
+   ========================================================================== */
+.help {
+  max-width: var(--w-page);
+  margin: 0 auto;
+  padding: var(--sp-10) var(--sp-6) var(--sp-12);
+}
+.help h1 {
+  font-size: var(--fs-h1);
+  margin-bottom: var(--sp-3);
+}
+.help-note {
+  color: var(--mist-700);
+  margin-bottom: var(--sp-6);
+}
+
+.emergency {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-8);
+}
+.emergency-btn {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  min-height: var(--tap);
+  padding: var(--sp-5);
+  background: var(--mist-50);
+  border-radius: var(--r-lg);
+  text-decoration: none;
+  transition: background-color var(--t-fast), transform var(--t-fast);
+}
+.emergency-btn:hover {
+  background: var(--mist-100);
+}
+.emergency-btn:active {
+  background: var(--mist-800);
+  transform: translateY(1px);
+}
+/* 号码用 display 级字号：这是全站唯一允许「比页面标题还大」的元素，
+   因为用户可能正处于最紧张的状态，号码必须第一眼可见 */
+.emergency-btn strong {
+  font-size: var(--fs-display);
+  font-weight: var(--fw-bold);
+  color: var(--ink);
+}
+.emergency-btn:active strong {
+  color: var(--on-dark);
+}
+.emergency-btn span {
+  font-size: var(--fs-meta);
+  color: var(--ink-mute);
+}
+.emergency-btn:active span {
+  color: var(--on-dark);
+}
+
+.help-section {
+  margin-bottom: var(--sp-8);
+}
+.help-section h2 {
+  font-size: var(--fs-h2);
+  margin-bottom: var(--sp-3);
+}
+.help-meta {
+  font-size: var(--fs-meta);
+  color: var(--ink-mute);
+  margin-bottom: var(--sp-3);
+}
+.help-tip {
+  font-size: var(--fs-body);
+  color: var(--mist-700);
+  margin-top: var(--sp-3);
+}
+
+.hotline-list {
+  list-style: none;
+  display: grid;
+  gap: var(--sp-3);
+}
+.hotline-item {
+  padding: var(--sp-4) var(--sp-5);
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+}
+/* hotline-row 只负责横排布局，内边距沿用 .hotline-item */
+.hotline-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-1) var(--sp-3);
+}
+/* 号码本身是 tel: 链接，必须整块可点：
+   改前只有 59×25 / 137×34，手指在手机上根本按不准。
+   --tap 撑高 + 右内边距补宽，横向也能叠上 44px。 */
+.hotline-number {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap);
+  padding-right: var(--sp-2);
+  font-size: var(--fs-h3);
+  font-weight: var(--fw-bold);
+  color: var(--ink);
+  text-decoration: none;
+  transition: color var(--t-fast);
+}
+.hotline-number:hover {
+  color: var(--peach-700);
+}
+.hotline-number:active {
+  color: var(--peach-900);
+}
+.hotline-org {
+  font-size: var(--fs-meta);
+  color: var(--ink-soft);
+}
+.hotline-meta {
+  font-size: var(--fs-meta);
+  color: var(--ink-mute);
+}
+.hotline-region {
+  font-size: var(--fs-body);
+  font-weight: var(--fw-bold);
+  color: var(--ink);
+}
+
+.facelist {
+  list-style: none;
+  display: grid;
+  gap: var(--sp-2);
+}
+.facelist li {
+  position: relative;
+  padding-left: var(--sp-5);
+  font-size: var(--fs-meta);
+  color: var(--ink-soft);
+}
+.facelist li::before {
+  content: '·';
+  position: absolute;
+  left: 6px;
+  color: var(--mist-500);
+}
+.facelist strong {
+  color: var(--ink);
+  font-weight: var(--fw-bold);
+}
+
+/* ==========================================================================
+   9. 页面层 · 关于与免责
+   ========================================================================== */
+.about {
+  max-width: var(--w-page);
+  margin: 0 auto;
+  padding: var(--sp-10) var(--sp-6) var(--sp-12);
+}
+.about h1 {
+  font-size: var(--fs-h1);
+  margin-bottom: var(--sp-3);
+}
+.about-lead {
+  font-size: var(--fs-h3);
+  color: var(--ink-soft);
+}
+.about-section {
+  margin-top: var(--sp-8);
+}
+.about-section h2 {
+  font-size: var(--fs-h2);
+  margin-bottom: var(--sp-3);
+}
+.about-section p {
+  font-size: var(--fs-body);
+  color: var(--ink-soft);
+}
+.about-section p + p {
+  margin-top: var(--sp-2);
+}
+.about-section a {
+  color: var(--mist-700);
+}
+.about-list {
+  list-style: none;
+  display: grid;
+  gap: var(--sp-3);
+}
+.about-list li {
+  position: relative;
+  padding-left: var(--sp-5);
+  font-size: var(--fs-body);
+  color: var(--ink-soft);
+}
+.about-list li::before {
+  content: '·';
+  position: absolute;
+  left: 6px;
+  color: var(--mist-500);
+}
+.about-list strong {
+  color: var(--ink);
+  font-weight: var(--fw-bold);
+}
+.about-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-3);
+  margin-top: var(--sp-8);
+}
+
+/* ==========================================================================
+   10. 页面层 · 占位页
+   ========================================================================== */
+.wip {
+  max-width: var(--w-page);
+  margin: 0 auto;
+  padding: var(--sp-16) var(--sp-6);
+  text-align: center;
+}
+.wip .mascot {
+  display: flex;
+  justify-content: center;
+  margin-bottom: var(--sp-5);
+}
+.wip h1 {
+  font-size: var(--fs-h1);
+  margin-bottom: var(--sp-3);
+}
+.wip p {
+  color: var(--ink-mute);
+  margin-bottom: var(--sp-2);
+}
+.wip-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--sp-3);
+  margin-top: var(--sp-6);
+}
+
+/* ==========================================================================
+   11. 响应式
+   手机是第一现场：本产品是手机 PWA，深夜躺在床上单手用的场景优先。
+   ========================================================================== */
 @media (max-width: 600px) {
-  .nav { gap: 16px; padding: 14px 16px; flex-wrap: wrap; row-gap: 4px; }
-  .nav a:not(.logo) { font-size: 14px; }
-  .hero { padding: 40px 16px 16px; }
-  .hero h1 { font-size: 22px; }
-  .zone { padding: 16px 16px; }
-  .zone-flat { padding-left: 0; padding-right: 0; }
-  .help { padding: 28px 16px 40px; }
-  .guide { padding: 28px 16px 40px; }
-  .about { padding: 28px 16px 40px; }
-  .emergency { grid-template-columns: 1fr; }
+  /* 只有两个字号需要收：display 34→28、h1 26→22，其余在手机上已经合适 */
+  :root {
+    --fs-display: 1.75rem;
+    --fs-h1: 1.375rem;
+  }
+
+  .nav {
+    flex-wrap: wrap;
+    gap: var(--sp-3);
+    row-gap: var(--sp-1);
+    padding: var(--sp-3) var(--sp-4);
+  }
+  .scene-greet {
+    padding-top: var(--sp-12); /* 手机上导航一行放得下，顶部纱留够即可 */
+  }
+  .scene-door {
+    gap: var(--sp-2);
+    padding: var(--sp-10) var(--sp-3) var(--sp-5);
+  }
+  .door {
+    padding: var(--sp-3) var(--sp-1);
+  }
+  .zone {
+    padding: var(--sp-4) var(--sp-4);
+  }
+  .zone-flat {
+    padding-left: 0;
+    padding-right: 0;
+  }
+  .guide,
+  .help,
+  .about,
+  .breathe {
+    padding: var(--sp-6) var(--sp-4) var(--sp-10);
+  }
+  .emergency {
+    grid-template-columns: 1fr;
+  }
+  .breathe-circle {
+    width: 180px;
+    height: 180px;
+  }
+}
+
+/* ==========================================================================
+   12. 无障碍兜底
+   ========================================================================== */
+/* 系统开了「减少动态效果」，就把所有位移与过渡关掉。
+   本产品的用户里有相当一部分对动效敏感，这不是可选优化。 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+  .btn:active,
+  .chip:active,
+  a.card:hover,
+  .emergency-btn:active {
+    transform: none;
+  }
 }

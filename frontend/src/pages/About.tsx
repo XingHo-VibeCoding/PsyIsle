@@ -13,7 +13,7 @@ function About() {
       <section className="about-section">
         <h2>它是什么</h2>
         <p>
-          三个地方：一个出口（倾诉树洞）、一盏灯（指路灯）、一个每天在的伴（日常管家）。
+          三个地方：一个出口（听你说）、一盏灯（找方向）、一个每天在的伴（写一写）。
           三块都能单独用，谁都不需要你先做完另一个。
         </p>
       </section>
@@ -33,7 +33,7 @@ function About() {
             你想开才开。
           </li>
           <li>
-            <strong>现在还很小。</strong>倾诉树洞和日常管家还没做完，指路灯的内容也只是一部分。
+            <strong>现在还很小。</strong>听你说和写一写还没做完，找方向的内容也只是一部分。
             页面里写着「还在准备」的地方，是真的还没做。
           </li>
         </ul>
@@ -42,7 +42,7 @@ function About() {
       <section className="about-section">
         <h2>你在这里写的东西</h2>
         <p>
-          现在这一版，你在指路灯勾的主题只存在你自己的浏览器里，我们看不到，也收不到。
+          现在这一版，你在找方向勾的主题只存在你自己的浏览器里，我们看不到，也收不到。
           等以后接上账号同步，会改成「只有你自己登录后能看到」——那时候这页会重新写一遍，写清楚存了什么、存在哪。
         </p>
         <p>心屿不卖数据，也不拿你的内容做任何画像分析。</p>
@@ -67,7 +67,7 @@ function About() {
 
       <div className="about-actions">
         <Link to="/" className="btn btn-quiet">回首页</Link>
-        <Link to="/guide" className="btn btn-primary">去指路灯看看</Link>
+        <Link to="/guide" className="btn btn-primary">去找方向看看</Link>
       </div>
     </div>
   )
