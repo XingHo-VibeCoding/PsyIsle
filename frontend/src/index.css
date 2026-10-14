@@ -396,6 +396,66 @@ a.card:active {
   font-size: var(--fs-meta);
 }
 
+/* ---- 3.5 列表状态：加载 / 错误 / 空 ----
+   四种状态里的三种非正常态（正常态就是列表本身）。三态一律不用红色——
+   产品红线是没有一种语义状态用红色表达，所以错误态靠「说清怎么办 + 一个真能按的重试」
+   立住，不靠警示色吓人；空态比错误态再轻一档：它不是故障，只是一个「这个条件下暂时没有」。 */
+.skeleton {
+  display: grid;
+  gap: var(--sp-3);
+  margin-top: var(--sp-5);
+}
+/* 加载用骨架行而不是转圈：形状先立住，内容回来时列表不会整体跳一下。
+   扫光特意做得极淡（forest-50 ↔ line-strong）——它表达的是「还在取」，不是「出事了」。 */
+.skeleton-row {
+  display: block;
+  height: 72px;
+  border-radius: var(--r-md);
+  background: linear-gradient(
+    90deg,
+    var(--forest-50) 25%,
+    var(--line-strong) 37%,
+    var(--forest-50) 63%
+  );
+  background-size: 220% 100%;
+  animation: skeleton-sweep 1.6s ease-in-out infinite;
+}
+@keyframes skeleton-sweep {
+  from { background-position: 120% 0; }
+  to { background-position: -20% 0; }
+}
+
+.state-note {
+  margin-top: var(--sp-5);
+  padding: var(--sp-6) var(--sp-5);
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  text-align: center;
+}
+.state-note p {
+  color: var(--ink-mute);
+  font-size: var(--fs-meta);
+}
+.state-title {
+  margin-bottom: var(--sp-1);
+  color: var(--ink-soft);
+  font-size: var(--fs-body);
+}
+/* 唯一的动作要离文案够远，手指才不会点错行；图标与字之间也留一口气，
+   否则 16px 的 lucide 图标会贴到字上 */
+.state-note .btn {
+  margin-top: var(--sp-4);
+}
+.state-note .btn svg {
+  margin-right: var(--sp-2);
+}
+/* 空态：不填底、只留一圈浅描边——不把「暂时没有」渲染成一件大事 */
+.state-note-quiet {
+  background: transparent;
+  border-color: var(--line-strong);
+}
+
 /* ==========================================================================
    4. 页面层 · 导航与页脚
    ========================================================================== */
@@ -434,6 +494,14 @@ a.card:active {
 }
 .nav a:not(.logo):hover {
   color: var(--forest-700);
+}
+/* 当前所在页：颜色 + 字重两路标记（不只靠颜色）。aria-current 由 NavLink 自动写，
+   读屏用户也能听到「当前页」——五扇门里得知道自己在哪一扇。
+   选择器带上 :not(.logo) 是为了跟上面那条 hover 同优先级，靠顺序压住它，
+   否则停在当前页的链接一悬停就变回灰的，像是「点不动」。 */
+.nav a:not(.logo)[aria-current='page'] {
+  color: var(--forest-700);
+  font-weight: var(--fw-bold);
 }
 /* 选择器写到 a.nav-help：原来的 !important 是靠优先级硬压的，这里用结构解决。
    padding 往左借、右边留 0：既把点击区补到 44px，又让「求助」保持贴右缘对齐正文 */
@@ -737,6 +805,50 @@ a.door:active {
   gap: var(--sp-2);
 }
 
+/* ---- 子导航（找方向的三分区）：下划线式 ----
+   这一页已经被主题、类型两排胶囊芯片占住，视图切换再用胶囊，会让人分不清
+   「这是在筛内容」还是「这是在换页」。下划线读起来是导航，胶囊读起来是筛选。 */
+.guide-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-5);
+  margin-bottom: var(--sp-6);
+  border-bottom: 1px solid var(--line);
+}
+.guide-tab {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap);
+  padding: 0 var(--sp-2) var(--sp-2);
+  color: var(--ink-mute);
+  font-size: var(--fs-body);
+  text-decoration: none;
+  transition: color var(--t-fast);
+}
+.guide-tab:hover {
+  color: var(--forest-700);
+}
+.guide-tab:active {
+  color: var(--forest-900);
+}
+/* 当前分区：颜色 + 字重 + 下划线三路信号，不只靠颜色（色盲用户同样分得清）。
+   下划线压在容器的分割线上，两线重合而不是并排两条 */
+.guide-tab[aria-current='page'] {
+  position: relative;
+  color: var(--forest-700);
+  font-weight: var(--fw-bold);
+}
+.guide-tab[aria-current='page']::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  bottom: -1px;
+  left: 0;
+  height: 2px;
+  border-radius: var(--r-pill);
+  background: var(--forest-700);
+}
+
 .task-spotlight {
   border-color: var(--forest-300);
   box-shadow: var(--sh-2);
@@ -793,11 +905,6 @@ a.door:active {
 }
 
 .lib-group {
-  margin-top: var(--sp-5);
-}
-/* 筛选后没有条目时，空态顶在筛选行下面——给它和列表一样的留白，
-   否则提示会紧贴 chips，看起来像 chips 的一部分 */
-.lib-empty {
   margin-top: var(--sp-5);
 }
 .lib-kind {
