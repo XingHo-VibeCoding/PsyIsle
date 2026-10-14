@@ -1,7 +1,7 @@
 # 心屿 · 接口契约
 
-> Day 15 起生效 ｜ 前端与云端之间的**唯一**约定
-> 任何接口的路径、入参、返回结构，先写在这里，再写代码。
+> Day 15 起生效（2026-10-15 扩写）｜ 前端与云端之间的**唯一**约定
+> 任何接口的路径、入参、返回结构，**先写在这里，再写代码**。
 
 ---
 
@@ -9,7 +9,9 @@
 
 - **管**：云端接口对外的形态——路径、方法、请求体、响应体、错误、鉴权。
 - **不管**：数据库表结构（Day 16 起另立）、页面结构（见 `PRD.md` 与 `docs/设计规范.md`）。
-- 现在只有 1 个接口：`GET /api/health`。后续接口按同一套约定追加，**不另立风格**。
+- **现状**：**1 个已实现**（`GET /api/health`，第 4 节）+ **19 个占位**（第 5 节）。
+- 占位的意思是：**名字、路径、形状今天定下来，代码一行不写**。它是 Day 16 起建表写接口的唯一依据——先按这份文件建表，再按这份文件写接口。
+- 这条约束不是形式主义：**契约是唯一一处同时约束前端和云端的东西**。改一个字段名，两边都知道要改哪里；没有契约，两边各自猜，最后对不上。
 
 ---
 
@@ -18,17 +20,28 @@
 | 项 | 约定 |
 |---|---|
 | 基础地址 | `https://psyisle-prod-d9g109suw53257aed.service.tcloudbase.com`（环境 `psyisle-prod`，上海地域）。这是「HTTP 访问服务」的默认域名，云函数的路由挂在它下面 |
-| 环境 ID 放哪 | 由控制台给出，写进 `frontend/.env` 的 `VITE_TCB_ENV_ID`（`.env` 不入库）；**代码里不写死域名** |
+| 前端怎么拿地址 | 从 `VITE_API_BASE` 读（真值写 `frontend/.env`，**不入库**）。**代码里不写死域名**——写死了，换环境就得改代码 |
 | 路径前缀 | 所有接口都在 `/api` 下 |
-| 方法 | 读用 `GET`，写用 `POST`。本阶段不用 `PUT` / `DELETE` |
+| 方法 | 读用 `GET`，写用 `POST`。本阶段不用 `PUT` / `PATCH` / `DELETE`——少三种方法，少三处能写错的地方 |
 | 编码 | UTF-8，请求体与响应体一律 JSON |
 | 字段命名 | camelCase。数据库的 snake_case 只在数据层转换，**转换只允许有一个点** |
-| 时间 | ISO 8601 UTC 字符串，例 `2026-10-14T15:20:00.000Z`。不用时间戳数字 |
-| 鉴权 | **本接口无鉴权。** Day 16 起凡是用户数据接口必须带登录态，且**任何用户读不到别人的数据** |
+| 时刻 | ISO 8601 UTC 字符串，例 `2026-10-14T15:20:00.000Z`。不用时间戳数字 |
+| 「哪一天」 | `YYYY-MM-DD` 本地日期，**按东八区（+08:00）判定**。打卡、小进步、测评的日期都是这一类，与「时刻」分开表达 |
+| 分页 | **游标分页**：请求带 `cursor`，响应带 `nextCursor`（`null` = 到底了）。不用 `offset`——记录只会不断新增，翻页时 offset 会漏读和重读 |
+| 鉴权 | 用户数据接口**必须带登录态**；**任何用户读不到别人的数据**。接口**一律不接受 `userId` 参数**——身份只能从登录态来，从参数来就等于谁都能冒充谁 |
+| 空状态 | 「没有数据」是**成功**，不是错误：回 `200` + 空数组 / `null`。**不要用 404 表达空** |
+| 错误码 | `INVALID_INPUT`(400) / `UNAUTHORIZED`(401) / `FORBIDDEN`(403) / `NOT_FOUND`(404) / `INTERNAL`(500) |
+
+**⚠️ 一处与课程的显式偏离（已落档，不再反复）**
+
+课程 Day 16 的建议是「不登录、不建用户表」。本项目**不采纳**——`PRD.md` §3 决策③ 已把「接受登录注册」写成显式例外，理由：社区与个性化必须有身份，且「任何用户读不到别人的数据」是安全底线，不是可选项。
+**代价**：Day 16–19 的工作量比课程要求多一层（账号 + 数据隔离）。这是主动选的，不是漏了。
 
 ---
 
 ## 3. 统一信封
+
+**业务接口**一律用这套信封。
 
 **成功**（HTTP 200）
 
@@ -44,12 +57,16 @@
 
 - 前端只判 `ok`，不解析 `message` 做逻辑。
 - `error.message` 不出现堆栈、SQL、内部路径、英文报错原文——它是给用户看的。
-- `code` 用大写下划线，先定四个：`INVALID_INPUT` / `UNAUTHORIZED` / `NOT_FOUND` / `INTERNAL`。
+- `code` 用大写下划线，先定五个：`INVALID_INPUT` / `UNAUTHORIZED` / `FORBIDDEN` / `NOT_FOUND` / `INTERNAL`。
 - **成功态怎么落（2026-10-14 实测）**：云函数是 Event 型，`exports.main` **直接 return 一个对象**，HTTP 访问服务把它原样当响应体发出去，`Content-Type: application/json; charset=utf-8`、HTTP 200。**不用写 `statusCode` / `headers` / `body` 那层集成响应外壳**——少一层壳，就少一个以后会写错的地方。
+
+**例外：探活接口不套信封。** `GET /api/health` 回扁平字段（见第 4 节）。理由：它是给人和监控扫一眼的，不是给前端解析的；多一层 `data` 只让人多拆一次。**只有它一个例外**，业务接口不跟着学。
 
 ---
 
-## 4. `GET /api/health`
+## 4. 已实现接口
+
+### 4.1 `GET /api/health`
 
 **用途**：确认「前端 → 云端」这条管道通不通。**不是给用户看的页面。**
 
@@ -60,45 +77,467 @@
 ```json
 {
   "ok": true,
-  "data": {
-    "service": "xinyu-api",
-    "version": "0.1.0",
-    "time": "2026-10-14T15:20:00.000Z"
-  }
+  "service": "PsyIsle",
+  "version": "0.1.0",
+  "time": "2026-10-14T16:07:01.966Z"
 }
 ```
 
 | 字段 | 类型 | 说明 |
 |---|---|---|
-| `data.service` | string | 固定 `xinyu-api`，用来确认地址没打错 |
-| `data.version` | string | 接口版本，随契约变更递增 |
-| `data.time` | string | 服务端当前时间（ISO 8601 UTC），用来排除缓存 |
+| `ok` | boolean | 固定 `true` |
+| `service` | string | 固定 `PsyIsle`，用来确认地址没打错 |
+| `version` | string | 接口版本，随契约变更递增 |
+| `time` | string | 服务端当前时间（ISO 8601 UTC），用来排除缓存 |
 
 **刻意不返回**：环境 ID、地域、数据库地址、任何密钥。这是公网无鉴权接口，不给陌生人画基础设施地图。（域名本身自带环境 ID，藏不住——但接口自己一句都不说。）
 
-**实测（2026-10-14，Day 15）**
+**实测（2026-10-15 对齐后重测）**
 
 ```
 GET https://psyisle-prod-d9g109suw53257aed.service.tcloudbase.com/api/health
-200 OK  ·  application/json; charset=utf-8
-{"ok":true,"data":{"service":"xinyu-api","version":"0.1.0","time":"2026-10-14T15:53:24.890Z"}}
+200 OK  ·  application/json; charset=utf-8  ·  639ms
+{"ok":true,"service":"PsyIsle","version":"0.1.0","time":"2026-10-14T16:07:01.966Z"}
 ```
 
 ---
 
-## 5. 本轮还没定的（别照着猜）
+## 5. 占位接口（今天只登记，代码一行不写）
 
-| 还没定 | 什么时候定 |
-|---|---|
-| 跨域（CORS） | Day 16–20，在 HTTP 网关的路由设置里配。**在那之前前端不能直连这个接口**，页面继续用本地 mock 数据 |
-| 登录态怎么带（Header 还是 Cookie） | Day 16 起，与第一个用户数据接口一起定 |
-| 业务接口（心情 / 小进步 / 测评作答） | Day 16 起，逐个追加到第 4 节 |
-| 错误响应状态码怎么落（HTTP 4xx/5xx 具体怎么发出来） | 与第一个业务接口同时实测确认，结果回写第 3 节。成功态已实测（见第 3 节末条） |
+### 5.0 总表
+
+| # | 接口 | 方法 | 对应表 | 阶段 | 状态 |
+|---|---|---|---|---|---|
+| 1 | `/api/health` | GET | — | 2 | ✅ 已实现 |
+| 2 | `/api/me` | GET | `profiles` | 2 | 占位 |
+| 3 | `/api/me` | POST | `profiles` | 2 | 占位 |
+| 4 | `/api/moods` | GET | `moods` | 2 | 占位（**列表读取**） |
+| 5 | `/api/moods` | POST | `moods` | 2 | 占位 |
+| 6 | `/api/notes` | GET | `progress_notes` | 2 | 占位（**列表读取**） |
+| 7 | `/api/notes` | POST | `progress_notes` | 2 | 占位 |
+| 8 | `/api/assessments` | POST | `assessments` | 2 | 占位（算法未裁定） |
+| 9 | `/api/assessments/latest` | GET | `assessments` | 2 | 占位（算法未裁定） |
+| 10 | `/api/library` | GET | —（内容层） | 3+ | **暂缓**，见 5.4 |
+| 11 | `/api/tasks` | GET | —（内容层） | 3+ | **暂缓**，见 5.4 |
+| 12 | `/api/chat/messages` | GET | `chat_messages` | 3 | 占位 |
+| 13 | `/api/chat/messages` | POST | `chat_messages` | 3 | 占位 |
+| 14 | `/api/chat/messages/clear` | POST | `chat_messages` | 3 | 占位 |
+| 15 | `/api/crisis/events` | POST | `crisis_events` | 3 | 占位（**只写不读**） |
+| 16 | `/api/posts` | GET | `posts` | 4 | 占位（**列表读取**） |
+| 17 | `/api/posts` | POST | `posts` | 4 | 占位 |
+| 18 | `/api/posts/like` | POST | `post_likes` | 4 | 占位 |
+| 19 | `/api/posts/report` | POST | `reports` | 4 | 占位 |
+
+**为什么每条记录表都要有一个 GET**：写进去看不到，用户不会认为功能存在。管家页要展示「这些天的打卡」，列表读取接口是**主接口**，写入是它的配套——不是反过来。
 
 ---
 
-## 6. 改契约的规矩
+### 5.1 身份与偏好（阶段 2）
+
+这一组对应 `PRD.md` §5 的 `profiles` 表：「花名、关心主题（多选）、管家设置」。
+
+#### `GET /api/me`
+
+**请求**：无参数。身份从登录态取。
+
+**200 响应**
+
+```json
+{
+  "ok": true,
+  "data": {
+    "profile": {
+      "nickname": "夜里的树",
+      "themes": ["lonely", "meaning"],
+      "settings": {
+        "reminderTime": null,
+        "modules": { "talk": true, "guide": true, "daily": true },
+        "showStreak": false
+      },
+      "createdAt": "2026-10-15T01:20:00.000Z"
+    }
+  }
+}
+```
+
+- `themes` 取值必须是 `frontend/src/data/themes.ts` 里那 5 个 id：`lonely` / `meaning` / `worth` / `relation` / `loss`。**契约与前端共用同一份枚举**，不另起一套。
+- `settings.showStreak` **默认 `false`**——这是 `PRD.md` §2「压力机制默认关闭」在接口层的落点：**服务端不许默认帮用户打开**。
+- 还没建过 `profiles` 行时：回 `200` + 一份**默认 profile**（不报 404）。理由同第 2 节「空状态」条。
+
+**错误**：`401 UNAUTHORIZED`（没登录）。
+
+#### `POST /api/me`
+
+**请求体**（**部分更新**：只提交要改的字段，没提交的字段不动）
+
+```json
+{ "nickname": "夜里的树", "themes": ["lonely"], "settings": { "showStreak": true } }
+```
+
+**200 响应**：返回更新后的**完整** profile，形状与 `GET /api/me` 的 `data` 完全一致。
+（为什么不只回改动的字段：前端拿回整份，就不必自己拼状态——少一处能拼错的地方。）
+
+**错误**
+| 情况 | 返回 |
+|---|---|
+| `themes` 里有未知 id | `400 INVALID_INPUT` |
+| `nickname` 超长或含控制字符 | `400 INVALID_INPUT` |
+| 没登录 | `401 UNAUTHORIZED` |
+
+> ⚠️ 「花名」是否允许重复、是否需要敏感词过滤——**未裁定**，见第 7 节。
+
+---
+
+### 5.2 日常管家 · 两张记录表（阶段 2）
+
+这一组是 `PRD.md` §5 里「主对象 + 记录表」模式的两处落点，**也是课程第 3 周的主要交付**。
+
+#### `GET /api/moods` —— 心情打卡列表
+
+**请求参数**（全部可选）
+
+| 参数 | 类型 | 说明 |
+|---|---|---|
+| `from` | `YYYY-MM-DD` | 起始日期（含） |
+| `to` | `YYYY-MM-DD` | 结束日期（含） |
+| `limit` | number | 默认 `31`，上限 `100` |
+| `cursor` | string | 上一页返回的 `nextCursor` |
+
+> 「今天打过卡没有」**不另开接口**，用 `from=to=今天` 查——一个接口能回答的事，不开第二个。
+
+**200 响应**
+
+```json
+{
+  "ok": true,
+  "data": {
+    "items": [
+      {
+        "id": "m_8f3a…",
+        "date": "2026-10-15",
+        "emoji": "tired",
+        "level": 3,
+        "note": "今天话很少",
+        "createdAt": "2026-10-15T13:40:00.000Z"
+      }
+    ],
+    "nextCursor": null
+  }
+}
+```
+
+- `emoji` 是**白名单里的 id**（不是 emoji 字符本身）——字符在不同设备上渲染不一样，id 不会。
+- `level` 1–5，**可空**；`note` 可为 `null`（**可以不写文字**，`PRD.md` §2 模块三原话）。
+- 列表**默认按 `date` 倒序**，最新在前。
+
+**错误**：`401 UNAUTHORIZED`；`from`/`to` 格式不对 → `400 INVALID_INPUT`。
+
+#### `POST /api/moods` —— 打一次卡
+
+**请求体**
+
+```json
+{ "date": "2026-10-15", "emoji": "tired", "level": 3, "note": "今天话很少" }
+```
+
+- `date` 可省略 = **今天**（服务端按 +08:00 判定，不信客户端时钟）。
+- **幂等规则：同一天重复提交 = 覆盖**，不报错、不新增第二条。
+  理由：打卡是「今天感觉怎么样」的快照，不是流水账；报错只会让用户以为自己做错了事——**这个产品不惩罚任何操作**。
+
+**200 响应**：`{ "ok": true, "data": { "item": { …与列表里单项同形… } } }`
+
+**错误**
+| 情况 | 返回 |
+|---|---|
+| `emoji` 不在白名单 | `400 INVALID_INPUT` |
+| `level` 不在 1–5 | `400 INVALID_INPUT` |
+| `note` 超长（上限待定，见第 7 节） | `400 INVALID_INPUT` |
+| 没登录 | `401 UNAUTHORIZED` |
+
+#### `GET /api/notes` —— 一个小进步列表
+
+参数与形状同 `GET /api/moods`，`items[]` 单项为：
+
+```json
+{ "id": "n_2c91…", "date": "2026-10-15", "text": "把袜子洗了", "createdAt": "2026-10-15T14:02:00.000Z" }
+```
+
+顺带说明为什么这里没有 `level`：**小进步不评分**。「小到不用努力的事」一旦能打分，就变成了考核。
+
+#### `POST /api/notes` —— 记一件小事
+
+**请求体**：`{ "text": "把袜子洗了", "date": "2026-10-15" }`（`date` 省略 = 今天）
+**200**：`{ "ok": true, "data": { "item": { … } } }`
+**错误**：`text` 为空或超长 → `400 INVALID_INPUT`；未登录 → `401 UNAUTHORIZED`。
+
+> **一天能记几件？** 不限。契约不设上限，也不做「今天已经记过了」的提示——见第 7 节待裁定项。
+
+---
+
+### 5.3 指路灯 · 测评（阶段 2 起，**算法尚未裁定**）
+
+`PRD.md` §4.3 的边界必须在接口层就锁死：**不给总分、不给档位、不给分级**。
+所以下面这个形状里**根本没有** `score` / `total` / `level` / `percentile` 这些字段——**不是还没定，是刻意不设**。以后谁想加，必须先改这一节。
+
+#### `POST /api/assessments` —— 交一份作答
+
+**请求体**
+
+```json
+{
+  "type": "rses",
+  "answers": [ { "itemId": 1, "value": 4 }, { "itemId": 2, "value": 2 } ],
+  "durationMs": 96000
+}
+```
+
+- `type` 只能取四个之一：`ipip` / `rses` / `gse` / `nfc18`（`PRD.md` §4.3 白名单，**授权未核实的量表一个不上**）。
+- 只存 `answers` 与完成时间，**不存分数、不存档位**（`PRD.md` §5 `assessments` 表原话）。
+
+**200 响应**
+
+```json
+{
+  "ok": true,
+  "data": {
+    "id": "a_5e77…",
+    "type": "rses",
+    "completedAt": "2026-10-15T15:10:00.000Z",
+    "dimensions": [
+      { "key": "self_worth", "label": "你怎么看自己", "description": "两三句描述，不下判断" }
+    ],
+    "themes": ["worth", "relation"],
+    "recommendations": { "libraryIds": ["lib_012"], "taskIds": ["task_004"] }
+  }
+}
+```
+
+- `dimensions[].description` 是**描述**，不是结论；不许出现程度词排序（禁「偏高 / 偏低」这类相对位置表述）。
+- `recommendations` 只给 **id**，正文仍由内容层提供——接口不复制内容。
+- ⚠️ **`dimensions` 与 `themes` 具体怎么从 `answers` 算出来，尚未裁定**（4 个量表的结果怎么落到 5 个主题，见 `docs/MVP实施计划.md` 冲突 6）。**字段名定了，算法没定** —— 这一条没裁定前，本接口不写代码。
+
+**错误**：题目缺失或有值越界 → `400 INVALID_INPUT`（**错误里不回显用户答案**）；`type` 不在白名单 → `400 INVALID_INPUT`；未登录 → `401 UNAUTHORIZED`。
+
+#### `GET /api/assessments/latest`
+
+**请求**：无参数。
+**200**：
+
+```json
+{ "ok": true, "data": { "item": null } }
+```
+
+- 做过 → `item` 是最近一份（形状与 `POST` 的 `data` 同）；没做过 → `item: null` + `200`。**没做过不是错误**，前端据此渲染「你还没做过」的引导，不弹错误提示。
+
+> 要不要让用户回看**历史**测评（`GET /api/assessments?limit=`）：**未定**，见第 7 节。
+
+---
+
+### 5.4 内容层（书影音 / 行动小任务）—— 暂缓，不是遗漏
+
+阶段 1 的决定是：**内容随构建打包**（`frontend/src/data/library.ts`、`tasks.ts`），接口做成异步 Promise，但取数实现在本地。
+所以 `GET /api/library` 与 `GET /api/tasks` **现在不做**——不是因为不需要，是因为现在做等于把一份静态数据绕一圈网络再回来，只增加了故障点。
+
+**什么时候开**：当「内容要改，但不想发一次版」这个需求真的出现时（运营/自己加条目频繁到发版嫌麻烦）。那一天按下面的形状直接开，不用重新设计：
+
+```
+GET /api/library?kind=book|movie|music|podcast&themes=lonely,meaning
+GET /api/tasks?themes=lonely,meaning
+200 → { "ok": true, "data": { "items": [ … ] } }
+```
+
+`items[]` 的字段**与 `frontend/src/data/*.ts` 里现有的类型一一对应**（`LibraryItem` / `MicroTask`），**不另起名**——同一个东西在两处叫两个名字，是后面所有对不上的源头。
+
+---
+
+### 5.5 倾诉树洞 · AI 会话（阶段 3）
+
+#### `GET /api/chat/messages` —— 会话消息列表
+
+**参数**：`limit`（默认 50，上限 200）、`cursor`。
+**200**：
+
+```json
+{
+  "ok": true,
+  "data": {
+    "items": [
+      { "id": "c_11aa…", "role": "user", "content": "……", "createdAt": "2026-10-15T15:20:00.000Z" },
+      { "id": "c_11ab…", "role": "assistant", "content": "……", "createdAt": "2026-10-15T15:20:03.000Z" }
+    ],
+    "nextCursor": null
+  }
+}
+```
+
+- `role` 只有 `user` / `assistant` 两种。
+- **软删除**：用户「一键清空」后，旧消息对任何读接口都不再出现（`deletedAt` 打标，不物理删——但**接口层看不见这件事**）。
+
+#### `POST /api/chat/messages` —— 说一句
+
+**请求体**：`{ "content": "……", "clientId": "本地生成的 uuid" }`
+
+- `clientId` 用于**重试去重**：网络抖动时同一条不会被记两遍，AI 也不会答两遍。
+
+**200 响应**
+
+```json
+{
+  "ok": true,
+  "data": {
+    "userMessage": { "id": "c_11aa…", "role": "user", "content": "……", "createdAt": "…" },
+    "reply": { "id": "c_11ab…", "role": "assistant", "content": "……", "createdAt": "…" },
+    "degraded": false,
+    "crisis": null
+  }
+}
+```
+
+- `crisis` 不为 `null` 时形状：`{ "triggered": true, "resources": [ { "number": "12356", "organizer": "…", "label": "…" } ] }`。
+  **命中即必须返回**——前端拿到就浮出资源卡，不隐藏、不软化、不「我们聊聊别的」（`PRD.md` §4.1）。
+- **`degraded: true` = 模型没答上来**（超时/报错）。此时 `reply.content` 仍是**固定安全文案**，绝不是空白、乱码或英文报错。
+  **契约强制**：模型失败也**必须**回 `200` 且带可渲染的 `reply`——**不允许**把 `5xx` 直出给用户。
+  理由：用户正在倾诉，这时候弹一个错误框，比他说了没人应还糟。
+- **不做流式**（先整句返回）。理由：先跑通再说；要改成流式，改的是这一条的行为，不需要动前端的数据结构。
+- 对话内容**不用于任何画像分析**（`PRD.md` §4.1）。
+
+**错误**：`content` 为空/超长 → `400 INVALID_INPUT`；未登录 → `401 UNAUTHORIZED`。
+（**注意**：模型侧的失败走上面的 `degraded`，**不走** `INTERNAL`。`INTERNAL` 只留给信道本身坏了。）
+
+#### `POST /api/chat/messages/clear` —— 一键清空
+
+**请求体**：无。
+**200**：`{ "ok": true, "data": { "cleared": 128 } }`
+**错误**：`401 UNAUTHORIZED`。（清自己的，永远只需要登录态。）
+
+#### `POST /api/crisis/events` —— 危机触发记录（**只写不读**）
+
+**请求体**
+
+```json
+{ "source": "chat", "signal": "self_harm", "sessionRef": "cs_88f1…" }
+```
+
+- **不接收、不存储用户原文**——只记「什么时候、哪条链路、命中了哪类信号」。
+- `signal` 只有 `self_harm` / `suicide` 两种；`source` 只有 `chat` / `community` 两种。
+- **这份契约里没有对应的 GET 接口，也永远不会有**（`PRD.md` §5 明写：仅用于安全兜底，**禁止用于分析或统计**）。
+  不给读接口，是让这条红线有技术上的形状——想统计，得先说服自己加一个 GET，而不是「顺手查一下」。
+
+**200**：`{ "ok": true, "data": { "recorded": true } }`
+
+---
+
+### 5.6 匿名社区（阶段 4）
+
+#### `GET /api/posts` —— 帖子列表
+
+**参数**：`limit`（默认 20，上限 50）、`cursor`。
+**200**：
+
+```json
+{
+  "ok": true,
+  "data": {
+    "items": [
+      {
+        "id": "p_31c0…",
+        "alias": "路过的风",
+        "content": "……",
+        "createdAt": "2026-10-15T16:00:00.000Z",
+        "likeCount": 3,
+        "likedByMe": false,
+        "reportedByMe": false
+      }
+    ],
+    "nextCursor": null
+  }
+}
+```
+
+- **没有 `authorId`**。匿名不是「前端不显示名字」，是**接口不给出身份**——给出去了，前端藏不藏只取决于有没有人打开控制台。
+- 没有关注、没有排行、没有热度排序（`PRD.md` §2 模块一）：**按时间倒序**，只有这一种排序。
+
+#### `POST /api/posts` —— 匿名发帖
+
+**请求体**：`{ "content": "……" }`
+**200**：
+
+```json
+{ "ok": true, "data": { "accepted": true, "item": { "id": "p_31c0…", "alias": "路过的风", "content": "……" }, "crisis": null } }
+```
+
+- **命中危机词不是拒绝**：仍然 `accepted: true`，但 `crisis` 带上资源，**给发帖人浮出求助信息，而不是删帖了事**（`PRD.md` §4.2）。
+- **命中违规词**（辱骂 / 广告 / 引流）：`{ "ok": true, "data": { "accepted": false, "reason": "给人看的短句" } }`——**`reason` 是用户文案，不是审核术语**，不能出现「策略命中」这类词。
+- 未过审就发不出去的另一种可能（先审后发）：**未定**，见第 7 节。
+
+#### `POST /api/posts/like` —— 点赞 / 取消
+
+**请求体**：`{ "postId": "p_31c0…", "liked": true }`
+
+- **传目标状态，不传 toggle**。理由：toggle 在网络重试时会翻回去——用户点了一次赞，重试后变成取消，他不知道自己错在哪。
+- **幂等**：重复提交同一个目标状态，结果一样。
+
+**200**：`{ "ok": true, "data": { "postId": "p_31c0…", "liked": true, "likeCount": 4 } }`
+**错误**：帖子不存在 → `404 NOT_FOUND`；未登录 → `401 UNAUTHORIZED`。
+
+#### `POST /api/posts/report` —— 举报
+
+**请求体**：`{ "postId": "p_31c0…", "reason": "self_harm", "note": "" }`
+
+- `reason` 枚举：`self_harm` / `suicide` / `abuse` / `spam` / `other`。
+- **幂等**：同一个人重复举报同一帖，返回同样的结果，不报错、不叠加计数。
+- 举报**自己的帖子** → `403 FORBIDDEN`（要删就删，走举报是绕路）。
+- ⚠️ 举报后**运营方有干预义务**（`PRD.md` §4.2）：命中 `self_harm` / `suicide` 时，除了记录，**必须同时给举报人一处求助资源**——他刚读完一段危机内容，是这个页面上最需要被接住的人。
+
+**200**：`{ "ok": true, "data": { "reported": true, "resources": [ … ] | null } }`
+
+---
+
+## 6. 表 ↔ 接口对应（建表那天的对照表）
+
+| 表（`PRD.md` §5） | 接口 | 阶段 | 状态 |
+|---|---|---|---|
+| `users` | **不建接口** —— 走云服务账号体系，**不自存密码** | 2 | 用平台能力 |
+| `profiles` | `GET` / `POST /api/me` | 2 | 占位 |
+| `moods` | `GET` / `POST /api/moods` | 2 | 占位 |
+| `progress_notes` | `GET` / `POST /api/notes` | 2 | 占位 |
+| `assessments` | `POST /api/assessments`、`GET /api/assessments/latest` | 2 | 占位（**算法未裁定**） |
+| `chat_sessions` / `chat_messages` | `GET` / `POST /api/chat/messages`、`POST /api/chat/messages/clear` | 3 | 占位 |
+| `posts` / `post_likes` / `reports` | `GET` / `POST /api/posts`、`POST /api/posts/like`、`POST /api/posts/report` | 4 | 占位 |
+| `crisis_events` | `POST /api/crisis/events`（**只写不读**） | 3 | 占位 |
+| —（内容层，不建表） | `GET /api/library`、`GET /api/tasks` | 3+ | **暂缓**，见 5.4 |
+
+**Day 16 的走法**：挑一行 → 建表 → 写云函数 → 前端把 `frontend/src/lib/api.ts` 里对应的 `load()` 换成真实请求。
+**先做 `moods`**：它最好验证（写一条、读回来、看列表），且不依赖任何未裁定的算法。
+
+数据库类型 = **PostgreSQL**（建环境时选定，**事后不可改**）。
+
+---
+
+## 7. 还没定的（别照着猜）
+
+| 还没定 | 卡在哪 | 什么时候定 |
+|---|---|---|
+| **跨域（CORS）** | 需要在 HTTP 网关的路由里配 | Day 16–20，**在那之前前端不能直连**（`frontend` 继续用本地 mock）。Day 15 刻意不配 |
+| 登录态怎么带（Header 还是 Cookie） | 取决于云服务账号能力的默认方式 | 与第一个用户数据接口同时定 |
+| `emoji` 白名单 | 产品/视觉 | Day 16 建 `moods` 表时定，必须与前端共用一份 |
+| 各类长度上限（`note` / `text` / `content` / `nickname`） | 需要一个具体数字 | Day 16 起逐个定，**先给一个宽的数也行，但必须有**（没有上限 = 免费给数据库写放大） |
+| 内容是否先审后发（社区） | 产品 + 合规 | 阶段 4 开工前 |
+| 测评的 `dimensions` / `themes` 怎么算 | **4 个量表结果 → 5 个主题的映射未裁定**（`docs/MVP实施计划.md` 冲突 6） | 裁定后 |
+| 用户能不能**删**自己的一条打卡 | 产品问题，不是接口问题 | 阶段 2 收尾时 |
+| 一天能记几件小进步 | 产品 | 阶段 2 收尾时 |
+| 要不要回看历史测评 | 产品 | 阶段 2 收尾时 |
+| 时区（现在只按 +08:00 判定「哪一天」） | 只有国内用户就不必做 | 有真实需求再说 |
+| 限流（`429`） | 社区与 AI 接口都需要 | 阶段 3–4，上线前必须定 |
+| 「AI 陪你复盘」 | `PRD.md` §6 四个阶段里**从未排期** | **待排**，排期定了再登记接口 |
+| 错误响应状态码怎么落（4xx/5xx 具体怎么发出来） | 成功态已实测（第 3 节末条） | 与第一个业务接口同时实测确认 |
+
+---
+
+## 8. 改契约的规矩
 
 1. **先改本文件，再改云函数，再改前端**——顺序不能倒。
-2. 契约里每一条，云函数与前端各只允许有一处对应实现，不许多处各写一份。
-3. 云函数侧有单元测试锁信封形状（`cloudfunctions/health/index.test.js`），新增接口照这个模式补测试。
+2. 契约里每一条，云函数与前端各只允许有**一处**对应实现，不许多处各写一份。
+3. 云函数侧有单元测试锁形状（`cloudfunctions/health/index.test.js`），新增接口照这个模式补测试。
+4. 加了字段要问一句：**这个字段能不能让前端少做一次判断？** 不能就别加。
+5. 删字段要问一句：**谁在用它？**——契约里的字段一旦发出去，前端就可能已经写死了。
