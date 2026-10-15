@@ -54,12 +54,14 @@ function rowToItem(r) {
 }
 
 // 读列表：按 date 倒序，最多 limit 条。成功回 { items }，失败回 { error }（原始库错误）。
+// Day 22：只返回「没被软删」的行（is_deleted = false），被删的不会进列表、但库里还在、可找回。
 async function listMoods(limit) {
   const q = withPublicSchema(
     app
       .rdb()
       .from('moods')
       .select('id,date,emoji,level,note,created_at')
+      .eq('is_deleted', false)
       .order('date', { ascending: false })
       .limit(limit)
   )
@@ -80,12 +82,13 @@ async function upsertMood({ date, emoji, level, note }) {
     const msg = JSON.stringify(ins.error)
     const isDup = /duplicate|unique|23505|moods_one_per_day/i.test(msg)
     if (!isDup) return { ok: false, step: 'insert', error: ins.error }
-    // 同日已存在 → 覆盖（更新内容 + updated_at）
+    // 同日已存在 → 覆盖（更新内容 + updated_at）。
+    // 同时复位 is_deleted=false：被软删的某天若重新打卡，等于把它找回（Day 22）。
     const upd = await withPublicSchema(
       app
         .rdb()
         .from('moods')
-        .update({ emoji, level, note, updated_at: new Date().toISOString() })
+        .update({ emoji, level, note, updated_at: new Date().toISOString(), is_deleted: false })
         .eq('owner_id', DEMO_OWNER_ID)
         .eq('date', date)
     )
@@ -111,4 +114,70 @@ async function findMoodByDate(date) {
   return { item: rowToItem((data || [])[0]) }
 }
 
-module.exports = { listMoods, upsertMood, findMoodByDate, rowToItem }
+// 按 id 查一条（带 owner 隔离，且排除已软删的行）。
+// 成功回 { item }；id 不存在或已被软删回 { item: null }；失败回 { error }。
+// PATCH / DELETE 的「id 存在性校验」都靠它：软删的行当作不存在，避免「改/删一条不存在的记录」。
+async function findMoodById(id) {
+  const q = withPublicSchema(
+    app
+      .rdb()
+      .from('moods')
+      .select('id,date,emoji,level,note,created_at')
+      .eq('owner_id', DEMO_OWNER_ID)
+      .eq('id', id)
+      .eq('is_deleted', false)
+  )
+  const { data, error } = await q
+  if (error) return { error }
+  const row = (data || [])[0]
+  return { item: row ? rowToItem(row) : null }
+}
+
+// PATCH：只改调用方传入的字段（emoji / level / note），其余不动（契约 §5.2 可改字段）。
+// 同时复位 is_deleted=false（被软删的某天若重新编辑，等于找回）。
+// 成功回 { item }（改后那行）；行不存在回 { notFound: true }；失败回 { error }。
+async function patchMood(id, { emoji, level, note }) {
+  const before = await findMoodById(id)
+  if (before.error) return { error: before.error }
+  if (before.item === null) return { notFound: true }
+
+  const patch = { updated_at: new Date().toISOString(), is_deleted: false }
+  if (emoji !== undefined) patch.emoji = emoji
+  if (level !== undefined) patch.level = level
+  if (note !== undefined) patch.note = note
+
+  const upd = await withPublicSchema(
+    app
+      .rdb()
+      .from('moods')
+      .update(patch)
+      .eq('owner_id', DEMO_OWNER_ID)
+      .eq('id', id)
+  )
+  if (upd.error) return { error: upd.error }
+
+  const got = await findMoodById(id)
+  if (got.error) return { error: got.error }
+  return { item: got.item }
+}
+
+// 软删除（Day 22）：不真删数据，只把 is_deleted 置 true，列表查询会跳过它，删错了还能找回。
+// 成功回 { ok: true }；行不存在回 { ok: false, notFound: true }；失败回 { ok: false, error }。
+async function softDeleteMood(id) {
+  const before = await findMoodById(id)
+  if (before.error) return { ok: false, error: before.error }
+  if (before.item === null) return { ok: false, notFound: true }
+
+  const upd = await withPublicSchema(
+    app
+      .rdb()
+      .from('moods')
+      .update({ is_deleted: true, updated_at: new Date().toISOString() })
+      .eq('owner_id', DEMO_OWNER_ID)
+      .eq('id', id)
+  )
+  if (upd.error) return { ok: false, error: upd.error }
+  return { ok: true }
+}
+
+module.exports = { listMoods, upsertMood, findMoodByDate, findMoodById, patchMood, softDeleteMood, rowToItem }

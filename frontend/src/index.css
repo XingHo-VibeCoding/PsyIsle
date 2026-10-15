@@ -977,6 +977,102 @@ a.door:active {
   word-break: break-word;
 }
 
+/* ---- 写一写 · 写入表单（Day 21 补 #8）----
+   写入口是这页的核心动作，所以表单放在列表上方、用一张安静的卡托住。
+   风格沿用 .feed-item 同族：白底 + 浅描边 + 大圆角，不抢列表的风头；
+   输入框焦点框走全局 :focus-visible（forest），不另写。 */
+.write-card {
+  padding: var(--sp-5);
+  margin-bottom: var(--sp-5);
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  box-shadow: var(--sh-1);
+}
+.write-label {
+  margin-bottom: var(--sp-3);
+  color: var(--ink);
+  font-size: var(--fs-h3);
+  font-weight: var(--fw-bold);
+}
+/* 强度那一行：标签在上、pips 在下，和 emoji 胶囊错开层级（胶囊是必选、pips 是可选） */
+.write-strength {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  margin-top: var(--sp-4);
+  color: var(--ink-mute);
+  font-size: var(--fs-meta);
+}
+.strength-row {
+  display: flex;
+  gap: var(--sp-2);
+}
+/* 强度点：圆形小按钮，选中态同 .chip-on 的四路信号（底 + 边 + 字重 + aria-pressed） */
+.pip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  color: var(--ink-mute);
+  font-family: inherit;
+  font-size: var(--fs-meta);
+  cursor: pointer;
+  transition: background-color var(--t-fast), border-color var(--t-fast), color var(--t-fast),
+    transform var(--t-fast);
+}
+.pip:hover {
+  border-color: var(--forest-300);
+  color: var(--forest-700);
+}
+.pip:active {
+  transform: translateY(1px);
+}
+.pip-on {
+  background: var(--forest-50);
+  border-color: var(--forest-500);
+  color: var(--forest-700);
+  font-weight: var(--fw-bold);
+}
+/* 多行输入：去浏览器默认外观，套设计令牌。resize 只允许纵向，避免把卡片撑歪 */
+.write-area {
+  display: block;
+  width: 100%;
+  margin-top: var(--sp-4);
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  color: var(--ink-soft);
+  font-family: inherit;
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
+  resize: vertical;
+}
+.write-area::placeholder {
+  color: var(--ink-mute);
+}
+.write-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-3);
+  margin-top: var(--sp-4);
+}
+/* 写入结果提示：成功用 forest 安抚色（和检查台 .check-write-ok 同款），
+   失败退回无彩 —— 不用红色，和全站错误态同一套表达（产品红线） */
+.write-hint {
+  color: var(--ink-mute);
+  font-size: var(--fs-meta);
+}
+.write-hint-ok {
+  color: var(--forest-700);
+}
+
 .lib-group {
   margin-top: var(--sp-5);
 }
@@ -1553,4 +1649,51 @@ a.door:active {
   .emergency-btn:active {
     transform: none;
   }
+}
+
+/* ==========================================================================
+   写一写 · 列表项与删除按钮（Day 22 补齐 feed-* 专属样式）
+   feed-* 此前无专属样式；这里统一成卡片式行，删除按钮走中性色，
+   不踩产品红线（全站禁红色警示色）。
+   ========================================================================== */
+.feed-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.feed-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  margin-bottom: 10px;
+}
+.feed-body {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.feed-del {
+  flex: 0 0 auto;
+  align-self: center;
+  font: inherit;
+  font-size: 13px;
+  line-height: 1;
+  color: var(--ink-mute);
+  background: transparent;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  padding: 7px 12px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+.feed-del:hover:not(:disabled) {
+  color: var(--forest-700);
+  border-color: var(--forest-300);
+}
+.feed-del:disabled {
+  opacity: 0.5;
+  cursor: default;
 }

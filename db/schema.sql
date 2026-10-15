@@ -73,6 +73,10 @@ create table if not exists public.moods (
   note       text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
+  -- Day 22 软删除标记：true = 已「删除」（列表查询跳过，可找回），替代物理 DELETE。
+  -- 硬 DELETE 在本项目当前 anon 身份下无权限（schema §4 只把 delete 授给 authenticated），
+  -- 用 UPDATE 打标记复用 anon 已有的 update 权限，删错了还能复位 is_deleted = false 找回。
+  is_deleted boolean     not null default false,
 
   -- 契约 §5.2 的幂等规则「同一天重复提交 = 覆盖」落在这一条上：
   -- 它是数据库层的保证，不靠接口先查再写（先查再写中间那段时间，两个请求会同时认为「还没有」）。
@@ -92,6 +96,7 @@ comment on column public.moods.level        is '强度 1–5，可空。空 = �
 comment on column public.moods.note         is '想说的话，可空。可以不写文字，这是产品原话，不是容错';
 comment on column public.moods.created_at   is '写入时刻（UTC）';
 comment on column public.moods.updated_at   is '最后一次覆盖时刻。同一天重复打卡走 update，所以它会变而 date 不变';
+comment on column public.moods.is_deleted   is '软删除标记（Day 22）。true=已删除，列表查询 .eq(is_deleted,false) 跳过；复位 false 即找回。不进接口字段';
 
 -- 为什么不再给 (owner_id, date) 单独建索引：unique 约束已经建了一棵 btree，
 -- 按 owner_id 过滤 + date 倒序正好能反向扫描它。多建一棵是同内容的第二份维护成本。

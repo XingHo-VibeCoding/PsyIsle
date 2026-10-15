@@ -112,3 +112,62 @@ export const postTestNote = async (): Promise<NoteRow> => {
   if (!body.ok || !body.data?.item) throw new Error(body.error?.message ?? '接口返回 ok:false')
   return body.data.item
 }
+
+// ---- Day 22：删除（软删）一条心情打卡 ----
+// DELETE /api/moods?id=xxx，复用同一网关路由 /api/moods（id 走查询参数，见契约 §5.2）。
+// 后端是软删除：只打 is_deleted 标记，列表查询会跳过、可找回。返回 ok:false 时抛出
+// 中文错误消息（含 NOT_FOUND），由页面决定怎么提示。
+export const deleteMood = async (id: string): Promise<void> => {
+  const res = await fetch(`${API_BASE}/api/moods?id=${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+    headers: { Accept: 'application/json' },
+  })
+  if (!res.ok) throw new Error(`DELETE /api/moods 失败（${res.status}）`)
+  const body = (await res.json()) as {
+    ok: boolean
+    data?: { id: string; deleted: boolean }
+    error?: { code: string; message: string }
+  }
+  if (!body.ok) throw new Error(body.error?.message ?? '接口返回 ok:false')
+}
+
+// ---- Day 21 补 #8：写一写的前端写入入口 ----
+// 复用 Day 18 已上线的两个 POST 接口，前端不再只读。
+// 业务错误走统一信封（契约 §3）：前端只判 ok，错误信息直接当文案给用户看。
+// moods 同一天重复提交是覆盖（契约 §4.4 幂等）；notes 一天可记多件（§4.5）。
+
+export const postMood = async (body: {
+  emoji: string
+  level?: number
+  note?: string
+}): Promise<MoodRow> => {
+  const res = await fetch(`${API_BASE}/api/moods`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) throw new Error(`POST /api/moods 失败（${res.status}）`)
+  const r = (await res.json()) as {
+    ok: boolean
+    data?: { item: MoodRow }
+    error?: { message: string }
+  }
+  if (!r.ok || !r.data?.item) throw new Error(r.error?.message ?? '接口返回 ok:false')
+  return r.data.item
+}
+
+export const postNote = async (body: { text: string }): Promise<NoteRow> => {
+  const res = await fetch(`${API_BASE}/api/notes`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) throw new Error(`POST /api/notes 失败（${res.status}）`)
+  const r = (await res.json()) as {
+    ok: boolean
+    data?: { item: NoteRow }
+    error?: { message: string }
+  }
+  if (!r.ok || !r.data?.item) throw new Error(r.error?.message ?? '接口返回 ok:false')
+  return r.data.item
+}

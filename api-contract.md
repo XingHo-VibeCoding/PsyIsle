@@ -9,7 +9,7 @@
 
 - **管**：云端接口对外的形态——路径、方法、请求体、响应体、错误、鉴权。
 - **不管**：数据库表结构——**已另立**，唯一源是 `db/schema.sql`（Day 16 建，含建表、约束、行级权限）；页面结构见 `PRD.md` 与 `docs/设计规范.md`。
-- **现状**：**3 个已实现**（`GET /api/health`、`GET /api/moods`、`GET /api/notes`，第 4 节）+ **17 个占位**（第 5 节）；数据库**3 张表已建**（`profiles` / `moods` / `progress_notes`）。
+- **现状**：**7 个已实现**（`GET /api/health`、`GET /api/moods`、`GET /api/notes`、`POST /api/moods`、`POST /api/notes`、`PATCH /api/moods`、`DELETE /api/moods`，第 4 节）+ 占位接口见第 5 节；数据库**3 张表已建**（`profiles` / `moods` / `progress_notes`），`moods` 另加 `is_deleted` 软删列（Day 22）。
 - 占位的意思是：**名字、路径、形状今天定下来，代码一行不写**。它是 Day 16 起建表写接口的唯一依据——先按这份文件建表，再按这份文件写接口。
 - 这条约束不是形式主义：**契约是唯一一处同时约束前端和云端的东西**。改一个字段名，两边都知道要改哪里；没有契约，两边各自猜，最后对不上。
 
@@ -22,7 +22,7 @@
 | 基础地址 | `https://psyisle-prod-d9g109suw53257aed.service.tcloudbase.com`（环境 `psyisle-prod`，上海地域）。这是「HTTP 访问服务」的默认域名，云函数的路由挂在它下面 |
 | 前端怎么拿地址 | 从 `VITE_API_BASE` 读（真值写 `frontend/.env`，**不入库**）。**代码里不写死域名**——写死了，换环境就得改代码 |
 | 路径前缀 | 所有接口都在 `/api` 下 |
-| 方法 | 读用 `GET`，写用 `POST`。本阶段不用 `PUT` / `PATCH` / `DELETE`——少三种方法，少三处能写错的地方 |
+| 方法 | 读用 `GET`，写用 `POST`。**Day 22 起 `moods` 扩展 `PATCH`（改一条）+ `DELETE`（软删一条）**，目标 id 走查询参数 `?id=`（同一 HTTP 路由 `/api/moods`，按方法分流，见 §4.7 / §4.8）；其余接口本阶段仍只用 GET/POST——少方法，少写错的地方 |
 | 编码 | UTF-8，请求体与响应体一律 JSON |
 | 字段命名 | camelCase。数据库的 snake_case 只在数据层转换，**转换只允许有一个点** |
 | id 形态 | 记录表的主键是**带前缀的字符串**（`m_` / `n_` + 32 位十六进制），**在库里就长这样**，接口原样透出——不在接口层拼前缀，少一处能拼错的地方。`profiles` 不对外给 id：它的主键就是登录身份 |
@@ -204,6 +204,48 @@ POST https://psyisle-prod-d9g109suw53257aed.service.tcloudbase.com/api/notes
 
 ---
 
+### 4.7 `PATCH /api/moods?id={id}` —— 改一条心情打卡　✅ **Day 22 已实现**
+
+改一条已存在的打卡记录。目标 id 通过查询参数 `?id=` 传递（HTTP 网关按路径 `/api/moods` 路由，PATCH/DELETE 复用同一云函数，故 id 走查询参数最稳；请求体里带 `id` 也认）。
+
+- 可改字段（契约 §5.2）：`emoji`（情绪 id）、`level`（强度 1–5）、`note`（附言 ≤200 字）。**三者都可选，只改调用方真正传了的字段**，没传的保持原值——不会把「没传」误写成 `null`。
+- `emoji` 必须在白名单内；`level` 给了必须是 1–5 整数；`note` 给了 ≤200 字；三项一个都没传 → `400 INVALID_INPUT`（中文提示）。
+- `date` **不可改**（它是「一天一行」唯一键的一部分，改它会撞唯一约束，交给用户「删了重记」即可）。
+- **id 不存在（或已被软删）→ `200` + 信封 `ok:false`、`code: NOT_FOUND`、中文提示「找不到这条打卡记录：id 不存在，或它已经被删除」**。这是「删除比新增更容易出事」的第一道防线：先确认目标存在，再动手。
+- 被软删的某天若重新编辑，PATCH 会同时把 `is_deleted` 复位为 false（等于找回）。
+
+**200 响应**：`{ "ok": true, "data": { "item": { "id", "date", "emoji", "level", "note", "createdAt" } } }`（返回改后那一行）
+
+**错误**：字段越界/格式错 → `INVALID_INPUT`；id 不存在 → `NOT_FOUND`；未登录 → `401 UNAUTHORIZED`（接登录、恢复 RLS 后生效；当前演示期 anon 直通）。
+
+---
+
+### 4.8 `DELETE /api/moods?id={id}` —— 软删除一条心情打卡　✅ **Day 22 已实现（软删除）**
+
+删除一条打卡记录。**不真删数据**：只把 `moods.is_deleted` 置 `true`，列表查询 `.eq(is_deleted, false)` 会跳过它，所以 `GET /api/moods` 立刻不再返回这条——但库里还在，删错了后台把 `is_deleted` 改回 false 就能找回。
+
+为什么是软删除而不是物理 `DELETE`：
+
+1. 当前云函数身份是 `anon`，`schema.sql` 只把 `delete` 授给 `authenticated`（`anon` 仅有 `select/insert/update`），**硬删会被权限拒绝**；软删走 `update`，复用 `anon` 已有的权限，零新增权限债。
+2. 直接呼应本课主题——**删除比新增更容易出事**，软删除把「出事」变成可逆。
+
+- 目标 id 同样走 `?id=`（请求体 `id` 也认）。
+- **id 不存在（或已被软删）→ `200` + 信封 `ok:false`、`code: NOT_FOUND`、中文提示「找不到这条打卡记录：id 不存在，或它已经被删除」**。
+- 前端「写一写」页每条心情带「删除」按钮，点击后 **`window.confirm` 二次确认**才发请求（Day 22 在 `Daily.tsx` 的 `handleDeleteMood` 里）。
+
+**200 响应**：`{ "ok": true, "data": { "id": "...", "deleted": true } }`
+
+**错误**：id 不存在 → `NOT_FOUND`；未登录 → `401 UNAUTHORIZED`（接登录、恢复 RLS 后生效；当前演示期 anon 直通）。
+
+#### 4.8.1 软删的 select 前后对比验证法（删错能找回）
+
+- 删前：`select id, date, emoji, is_deleted from public.moods where id = '{id}';` → 看到这一行，`is_deleted = false`。
+- 调 `DELETE /api/moods?id={id}` → 返回 `ok:true`。
+- 删后（同一条 SQL）→ 这一行**还在**，但 `is_deleted = true`；而 `GET /api/moods` 的返回里它**已消失**（查询跳过）。
+- 找回：`update public.moods set is_deleted = false where id = '{id}';` → `GET /api/moods` 又能看到它（或重新编辑这条也会复位）。
+
+---
+
 ### 4.6 今天踩到的三件事（Day 17 记）
 
 **① 「表字段和接口字段对不上」——这就是今天要掌握的那一项。**
@@ -235,6 +277,8 @@ Day 17 的定位是「函数作为可信后端读**全部演示数据**、前端
 | 5 | `/api/moods` | POST | `moods` | 2 | ✅ **Day 18 已实现** |
 | 6 | `/api/notes` | GET | `progress_notes` | 2 | ✅ **已实现（列表读取）** |
 | 7 | `/api/notes` | POST | `progress_notes` | 2 | ✅ **Day 18 已实现** |
+| 20 | `/api/moods` | PATCH | `moods` | 2 | ✅ **Day 22 已实现（改一条）** |
+| 21 | `/api/moods` | DELETE | `moods` | 2 | ✅ **Day 22 已实现（软删一条）** |
 | 8 | `/api/assessments` | POST | `assessments` | 2 | 占位（算法未裁定） |
 | 9 | `/api/assessments/latest` | GET | `assessments` | 2 | 占位（算法未裁定） |
 | 10 | `/api/library` | GET | —（内容层） | 3+ | **暂缓**，见 5.4 |
@@ -640,7 +684,7 @@ GET /api/tasks?themes=lonely,meaning
 |---|---|---|---|---|
 | `users` | **不建接口** —— 走平台账号体系，**不自存密码** | 2 | **永不建**（平台自带 `auth` schema） | 用平台能力 |
 | `profiles` | `GET` / `POST /api/me` | 2 | ✅ **Day 16 已建** | 占位 |
-| `moods` | `GET` / `POST /api/moods` | 2 | ✅ **Day 16 已建** | **GET ✅ Day 17 / POST ✅ Day 18** |
+| `moods` | `GET` / `POST` / `PATCH` / `DELETE /api/moods` | 2 | ✅ **Day 16 已建** | **GET ✅ Day 17 / POST ✅ Day 18 / PATCH ✅ Day 22 / DELETE（软删）✅ Day 22**；含 `is_deleted` 软删列（Day 22） |
 | `progress_notes` | `GET` / `POST /api/notes` | 2 | ✅ **Day 16 已建** | **GET ✅ Day 17 / POST ✅ Day 18** |
 | `assessments` | `POST /api/assessments`、`GET /api/assessments/latest` | 2 | ⏸ **刻意未建**（算法未裁定，见 5.3） | 占位 |
 | `chat_sessions` / `chat_messages` | `GET` / `POST /api/chat/messages`、`POST /api/chat/messages/clear` | 3 | 未建 | 占位 |
@@ -789,6 +833,23 @@ HTTP 访问服务仍返回 200，错误信息放在统一信封里。
 - ⚠️ 检查台写入测试**真写库**（`POST /api/notes`，带「检查台写入测试 · 时间」标注）。刻意不测 `moods`——同日重复是覆盖（§4.4），会抹掉当天演示数据。**接登录后给检查台加权限或下线**（§7 已登记）。
 
 **公网验证结论**：首页展示真实数据（截图带地址栏存工作台 `Day20-公网验证截图/`）；F12 抓包确认请求打到公网接口域名；公网点写入测试，notes 16→17、新行入列、「数据更新于」跳动——「改数据刷新跟着变」在公网链路成立。逐项清单与卡点预案见 `docs/Day20-公网验证清单.md`。
+
+---
+
+### 6.6 Day 22 PATCH / DELETE 与软删除纪要（2026-10-15）
+
+**今天要掌握的一句：删除为什么比新增更容易出事？——因为删是「让已经存在、可能重要的东西消失」，且没有回头键。** 所以两件事：① 改/删前先校验 id 存在性，不存在就报 `NOT_FOUND`（中文），绝不静默；② 删除用**软删除**，不真删数据。
+
+**改了什么（代码落点）**：
+
+- `cloudfunctions/moods/index.js`：入口层新增 `PATCH` / `DELETE` 分发（复用 `/api/moods` 路由，id 走查询参数 `?id=`，回退请求体 `id`）。抽出共享校验器 `validateMoodFields`（emoji/level/note 形状，POST 必填 emoji、PATCH 全可选）。PATCH 只改调用方传了的字段；DELETE 走软删。
+- `cloudfunctions/moods/db.js`：新增 `findMoodById`（带 owner 隔离 + 排除软删）、`patchMood`（只改传入字段 + 复位 `is_deleted=false`）、`softDeleteMood`（置 `is_deleted=true`）；`listMoods` 加 `.eq(is_deleted, false)` 过滤；`upsertMood` 覆盖分支同时复位 `is_deleted`。
+- `db/schema.sql`：`moods` 建表语句补 `is_deleted boolean not null default false`；新增迁移 `db/migration-001-soft-delete-moods.sql`（实际执行的 `ALTER` + 过滤索引，可重复跑）。
+- 前端 `frontend/src/lib/api.ts`：新增 `deleteMood`（DELETE + `?id=`）；`Daily.tsx`：每条心情加「删除」按钮，`handleDeleteMood` 用 `window.confirm` **二次确认**后才发请求，成功刷新列表；`index.css` 补 `.feed-item` / `.feed-del` 样式（中性色，不踩全站禁红色红线）。
+
+**为什么是软删除（关键决策）**：当前云函数身份是 `anon`，`schema.sql` 只把 `delete` 授给 `authenticated`——**硬删 `DELETE` 会被权限拒绝**。软删走 `update`，复用 `anon` 已有的权限，零新增权限债；且删错可找回（`is_deleted` 改回 false，或重新编辑该天即复位）。`tcb db execute` 可执行 DDL/SELECT，是加列与做「select 前后对比」验证的钥匙。
+
+**验证（公网 curl + select 前后对比）**：见 `docs/Day22-验证截图/` 两张截图——PATCH 改前/改后字段对比、`DELETE` 后 `GET` 不再返回该条（同时 `select` 显示 `is_deleted=true` 证明软删）。增删改查四类操作闭环达成。
 
 ---
 
