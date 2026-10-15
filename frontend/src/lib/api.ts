@@ -3,6 +3,8 @@
 // 页面上的加载 / 错误 / 空 / 正常四种状态一行都不用改，换的只是本文件里的取数实现。
 import { library, type LibraryItem } from '../data/library'
 import { microTasks, type MicroTask } from '../data/tasks'
+// Day 23：错误提示的唯一出处——输入错 / 网络错 / 服务端错三类中文文案与类别判定。
+import { AppError, ERROR_MESSAGES, kindOfCode, kindOfStatus, messageForStatus } from './errors'
 
 // 「四种状态」里，只有加载和错误在本地数据上不可能自然发生（本地读数据既不慢也不会失败），
 // 所以给一个开发模式专用的覆写开关，用来验收这两种状态。
@@ -52,15 +54,43 @@ export type NoteRow = {
 // 构建时被 .env 的 VITE_API_BASE 内联；未配置时回退空串（走同源相对路径）。
 const API_BASE = (import.meta.env.VITE_API_BASE ?? '').replace(/\/$/, '')
 
+// 所有请求的唯一出入口（Day 23）：三类错误在这里定型，调用方只管拿数据或接一句中文。
+//  · fetch 直接抛 = 网络错（断网 / DNS / 被拦截），浏览器原文是英文，这里换成人话
+//  · HTTP 状态码 >= 400 = 按类别给中文，状态码本身不上屏
+//  · 响应体不是 JSON = 服务端错（多半是网关返回了 HTML 错误页）
+async function callApi<T>(path: string, init?: RequestInit): Promise<T> {
+  let res: Response
+  try {
+    res = await fetch(`${API_BASE}${path}`, {
+      headers: { Accept: 'application/json' },
+      ...init,
+    })
+  } catch {
+    throw new AppError('network')
+  }
+
+  if (!res.ok) throw new AppError(kindOfStatus(res.status), messageForStatus(res.status))
+
+  try {
+    return (await res.json()) as T
+  } catch {
+    throw new AppError('server')
+  }
+}
+
+// 信封里的 ok:false —— 后端已给中文 message，直接透出；没给就按类别兜底一句。
+function envelopeError(code?: string, message?: string): AppError {
+  const kind = kindOfCode(code)
+  return new AppError(kind, message || ERROR_MESSAGES[kind])
+}
+
 async function getList<T>(path: string): Promise<T[]> {
-  const res = await fetch(`${API_BASE}${path}`, { headers: { Accept: 'application/json' } })
-  if (!res.ok) throw new Error(`GET ${path} 失败（${res.status}）`)
-  const body = (await res.json()) as {
+  const body = await callApi<{
     ok: boolean
     data?: { items: T[] }
-    error?: { message: string }
-  }
-  if (!body.ok) throw new Error(body.error?.message ?? '接口返回 ok:false')
+    error?: { code?: string; message: string }
+  }>(path)
+  if (!body.ok) throw envelopeError(body.error?.code, body.error?.message)
   return body.data?.items ?? []
 }
 
@@ -78,11 +108,7 @@ export type HealthInfo = {
   time: string
 }
 
-export const fetchHealth = async (): Promise<HealthInfo> => {
-  const res = await fetch(`${API_BASE}/api/health`, { headers: { Accept: 'application/json' } })
-  if (!res.ok) throw new Error(`GET /api/health 失败（${res.status}）`)
-  return (await res.json()) as HealthInfo
-}
+export const fetchHealth = async (): Promise<HealthInfo> => callApi<HealthInfo>('/api/health')
 
 // 首页「写一写」门卡只要最近一条：limit=1，服务端按 date 倒序（契约 §4.2）。
 // 任何一环取不到都返回 null——首页对这一行的约定是「有就显示，没有就不显示」，
@@ -98,18 +124,16 @@ export const fetchLatestMood = async (): Promise<MoodRow | null> => {
 // 测试记录只追加、不破坏现有数据。date 省略＝服务端按 +08:00 判今天，不信客户端时钟。
 export const postTestNote = async (): Promise<NoteRow> => {
   const stamp = new Date().toLocaleTimeString('zh-CN', { hour12: false })
-  const res = await fetch(`${API_BASE}/api/notes`, {
+  const body = await callApi<{
+    ok: boolean
+    data?: { item: NoteRow }
+    error?: { code?: string; message: string }
+  }>('/api/notes', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
     body: JSON.stringify({ text: `检查台写入测试 · ${stamp}` }),
   })
-  if (!res.ok) throw new Error(`POST /api/notes 失败（${res.status}）`)
-  const body = (await res.json()) as {
-    ok: boolean
-    data?: { item: NoteRow }
-    error?: { message: string }
-  }
-  if (!body.ok || !body.data?.item) throw new Error(body.error?.message ?? '接口返回 ok:false')
+  if (!body.ok || !body.data?.item) throw envelopeError(body.error?.code, body.error?.message)
   return body.data.item
 }
 
@@ -118,17 +142,15 @@ export const postTestNote = async (): Promise<NoteRow> => {
 // 后端是软删除：只打 is_deleted 标记，列表查询会跳过、可找回。返回 ok:false 时抛出
 // 中文错误消息（含 NOT_FOUND），由页面决定怎么提示。
 export const deleteMood = async (id: string): Promise<void> => {
-  const res = await fetch(`${API_BASE}/api/moods?id=${encodeURIComponent(id)}`, {
+  const body = await callApi<{
+    ok: boolean
+    data?: { id: string; deleted: boolean }
+    error?: { code?: string; message: string }
+  }>(`/api/moods?id=${encodeURIComponent(id)}`, {
     method: 'DELETE',
     headers: { Accept: 'application/json' },
   })
-  if (!res.ok) throw new Error(`DELETE /api/moods 失败（${res.status}）`)
-  const body = (await res.json()) as {
-    ok: boolean
-    data?: { id: string; deleted: boolean }
-    error?: { code: string; message: string }
-  }
-  if (!body.ok) throw new Error(body.error?.message ?? '接口返回 ok:false')
+  if (!body.ok) throw envelopeError(body.error?.code, body.error?.message)
 }
 
 // ---- Day 21 补 #8：写一写的前端写入入口 ----
@@ -136,38 +158,27 @@ export const deleteMood = async (id: string): Promise<void> => {
 // 业务错误走统一信封（契约 §3）：前端只判 ok，错误信息直接当文案给用户看。
 // moods 同一天重复提交是覆盖（契约 §4.4 幂等）；notes 一天可记多件（§4.5）。
 
-export const postMood = async (body: {
+// 写入类请求共用一个出口：信封里 ok:false 时，后端给的中文 message 直接上屏；
+// 网络不通 / 服务端出错分别走各类的固定文案，不出现状态码与英文原文。
+async function postItem<T>(path: string, payload: unknown): Promise<T> {
+  const body = await callApi<{
+    ok: boolean
+    data?: { item: T }
+    error?: { code?: string; message: string }
+  }>(path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify(payload),
+  })
+  if (!body.ok || !body.data?.item) throw envelopeError(body.error?.code, body.error?.message)
+  return body.data.item
+}
+
+export const postMood = (body: {
   emoji: string
   level?: number
   note?: string
-}): Promise<MoodRow> => {
-  const res = await fetch(`${API_BASE}/api/moods`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-    body: JSON.stringify(body),
-  })
-  if (!res.ok) throw new Error(`POST /api/moods 失败（${res.status}）`)
-  const r = (await res.json()) as {
-    ok: boolean
-    data?: { item: MoodRow }
-    error?: { message: string }
-  }
-  if (!r.ok || !r.data?.item) throw new Error(r.error?.message ?? '接口返回 ok:false')
-  return r.data.item
-}
+}): Promise<MoodRow> => postItem<MoodRow>('/api/moods', body)
 
-export const postNote = async (body: { text: string }): Promise<NoteRow> => {
-  const res = await fetch(`${API_BASE}/api/notes`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-    body: JSON.stringify(body),
-  })
-  if (!res.ok) throw new Error(`POST /api/notes 失败（${res.status}）`)
-  const r = (await res.json()) as {
-    ok: boolean
-    data?: { item: NoteRow }
-    error?: { message: string }
-  }
-  if (!r.ok || !r.data?.item) throw new Error(r.error?.message ?? '接口返回 ok:false')
-  return r.data.item
-}
+export const postNote = (body: { text: string }): Promise<NoteRow> =>
+  postItem<NoteRow>('/api/notes', body)

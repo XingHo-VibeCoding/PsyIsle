@@ -12,6 +12,7 @@ import {
   type MoodRow,
   type NoteRow,
 } from '../lib/api'
+import { toUserMessage } from '../lib/errors'
 
 // 检查台（Day 20）—— 开发验收用，不是产品功能：
 // 一眼确认「浏览器 → 公网接口 → 数据库」这条管道通不通。
@@ -93,7 +94,8 @@ function Check() {
       })
       refreshAll()
     } catch (e: unknown) {
-      setWrite({ status: 'error', message: e instanceof Error ? e.message : '未知错误' })
+      // Day 23：错误文案统一从三类错误的中文表里取，界面上不出现英文原文
+      setWrite({ status: 'error', message: toUserMessage(e) })
     }
   }
 

@@ -9,6 +9,9 @@ const DEMO_OWNER_ID = '00000000-0000-4000-8000-000000000099'
 
 const { init } = require('@cloudbase/node-sdk')
 
+// Day 23：环境 ID 优先从环境变量来（本地 .env / 云端平台注入）。
+// 兜底值不是密钥——它就写在公网域名里，也写在 api-contract.md §2，属于公开配置。
+// 真密钥一律不进代码：本仓库没有任何密钥，变量名见仓库根 .env.example。
 const app = init({ env: process.env.TCB_ENV || 'psyisle-prod-d9g109suw53257aed' })
 
 // 旧版 SDK 没有 setHeader：包裹 fetch，给每一次请求注入 public schema

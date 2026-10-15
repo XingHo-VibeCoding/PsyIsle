@@ -34,6 +34,54 @@ function fail(code, message) {
   return { ok: false, error: { code, message } }
 }
 
+// ---- Day 23：三类错误，各有一句人话 ----
+// 改之前，这个文件的错误提示是裸的：'RDB_ERR:' + JSON.stringify(r.error)、
+// 'THROW:' + e.message、'数据库写入异常：' + JSON.stringify(...)。
+// 那几句话里可能有表名、字段名、SQL 片段、英文堆栈——全是给用户看的内部细节。
+// 现在按三类分开说人话：
+//   1) 输入错 INVALID_INPUT：说清哪一项不对、怎么改（具体文案留在各校验点，见下）
+//   2) 服务端错 INTERNAL：只说「出了点状况，稍后再试」，细节一律进日志，不回给用户
+//   3) 网络错：前端的事（fetch 失败 / 超时），后端不产生这一类，见 frontend/src/lib/errors.ts
+const SERVER_ERROR_MESSAGE = '服务出了点小状况，请稍后再试。'
+
+// requestId：给用户的是一句人话 + 一个号；号用来回查日志，完整细节只在日志里。
+function newRequestId() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 8)
+}
+
+// 把任意错误体压成一行可进日志的文本（只进日志，不出响应）
+function errText(e) {
+  if (e == null) return 'unknown'
+  if (typeof e === 'string') return e
+  if (e.message) return e.message
+  try {
+    return JSON.stringify(e)
+  } catch (_) {
+    return String(e)
+  }
+}
+
+// 服务端错的唯一出口：细节进日志，响应里只有中文短句 + requestId
+function serverError(tag, err, reqId) {
+  console.error('[' + tag + '] ' + errText(err) + ' reqId=' + reqId)
+  return { ok: false, error: { code: 'INTERNAL', message: SERVER_ERROR_MESSAGE, requestId: reqId } }
+}
+
+// 请求日志（Day 23 余力加练）：时间、方法、路径、结果、耗时、requestId。
+// 只记路径不记查询串——查询串里可能有 id 与日期，日志不需要它们。
+function logRequest(event, method, reqId, t0, result) {
+  const path = (event && (event.path || (event.requestContext && event.requestContext.path))) || '/api/moods'
+  console.log(
+    '[req] ' +
+      new Date().toISOString() +
+      ' ' + method +
+      ' ' + path +
+      ' → ' + result +
+      ' ' + (Date.now() - t0) + 'ms' +
+      ' reqId=' + reqId
+  )
+}
+
 // 解析 POST 请求体：CloudBase HTTP 事件里 body 是字符串，也可能已 base64
 function parseBody(event) {
   if (!event || event.body == null) return {}
@@ -115,25 +163,21 @@ function validateMoodFields(body, { requireEmoji }) {
   return { ok: true, value: { emoji, level, note } }
 }
 
-async function handleGet(event = {}) {
+async function handleGet(event = {}, reqId = '-') {
   try {
     const limit = Math.min(pickLimit(event), 200)
     const r = await db.listMoods(limit)
 
-    if (r.error) {
-      return { ok: false, error: { code: 'INTERNAL', message: 'RDB_ERR:' + JSON.stringify(r.error) } }
-    }
+    // 库出错 = 服务端错：细节进日志，用户只看到一句人话
+    if (r.error) return serverError('moods:GET', r.error, reqId)
 
     return { ok: true, data: { items: r.items, nextCursor: null } }
   } catch (e) {
-    return {
-      ok: false,
-      error: { code: 'INTERNAL', message: 'THROW:' + (e && e.message ? e.message : String(e)) },
-    }
+    return serverError('moods:GET', e, reqId)
   }
 }
 
-async function handlePost(event = {}) {
+async function handlePost(event = {}, reqId = '-') {
   const t0 = Date.now()
   const body = parseBody(event)
   if (body === null) {
@@ -164,9 +208,9 @@ async function handlePost(event = {}) {
   try {
     const w = await db.upsertMood({ date, emoji: body.emoji, level, note })
     if (w.error) {
-      const isUpdate = w.step === 'update'
-      console.error('[moods:POST] ' + (isUpdate ? '覆盖更新失败' : 'insert 失败') + ': ' + JSON.stringify(w.error))
-      return fail('INVALID_INPUT', (isUpdate ? '覆盖更新失败' : '写入失败') + '：' + JSON.stringify(w.error))
+      // 写入失败是服务端的事，不是用户填错了 —— 之前这里误标成 INVALID_INPUT，
+      // 还把库错误原文拼进了文案，等于把内部细节直接说给用户听。现在归位到服务端错。
+      return serverError('moods:POST:' + (w.step || 'insert'), w.error, reqId)
     }
     if (w.overwritten) {
       console.log('[moods:POST] 同日已存在，已覆盖 date=' + date)
@@ -174,22 +218,19 @@ async function handlePost(event = {}) {
       console.log('[moods:POST] 新增成功 date=' + date + ' emoji=' + body.emoji)
     }
   } catch (e) {
-    console.error('[moods:POST] THROW: ' + (e && e.message ? e.message : String(e)))
-    return fail('INTERNAL', '服务器写入异常')
+    return serverError('moods:POST', e, reqId)
   }
 
   // —— 读回刚写的那一行 ——
   const got = await db.findMoodByDate(date)
-  if (got.error) {
-    return fail('INTERNAL', '写入成功但读回失败：' + JSON.stringify(got.error))
-  }
+  if (got.error) return serverError('moods:POST:readback', got.error, reqId)
   console.log('[moods:POST] 完成 耗时=' + (Date.now() - t0) + 'ms id=' + (got.item && got.item.id))
   return { ok: true, data: { item: got.item } }
 }
 
 // PATCH —— 改一条已存在的打卡（Day 22）。可改字段 emoji / level / note（契约 §5.2），
 // 只改调用方真正传了的字段，没传的保持原值。id 不存在或被软删 → 中文 NOT_FOUND。
-async function handlePatch(event = {}) {
+async function handlePatch(event = {}, reqId = '-') {
   const id = pickId(event)
   if (!id) {
     return fail('INVALID_INPUT', '缺少 id：PATCH 需要目标记录 id（查询参数 ?id= 或请求体 id）')
@@ -218,24 +259,20 @@ async function handlePatch(event = {}) {
 
   try {
     const r = await db.patchMood(id, fields)
-    if (r.error) {
-      console.error('[moods:PATCH] 写失败: ' + JSON.stringify(r.error))
-      return fail('INTERNAL', '数据库写入异常：' + JSON.stringify(r.error))
-    }
+    if (r.error) return serverError('moods:PATCH', r.error, reqId)
     if (r.notFound) {
       return fail('NOT_FOUND', '找不到这条打卡记录：id 不存在，或它已经被删除')
     }
     console.log('[moods:PATCH] 完成 id=' + id)
     return { ok: true, data: { item: r.item } }
   } catch (e) {
-    console.error('[moods:PATCH] THROW: ' + (e && e.message ? e.message : String(e)))
-    return fail('INTERNAL', '服务器异常')
+    return serverError('moods:PATCH', e, reqId)
   }
 }
 
 // DELETE —— 软删除一条打卡（Day 22）。不真删，只打 is_deleted 标记，列表查询会跳过、可找回。
 // id 不存在或被软删 → 中文 NOT_FOUND。这是「删除比新增更容易出事」的解法：删错能找回。
-async function handleDelete(event = {}) {
+async function handleDelete(event = {}, reqId = '-') {
   const id = pickId(event)
   if (!id) {
     return fail('INVALID_INPUT', '缺少 id：DELETE 需要目标记录 id（查询参数 ?id= 或请求体 id）')
@@ -243,25 +280,29 @@ async function handleDelete(event = {}) {
 
   try {
     const r = await db.softDeleteMood(id)
-    if (r.error) {
-      console.error('[moods:DELETE] 写失败: ' + JSON.stringify(r.error))
-      return fail('INTERNAL', '数据库写入异常：' + JSON.stringify(r.error))
-    }
+    if (r.error) return serverError('moods:DELETE', r.error, reqId)
     if (r.notFound) {
       return fail('NOT_FOUND', '找不到这条打卡记录：id 不存在，或它已经被删除')
     }
     console.log('[moods:DELETE] 完成（软删） id=' + id)
     return { ok: true, data: { id, deleted: true } }
   } catch (e) {
-    console.error('[moods:DELETE] THROW: ' + (e && e.message ? e.message : String(e)))
-    return fail('INTERNAL', '服务器异常')
+    return serverError('moods:DELETE', e, reqId)
   }
 }
 
 exports.main = async (event = {}) => {
-  const method = (event && event.httpMethod) || (event && event.method) || 'GET'
-  if (method === 'POST' || method === 'post') return handlePost(event)
-  if (method === 'PATCH' || method === 'patch') return handlePatch(event)
-  if (method === 'DELETE' || method === 'delete') return handleDelete(event)
-  return handleGet(event)
+  const t0 = Date.now()
+  const reqId = newRequestId()
+  const method = ((event && event.httpMethod) || (event && event.method) || 'GET').toUpperCase()
+
+  let res
+  if (method === 'POST') res = await handlePost(event, reqId)
+  else if (method === 'PATCH') res = await handlePatch(event, reqId)
+  else if (method === 'DELETE') res = await handleDelete(event, reqId)
+  else res = await handleGet(event, reqId)
+
+  // 一条请求一行日志：成功写 ok，失败写错误码，永远带 requestId 便于回查
+  logRequest(event, method, reqId, t0, res && res.ok ? 'ok' : (res && res.error && res.error.code) || 'unknown')
+  return res
 }

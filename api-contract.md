@@ -54,12 +54,24 @@
 **失败**（HTTP 4xx / 5xx）
 
 ```json
-{ "ok": false, "error": { "code": "INVALID_INPUT", "message": "给人看的短句" } }
+{ "ok": false, "error": { "code": "INVALID_INPUT", "message": "给人看的短句", "requestId": "m3k9x2ab1" } }
 ```
 
 - 前端只判 `ok`，不解析 `message` 做逻辑。
 - `error.message` 不出现堆栈、SQL、内部路径、英文报错原文——它是给用户看的。
 - `code` 用大写下划线，先定五个：`INVALID_INPUT` / `UNAUTHORIZED` / `FORBIDDEN` / `NOT_FOUND` / `INTERNAL`。
+- `error.requestId`（Day 23 起，**可选字段**）：只在出错时给，值与云函数日志里的 `reqId=` 一致。用处是——用户看到的是一句人话，排障的人拿这个号去日志里查完整细节。**它不参与前端逻辑，缺省不算破坏契约。**
+
+**三类错误各说一句人话（Day 23 起硬性约定）**
+
+| 类别 | 谁什么时候遇到 | 后端 | 前端 |
+|---|---|---|---|
+| 输入错 | 提交的内容没通过检查 | `INVALID_INPUT` / `NOT_FOUND`，message 说清哪一项不对、怎么改 | 直接把后端的中文 message 上屏 |
+| 服务端错 | 请求到了，但对岸出了状况 | `INTERNAL` + 固定短句「服务出了点小状况，请稍后再试。」+ `requestId`；**细节只进 `console.error`，绝不回进响应** | `HTTP >= 500 / 408 / 429` 或信封 `INTERNAL` → 固定短句 |
+| 网络错 | 请求根本没发出去（断网 / DNS / 被拦截） | 后端没有这一类 | `fetch` 抛错 → 「网络连接失败，请检查网络后重试。」 |
+
+- **红线**：响应体里不得出现 `RDB_ERR:`、`THROW:`、`JSON.stringify(库错误)`、表名、字段名、SQL、英文堆栈。排障看日志，不看响应。
+- 前端同理：界面上不出现 `Failed to fetch`、`undefined`、`（500）` 这类原文，一律走 `frontend/src/lib/errors.ts` 的三类文案。
 - **成功态怎么落（2026-10-14 实测）**：云函数是 Event 型，`exports.main` **直接 return 一个对象**，HTTP 访问服务把它原样当响应体发出去，`Content-Type: application/json; charset=utf-8`、HTTP 200。**不用写 `statusCode` / `headers` / `body` 那层集成响应外壳**——少一层壳，就少一个以后会写错的地方。
 
 **例外：探活接口不套信封。** `GET /api/health` 回扁平字段（见第 4 节）。理由：它是给人和监控扫一眼的，不是给前端解析的；多一层 `data` 只让人多拆一次。**只有它一个例外**，业务接口不跟着学。

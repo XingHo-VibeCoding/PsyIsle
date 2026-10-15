@@ -1,8 +1,10 @@
 # ============ 绝不上传：敏感信息 ============
 # 环境变量（数据库地址、密码、API 密钥都写在这里，只在本地存在）
+# Day 23：原来只忽略 .env / .env.local / .env.*.local，漏了 .env.production 这类——
+# 换成「全部 .env.* 都忽略，只放行模板 .env.example」，以后新增任何环境的 .env 都不会被误提交。
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
 
 # 密钥与证书文件
 *.pem
@@ -32,6 +34,9 @@ dist-ssr/
 *.log
 *.tmp
 
+# TypeScript 增量构建缓存（每次 build 重新生成）
+*.tsbuildinfo
+
 # ============ 系统与编辑器杂物 ============
 .DS_Store
 Thumbs.db
@@ -41,6 +46,11 @@ desktop.ini
 
 # 云端函数部署配置（含服务端 API Key，只本地存在，绝不入库）
 cloudbaserc.json
+cloudbaserc.*.json
+
+# CloudBase CLI 的本地登录态与缓存（含临时凭据，绝不入库）
+.tcb/
+.cloudbase/
 
 # 工作台/助手数据目录，不属于项目代码
 .workbuddy/

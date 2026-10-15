@@ -12,6 +12,7 @@ import {
   type MoodRow,
   type NoteRow,
 } from '../lib/api'
+import { toUserMessage } from '../lib/errors'
 
 // 写一写 · 心情打卡 + 小进步。
 // Day 17 正式接入云端真实读接口；Day 21 补 #8 把写入 UI 也接上 —— 之前这页只展示、写不了。
@@ -50,7 +51,8 @@ function MoodForm({ onSaved }: { onSaved: () => void }) {
     } catch (e) {
       setState({
         phase: 'error',
-        text: e instanceof Error ? e.message : '没能记下，稍后再试。',
+        // Day 23：统一走三类错误的中文文案，不再自己拼兜底句（也不让英文原文上屏）
+        text: toUserMessage(e),
       })
     }
   }
@@ -129,7 +131,8 @@ function NoteForm({ onSaved }: { onSaved: () => void }) {
     } catch (e) {
       setState({
         phase: 'error',
-        text: e instanceof Error ? e.message : '没能记下，稍后再试。',
+        // Day 23：统一走三类错误的中文文案，不再自己拼兜底句（也不让英文原文上屏）
+        text: toUserMessage(e),
       })
     }
   }
@@ -237,7 +240,7 @@ function Daily() {
       setDel({ phase: 'idle' })
       moods.retry() // 重新拉列表，删掉的不再出现
     } catch (e) {
-      setDel({ phase: 'error', text: e instanceof Error ? e.message : '删除失败，稍后再试。' })
+      setDel({ phase: 'error', text: toUserMessage(e) })
     }
   }
 

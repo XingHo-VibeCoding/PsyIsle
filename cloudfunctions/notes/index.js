@@ -30,6 +30,50 @@ function fail(code, message) {
   return { ok: false, error: { code, message } }
 }
 
+// ---- Day 23：三类错误，各有一句人话 ----
+// 改之前这里是裸报错：'RDB_ERR:' + JSON.stringify(r.error)、'THROW:' + e.message、
+// '写入失败：' + JSON.stringify(w.error)（还被误标成 INVALID_INPUT）。
+// 那些字符串里可能带表名、字段、SQL 片段、英文堆栈，不该给用户看。现在三类分开说人话：
+//   1) 输入错 INVALID_INPUT：说清哪一项不对、怎么改（文案留在各校验点）
+//   2) 服务端错 INTERNAL：一句「出了点状况，稍后再试」，细节只进日志
+//   3) 网络错：前端的事（fetch 失败 / 超时），后端不产生这一类
+const SERVER_ERROR_MESSAGE = '服务出了点小状况，请稍后再试。'
+
+function newRequestId() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 8)
+}
+
+function errText(e) {
+  if (e == null) return 'unknown'
+  if (typeof e === 'string') return e
+  if (e.message) return e.message
+  try {
+    return JSON.stringify(e)
+  } catch (_) {
+    return String(e)
+  }
+}
+
+// 服务端错的唯一出口：细节进日志，响应里只有中文短句 + requestId
+function serverError(tag, err, reqId) {
+  console.error('[' + tag + '] ' + errText(err) + ' reqId=' + reqId)
+  return { ok: false, error: { code: 'INTERNAL', message: SERVER_ERROR_MESSAGE, requestId: reqId } }
+}
+
+// 请求日志（Day 23 余力加练）：时间、方法、路径、结果、耗时、requestId。只记路径不记查询串。
+function logRequest(event, method, reqId, t0, result) {
+  const path = (event && (event.path || (event.requestContext && event.requestContext.path))) || '/api/notes'
+  console.log(
+    '[req] ' +
+      new Date().toISOString() +
+      ' ' + method +
+      ' ' + path +
+      ' → ' + result +
+      ' ' + (Date.now() - t0) + 'ms' +
+      ' reqId=' + reqId
+  )
+}
+
 // 解析 POST 请求体：CloudBase HTTP 事件里 body 是字符串，也可能已 base64
 function parseBody(event) {
   if (!event || event.body == null) return {}
@@ -55,25 +99,21 @@ function todayInShanghai() {
   }).format(new Date())
 }
 
-async function handleGet(event = {}) {
+async function handleGet(event = {}, reqId = '-') {
   try {
     const limit = Math.min(pickLimit(event), 200)
     const r = await db.listNotes(limit)
 
-    if (r.error) {
-      return { ok: false, error: { code: 'INTERNAL', message: 'RDB_ERR:' + JSON.stringify(r.error) } }
-    }
+    // 库出错 = 服务端错：细节进日志，用户只看到一句人话
+    if (r.error) return serverError('notes:GET', r.error, reqId)
 
     return { ok: true, data: { items: r.items, nextCursor: null } }
   } catch (e) {
-    return {
-      ok: false,
-      error: { code: 'INTERNAL', message: 'THROW:' + (e && e.message ? e.message : String(e)) },
-    }
+    return serverError('notes:GET', e, reqId)
   }
 }
 
-async function handlePost(event = {}) {
+async function handlePost(event = {}, reqId = '-') {
   const t0 = Date.now()
   const body = parseBody(event)
   if (body === null) {
@@ -103,27 +143,31 @@ async function handlePost(event = {}) {
   // —— 写入 ——（progress_notes 不限一天一条，故不防重复）
   try {
     const w = await db.insertNote({ date, text: body.text })
-    if (w.error) {
-      console.error('[notes:POST] insert 失败: ' + JSON.stringify(w.error))
-      return fail('INVALID_INPUT', '写入失败：' + JSON.stringify(w.error))
-    }
+    // 写入失败是服务端的事，不是用户填错了 —— 之前误标 INVALID_INPUT 还把库错误原文
+    // 拼进文案，等于把内部细节说给用户听。现在归位到服务端错。
+    if (w.error) return serverError('notes:POST:insert', w.error, reqId)
     console.log('[notes:POST] 新增成功 date=' + date)
   } catch (e) {
-    console.error('[notes:POST] THROW: ' + (e && e.message ? e.message : String(e)))
-    return fail('INTERNAL', '服务器写入异常')
+    return serverError('notes:POST', e, reqId)
   }
 
   // —— 读回刚写的那一行（按 owner + 最新 created_at 定位）——
   const got = await db.findLatestNoteByDate(date)
-  if (got.error) {
-    return fail('INTERNAL', '写入成功但读回失败：' + JSON.stringify(got.error))
-  }
+  if (got.error) return serverError('notes:POST:readback', got.error, reqId)
   console.log('[notes:POST] 完成 耗时=' + (Date.now() - t0) + 'ms id=' + (got.item && got.item.id))
   return { ok: true, data: { item: got.item } }
 }
 
 exports.main = async (event = {}) => {
-  const method = (event && event.httpMethod) || (event && event.method) || 'GET'
-  if (method === 'POST' || method === 'post') return handlePost(event)
-  return handleGet(event)
+  const t0 = Date.now()
+  const reqId = newRequestId()
+  const method = ((event && event.httpMethod) || (event && event.method) || 'GET').toUpperCase()
+
+  let res
+  if (method === 'POST') res = await handlePost(event, reqId)
+  else res = await handleGet(event, reqId)
+
+  // 一条请求一行日志：成功写 ok，失败写错误码，永远带 requestId 便于回查
+  logRequest(event, method, reqId, t0, res && res.ok ? 'ok' : (res && res.error && res.error.code) || 'unknown')
+  return res
 }
