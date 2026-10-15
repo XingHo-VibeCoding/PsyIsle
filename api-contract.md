@@ -143,7 +143,68 @@ GET https://psyisle-prod-d9g109suw53257aed.service.tcloudbase.com/api/moods
 
 ---
 
-### 4.4 今天踩到的三件事（Day 17 记）
+### 4.4 `POST /api/moods` —— 心情打卡写入　✅ **Day 18 已实现**
+
+**用途**：向 `public.moods` 写入一次心情打卡。
+
+**请求体**：`{ "date": "2026-10-15", "emoji": "tired", "level": 3, "note": "..." }`
+
+- `date` 可省略 = **今天**（服务端按 +08:00 判定，不信客户端时钟）。
+- `emoji` **必填**，必须是 §5.2 白名单 7 个 id 之一。
+- `level` 可空；给值必须是 1–5 的整数。
+- `note` 可空；给值不能超过 200 字。
+
+**200 响应**：`{ "ok": true, "data": { "item": { …与列表里单项同形… } } }`
+
+**幂等（防重复）**：同一天同一身份重复提交 = **覆盖**，不报错、不新增第二条。
+数据库层 `unique (owner_id, date)` 是最终保证，接口实现**不能**写成「先查有没有、没有就插」。
+
+**错误**
+
+| 情况 | 返回 |
+|---|---|
+| `emoji` 为空 / 不在白名单 | `400 INVALID_INPUT`（中文提示） |
+| `level` 越界 | `400 INVALID_INPUT` |
+| `note` 超过 200 字 | `400 INVALID_INPUT` |
+| `date` 格式不对 | `400 INVALID_INPUT` |
+| 未登录 | `401 UNAUTHORIZED`（演示期登录暂未接通，见 §7） |
+
+**实测（2026-10-15 Day 18）**
+
+```
+POST https://psyisle-prod-d9g109suw53257aed.service.tcloudbase.com/api/moods
+200 OK  ·  application/json; charset=utf-8
+{"ok":true,"data":{"item":{"id":"m_fc1390bfe3fb44b79d38f34f5b642636","date":"2026-10-15",
+"emoji":"calm","level":4,"note":"Day18 真实写入验证：把窗户打开了一会儿",
+"createdAt":"2026-10-15T17:34:42.580168+08:00"}}}
+```
+
+---
+
+### 4.5 `POST /api/notes` —— 记一件小事　✅ **Day 18 已实现**
+
+与 `POST /api/moods` 对称，写入 `public.progress_notes`。
+
+- `text` **必填**，1–200 字。
+- `date` 可省略 = 今天。
+- 一天可记多件，**不设重复限制**（契约 §7 仍把它列为「阶段 2 收尾时」产品未定项）。
+
+**200 响应**：`{ "ok": true, "data": { "item": { "id", "date", "text", "createdAt" } } }`
+
+**错误**：`text` 为空或超长 → `400 INVALID_INPUT`（中文提示）；未登录 → `401 UNAUTHORIZED`。
+
+**实测（2026-10-15 Day 18）**
+
+```
+POST https://psyisle-prod-d9g109suw53257aed.service.tcloudbase.com/api/notes
+200 OK  ·  application/json; charset=utf-8
+{"ok":true,"data":{"item":{"id":"n_99b2c87f970341978b0c9f0ab75c0720","date":"2026-10-15",
+"text":"Day18 记一件小事：把袜子洗了","createdAt":"2026-10-15T17:35:30.827883+08:00"}}}
+```
+
+---
+
+### 4.6 今天踩到的三件事（Day 17 记）
 
 **① 「表字段和接口字段对不上」——这就是今天要掌握的那一项。**
 `public.moods` 的列叫 `created_at`（snake_case），契约里接口字段叫 `createdAt`（camelCase）。云函数若把查出的行原样 `return`，前端拿到的是 `created_at`，按契约取 `item.createdAt` 就是 `undefined`，页面日期直接空白。
@@ -171,9 +232,9 @@ Day 17 的定位是「函数作为可信后端读**全部演示数据**、前端
 | 2 | `/api/me` | GET | `profiles` | 2 | 占位 |
 | 3 | `/api/me` | POST | `profiles` | 2 | 占位 |
 | 4 | `/api/moods` | GET | `moods` | 2 | ✅ **已实现（列表读取）** |
-| 5 | `/api/moods` | POST | `moods` | 2 | 占位 |
+| 5 | `/api/moods` | POST | `moods` | 2 | ✅ **Day 18 已实现** |
 | 6 | `/api/notes` | GET | `progress_notes` | 2 | ✅ **已实现（列表读取）** |
-| 7 | `/api/notes` | POST | `progress_notes` | 2 | 占位 |
+| 7 | `/api/notes` | POST | `progress_notes` | 2 | ✅ **Day 18 已实现** |
 | 8 | `/api/assessments` | POST | `assessments` | 2 | 占位（算法未裁定） |
 | 9 | `/api/assessments/latest` | GET | `assessments` | 2 | 占位（算法未裁定） |
 | 10 | `/api/library` | GET | —（内容层） | 3+ | **暂缓**，见 5.4 |
@@ -579,8 +640,8 @@ GET /api/tasks?themes=lonely,meaning
 |---|---|---|---|---|
 | `users` | **不建接口** —— 走平台账号体系，**不自存密码** | 2 | **永不建**（平台自带 `auth` schema） | 用平台能力 |
 | `profiles` | `GET` / `POST /api/me` | 2 | ✅ **Day 16 已建** | 占位 |
-| `moods` | `GET` / `POST /api/moods` | 2 | ✅ **Day 16 已建** | **GET ✅ Day 17** / POST 占位 |
-| `progress_notes` | `GET` / `POST /api/notes` | 2 | ✅ **Day 16 已建** | **GET ✅ Day 17** / POST 占位 |
+| `moods` | `GET` / `POST /api/moods` | 2 | ✅ **Day 16 已建** | **GET ✅ Day 17 / POST ✅ Day 18** |
+| `progress_notes` | `GET` / `POST /api/notes` | 2 | ✅ **Day 16 已建** | **GET ✅ Day 17 / POST ✅ Day 18** |
 | `assessments` | `POST /api/assessments`、`GET /api/assessments/latest` | 2 | ⏸ **刻意未建**（算法未裁定，见 5.3） | 占位 |
 | `chat_sessions` / `chat_messages` | `GET` / `POST /api/chat/messages`、`POST /api/chat/messages/clear` | 3 | 未建 | 占位 |
 | `posts` / `post_likes` / `reports` | `GET` / `POST /api/posts`、`POST /api/posts/like`、`POST /api/posts/report` | 4 | 未建 | 占位 |
@@ -637,7 +698,48 @@ GET /api/tasks?themes=lonely,meaning
 - 前端「写一写」页（`frontend/src/pages/Daily.tsx`）接真实接口，走 `loading / error / empty / ready` 四态。
 - 余力加练：`limit` 查询参数（默认 50、上限 200）。
 
-**明天（Day 18）**：写接口（`POST /api/moods`、`POST /api/notes`）、接登录、**把这两张表的 RLS 恢复**并按调用者身份过滤。
+**Day 18 实际完成**：`POST /api/moods`、`POST /api/notes` 已部署并公网验证通过；登录态与 RLS 恢复不在今日板块，仍待后续接入。
+
+---
+
+### 6.3 Day 18 写入接口纪要（2026-10-15）
+
+**「防重复：怎么保证同一天不会变成两行？」**
+
+答案是数据库层的 `unique (owner_id, date)`，不是接口先查再写。
+接口实现：先 `insert`；如果命中唯一约束冲突，再 `update` 覆盖内容。
+连续 POST 同一个日期，返回的是**同一个 id**，`moods` 表里该身份仍然只有 1 行。
+
+**「为什么接口里身份是固定的 demo owner？」**
+
+本环境云函数身份不是 `service_role`，`auth.uid()` 在函数上下文里为 `null`。
+Day 18 的板块是「POST 接口实现 → 部署 → 写入与读回验证」，**登录态不在今日板块内**；
+所以接口先用固定演示身份 `00000000-0000-4000-8000-000000000099` 写入（该身份已在 `profiles` 建档）。
+函数代码里已标 TODO：登录接通后把 `DEMO_OWNER_ID` 换成 `auth.uid()`。
+
+**「写入时报 permission denied 怎么解决的？」**
+
+部署后实测发现云函数的 rdb 身份是 `anon`，`anon` 在 `moods`/`progress_notes` 上只有 `SELECT`。
+为打通演示期写入，临时执行：
+
+```sql
+grant insert, update on public.moods to anon;
+grant insert, update on public.progress_notes to anon;
+```
+
+**这条授权必须在接登录、恢复 RLS 时收回**（见 §7）。
+
+**「业务错误的状态码怎么落？」**
+
+实测确认：Event 型云函数 `exports.main` 直接 `return { ok:false, error:{code:'INVALID_INPUT',message:'...'} }` 时，
+HTTP 访问服务仍返回 200，错误信息放在统一信封里。
+这与 Day 17 的 `INTERNAL` 错误表现一致，也符合契约 §3「业务接口用 {ok,data} 信封」。
+
+**今天完成的三件事**
+
+1. `POST /api/moods`、`POST /api/notes` 部署到 CloudBase，公网 200。
+2. 输入校验全中文错误：`emoji` 必填/白名单、`level` 1–5、`note` ≤200、`text` 必填 1–200。
+3. 防重复：同一天 mood 覆盖，不新增第二行；服务端加了 `[moods:POST]` / `[notes:POST]` 前缀日志。
 
 ---
 
@@ -660,8 +762,9 @@ GET /api/tasks?themes=lonely,meaning
 | 时区（现在只按 +08:00 判定「哪一天」） | 只有国内用户就不必做 | 有真实需求再说 |
 | 限流（`429`） | 社区与 AI 接口都需要 | 阶段 3–4，上线前必须定 |
 | 「AI 陪你复盘」 | `PRD.md` §6 四个阶段里**从未排期** | **待排**，排期定了再登记接口 |
-| 🔴 **恢复 `moods` / `progress_notes` 的 RLS** | Day 17 为读演示数据**临时关闭**（见 §4.4③）；接登录后必须按 `owner_id = auth.uid()` 重开 | **Day 18**，接登录时同步做 |
-| 错误响应状态码怎么落（4xx/5xx 具体怎么发出来） | 成功态已实测（第 3 节末条）；Day 17 已实测错误态走 `{ok:false,error:{code:'INTERNAL'}}`（HTTP 仍 200），**业务错误的 4xx 发法仍未定** | 与第一个业务写接口（Day 18 POST）同时实测确认 |
+| 🔴 **恢复 `moods` / `progress_notes` 的 RLS** | Day 17 为读演示数据**临时关闭**（见 §4.6③）；接登录后必须按 `owner_id = auth.uid()` 重开 | 接登录时同步做（不在 Day 18 板块） |
+| ✅ ~~错误响应状态码怎么落~~ | **已实测确认**：Event 型云函数直接 `return { ok:false, error:{...} }` 时，HTTP 访问服务仍返回 200，业务错误放在统一信封里。这与 Day 17 `INTERNAL` 错误表现一致 | 2026-10-15 Day 18 |
+| 🔴 **收回 `anon` 的 insert/update 授权** | Day 18 演示期临时执行 `grant insert, update on public.moods/progress_notes to anon`（见 §6.3）。接登录、恢复 RLS 时必须收回，否则 anon 仍可绕过 RLS 写数据 | 接登录时同步做（不在 Day 18 板块） |
 
 ---
 
