@@ -1,6 +1,6 @@
 'use strict'
 
-// 心屿 · progress_notes 表的数据访问层（Day 19 从 index.js 拆出）。
+// 心汐 · progress_notes 表的数据访问层（Day 19 从 index.js 拆出）。
 // 分层理由、SDK 用法、演示身份与 moods/db.js 完全相同，那里有详细注释，这里不复述。
 // 这张表没有 level / note / emoji —— 单项只有 id / date / text / created_at。
 //

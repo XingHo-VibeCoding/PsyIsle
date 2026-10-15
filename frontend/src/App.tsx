@@ -22,7 +22,7 @@ function App() {
   return (
     <div className={pathname === '/' ? 'app app-immersive' : 'app'}>
       <nav className="nav" aria-label="全站导航">
-        <Link to="/" className="logo">心屿</Link>
+        <Link to="/" className="logo">心汐</Link>
         <NavLink to="/talk">听你说</NavLink>
         <NavLink to="/guide">找方向</NavLink>
         <NavLink to="/daily">写一写</NavLink>

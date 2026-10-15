@@ -1,6 +1,6 @@
 'use strict'
 
-// 心屿 · moods 表的数据访问层（Day 19 从 index.js 拆出）。
+// 心汐 · moods 表的数据访问层（Day 19 从 index.js 拆出）。
 //
 // 拆分前：index.js 一个文件同时干 HTTP 分发、参数校验、数据库查询三件事。
 // 拆分后：这个文件是 moods 表与云端 SDK 的唯一接触点——

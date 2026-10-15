@@ -1,4 +1,4 @@
--- 心屿 · 数据模型 v1（Day 16）
+-- 心汐 · 数据模型 v1（Day 16）
 --
 -- 三张表：profiles（主对象）+ moods / progress_notes（两张记录表），
 -- 推导自 api-contract.md §5.1 / §5.2，不另造一套字段。

@@ -1,4 +1,4 @@
-# 心屿 · 技术设计文档（TECH_DESIGN v3.0）
+# 心汐 · 技术设计文档（TECH_DESIGN v3.0）
 
 > 2026-10-12 ｜ 对应 `PRD.md` v5.0
 > 上一版 v2.0（CloudBase 云端全栈）**已作废**，全文见 `docs/备查/TECH_DESIGN-v2.0-CloudBase.md`。

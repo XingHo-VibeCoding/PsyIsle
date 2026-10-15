@@ -118,7 +118,7 @@ tcb hosting deploy frontend/dist -e psyisle-prod-d9g109suw53257aed --verify
 
 > 帮我个忙，大概 3 分钟 🙏
 >
-> 我在做一个网页小东西（大学生心理陪伴，叫心屿），想请你从你手机/电脑上打开看看还顺不顺手。
+> 我在做一个网页小东西（大学生心理陪伴，叫心汐），想请你从你手机/电脑上打开看看还顺不顺手。
 >
 > 打开这个链接：https://psyisle-prod-d9g109suw53257aed-1506897881.tcloudbaseapp.com/
 >

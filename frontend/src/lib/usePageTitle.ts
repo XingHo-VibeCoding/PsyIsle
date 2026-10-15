@@ -6,7 +6,7 @@ import { useEffect } from 'react'
 export function usePageTitle(title: string) {
   useEffect(() => {
     const previous = document.title
-    document.title = `${title} · 心屿`
+    document.title = `${title} · 心汐`
     return () => {
       document.title = previous
     }
