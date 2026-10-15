@@ -1,34 +1,14 @@
 'use strict'
 
-// 小进步接口（HTTP 网关路由 /api/notes）。
-//   GET  —— 读列表（Day 17 已实现，见下方 handleGet，原逻辑未动）
-//   POST —— 记一件小事（Day 18 新增，见下方 handlePost）
+// 小进步接口（HTTP 网关路由 /api/notes）—— 入口层。
+//   GET  —— 读列表
+//   POST —— 记一件小事
 // 同一路径靠 httpMethod 分流。
 //
-// 访问方式同上：@cloudbase/node-sdk 的 app.rdb()，包裹 fetch 注入 public schema。
-// 这张表没有 level / note / emoji —— 单项只有 id / date / text / created_at。
-//
-// 身份同 moods（Day 18 暂态）：先用固定演示身份写入，登录接通后换 auth.uid() 并恢复 RLS。
-const DEMO_OWNER_ID = '00000000-0000-4000-8000-000000000099'
-
-const { init } = require('@cloudbase/node-sdk')
-
-const app = init({ env: process.env.TCB_ENV || 'psyisle-prod-d9g109suw53257aed' })
-
-function withPublicSchema(q) {
-  const orig = q.fetch ? q.fetch.bind(q) : null
-  if (orig) {
-    q.fetch = (input, init) => {
-      init = init || {}
-      init.headers = Object.assign({}, init.headers, {
-        'Accept-Profile': 'public',
-        'Content-Profile': 'public',
-      })
-      return orig(input, init)
-    }
-  }
-  return q
-}
+// Day 19 重构：这个文件现在只做入口层该做的事——按方法分发、校验参数、套错误信封。
+// 「查数据库」的代码已全部移到同目录 db.js（数据访问层）：本文件不出现 app.rdb()，
+// 也不出现表字段名。以后换库、接登录，入口层不用动。
+const db = require('./db.js')
 
 function pickLimit(event) {
   if (!event) return 50
@@ -46,19 +26,11 @@ function pickLimit(event) {
   return 50
 }
 
-function rowToItem(r) {
-  return {
-    id: r.id,
-    date: r.date,
-    text: r.text,
-    createdAt: r.created_at, // ← 表的 created_at 映射到接口的 createdAt
-  }
-}
-
 function fail(code, message) {
   return { ok: false, error: { code, message } }
 }
 
+// 解析 POST 请求体：CloudBase HTTP 事件里 body 是字符串，也可能已 base64
 function parseBody(event) {
   if (!event || event.body == null) return {}
   let raw = event.body
@@ -73,6 +45,7 @@ function parseBody(event) {
   }
 }
 
+// 服务端本地日期（东八区），用作 date 省略时的默认值（契约 §2：不信客户端时钟）
 function todayInShanghai() {
   return new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Asia/Shanghai',
@@ -85,23 +58,13 @@ function todayInShanghai() {
 async function handleGet(event = {}) {
   try {
     const limit = Math.min(pickLimit(event), 200)
-    const q = withPublicSchema(
-      app
-        .rdb()
-        .from('progress_notes')
-        .select('id,date,text,created_at')
-        .order('date', { ascending: false })
-        .limit(limit)
-    )
+    const r = await db.listNotes(limit)
 
-    const { data, error } = await q
-
-    if (error) {
-      return { ok: false, error: { code: 'INTERNAL', message: 'RDB_ERR:' + JSON.stringify(error) } }
+    if (r.error) {
+      return { ok: false, error: { code: 'INTERNAL', message: 'RDB_ERR:' + JSON.stringify(r.error) } }
     }
 
-    const items = (data || []).map(rowToItem)
-    return { ok: true, data: { items, nextCursor: null } }
+    return { ok: true, data: { items: r.items, nextCursor: null } }
   } catch (e) {
     return {
       ok: false,
@@ -139,12 +102,10 @@ async function handlePost(event = {}) {
 
   // —— 写入 ——（progress_notes 不限一天一条，故不防重复）
   try {
-    const ins = await withPublicSchema(
-      app.rdb().from('progress_notes').insert({ owner_id: DEMO_OWNER_ID, date, text: body.text })
-    )
-    if (ins.error) {
-      console.error('[notes:POST] insert 失败: ' + JSON.stringify(ins.error))
-      return fail('INVALID_INPUT', '写入失败：' + JSON.stringify(ins.error))
+    const w = await db.insertNote({ date, text: body.text })
+    if (w.error) {
+      console.error('[notes:POST] insert 失败: ' + JSON.stringify(w.error))
+      return fail('INVALID_INPUT', '写入失败：' + JSON.stringify(w.error))
     }
     console.log('[notes:POST] 新增成功 date=' + date)
   } catch (e) {
@@ -153,22 +114,12 @@ async function handlePost(event = {}) {
   }
 
   // —— 读回刚写的那一行（按 owner + 最新 created_at 定位）——
-  const sel = await withPublicSchema(
-    app
-      .rdb()
-      .from('progress_notes')
-      .select('id,date,text,created_at')
-      .eq('owner_id', DEMO_OWNER_ID)
-      .eq('date', date)
-      .order('created_at', { ascending: false })
-      .limit(1)
-  )
-  if (sel.error) {
-    return fail('INTERNAL', '写入成功但读回失败：' + JSON.stringify(sel.error))
+  const got = await db.findLatestNoteByDate(date)
+  if (got.error) {
+    return fail('INTERNAL', '写入成功但读回失败：' + JSON.stringify(got.error))
   }
-  const item = rowToItem((sel.data || [])[0])
-  console.log('[notes:POST] 完成 耗时=' + (Date.now() - t0) + 'ms id=' + (item && item.id))
-  return { ok: true, data: { item } }
+  console.log('[notes:POST] 完成 耗时=' + (Date.now() - t0) + 'ms id=' + (got.item && got.item.id))
+  return { ok: true, data: { item: got.item } }
 }
 
 exports.main = async (event = {}) => {

@@ -62,8 +62,18 @@
 │       ├── components/          # 复用件
 │       ├── lib/                 # 云客户端 / 危机判断 / 算分
 │       └── data/                # 打包进构建的静态内容（危机号码、文案、内容库）
-├── cloudfunctions/    # 云端接口（云函数），一个接口一个目录
-│   └── health/                  # GET /api/health：确认云端管道通不通
+├── cloudfunctions/    # 云端接口（云函数），一个接口一个目录，分两层放
+│   ├── health/                  # GET /api/health：确认云端管道通不通（不查库，只有入口层）
+│   ├── moods/                   # GET/POST /api/moods：心情打卡
+│   │   ├── index.js             # 入口层：HTTP 分发 + 参数校验 + 错误信封
+│   │   └── db.js                # 数据访问层：moods 表全部数据库操作
+│   └── notes/                   # GET/POST /api/notes：小进步
+│       ├── index.js             # 入口层
+│       └── db.js                # 数据访问层：progress_notes 表全部数据库操作
+├── db/                # 数据库：建表 / 种子 / 说明
+│   ├── schema.sql               # 建表唯一源（约束 + 行级权限）
+│   ├── seed.sql                 # 演示数据
+│   └── README.md                # 跑法与验证语句
 ├── scripts/           # 部署辅助脚本（不是网站本体的一部分）
 │   └── spa-fallback.mjs         # 给静态托管补子路由入口，构建后必跑
 ├── docs/

@@ -1,42 +1,17 @@
 'use strict'
 
-// 心情打卡接口（HTTP 网关路由 /api/moods）。
-//   GET  —— 读列表（Day 17 已实现，见下方 handleGet，原逻辑未动）
-//   POST —— 打一次卡（Day 18 新增，见下方 handlePost）
+// 心情打卡接口（HTTP 网关路由 /api/moods）—— 入口层。
+//   GET  —— 读列表
+//   POST —— 打一次卡
 // 同一路径靠 httpMethod 分流，不另开函数、不抢路由。
 //
-// 访问方式：@cloudbase/node-sdk 的 app.rdb()（CloudBase PG 模式数据 API 的 Supabase 式查询器）。
-// 云端全局 SDK 版本较旧：rdb() 有，但 setHeader / schema() 方法缺失，且把 schema 写死成环境 ID。
-// 所以这里用「包裹构造器自身的 fetch」手动注入 Accept-Profile: public（PostgREST 用它选 schema）。
-//
-// 关于身份（重要，Day 18 暂态）：本环境云函数身份拿不到 service_role，也没有真实登录态，
-// auth.uid() 在函数上下文里是 null —— 而 moods.owner_id 是 NOT NULL 且有外键指向 profiles。
-// 所以这里先用一个固定的演示身份写入（与 Day 17「函数作为可信后端读全部演示数据」同一思路）。
-// TODO(Day 18 接登录)：登录接通后，把 DEMO_OWNER_ID 换成 auth.uid()，并恢复 profiles/moods 的 RLS。
-const DEMO_OWNER_ID = '00000000-0000-4000-8000-000000000099'
+// Day 19 重构：这个文件现在只做入口层该做的事——按方法分发、校验参数、套错误信封。
+// 「查数据库」的代码已全部移到同目录 db.js（数据访问层）：本文件不出现 app.rdb()，
+// 也不出现表字段名。以后换库、接登录，入口层不用动。
+const db = require('./db.js')
 
 // 契约 §5.2 情绪白名单（与 db/schema.sql 的 moods_emoji_known、前端 moods.ts 共用同一串 id）
 const EMOJI_WHITELIST = ['calm', 'warm', 'tired', 'low', 'anxious', 'upset', 'empty']
-
-const { init } = require('@cloudbase/node-sdk')
-
-const app = init({ env: process.env.TCB_ENV || 'psyisle-prod-d9g109suw53257aed' })
-
-// 旧版 SDK 没有 setHeader：包裹 fetch，给每一次请求注入 public schema
-function withPublicSchema(q) {
-  const orig = q.fetch ? q.fetch.bind(q) : null
-  if (orig) {
-    q.fetch = (input, init) => {
-      init = init || {}
-      init.headers = Object.assign({}, init.headers, {
-        'Accept-Profile': 'public',
-        'Content-Profile': 'public',
-      })
-      return orig(input, init)
-    }
-  }
-  return q
-}
 
 function pickLimit(event) {
   if (!event) return 50
@@ -52,18 +27,6 @@ function pickLimit(event) {
     }
   }
   return 50
-}
-
-// 表 → 接口：snake_case → camelCase（契约 §2 / §6.2 的「对不上」落点）
-function rowToItem(r) {
-  return {
-    id: r.id,
-    date: r.date,
-    emoji: r.emoji,
-    level: r.level, // 可空：没打分的人就是 null，原样透出
-    note: r.note, // 可空
-    createdAt: r.created_at, // ← 表的 created_at 映射到接口的 createdAt
-  }
 }
 
 // 统一错误信封（契约 §3）：业务错误也走 ok:false 信封，HTTP 仍是 200（Event 函数直接 return 对象）
@@ -96,41 +59,16 @@ function todayInShanghai() {
   }).format(new Date())
 }
 
-// 按 owner_id + date 把刚写好的那一行读回来（用唯一键定位，不依赖 insert 的返回结构）
-async function selectByOwnerDate(date) {
-  const q = withPublicSchema(
-    app
-      .rdb()
-      .from('moods')
-      .select('id,date,emoji,level,note,created_at')
-      .eq('owner_id', DEMO_OWNER_ID)
-      .eq('date', date)
-  )
-  const { data, error } = await q
-  if (error) return { error }
-  return { item: rowToItem((data || [])[0]) }
-}
-
 async function handleGet(event = {}) {
   try {
     const limit = Math.min(pickLimit(event), 200)
-    const q = withPublicSchema(
-      app
-        .rdb()
-        .from('moods')
-        .select('id,date,emoji,level,note,created_at')
-        .order('date', { ascending: false })
-        .limit(limit)
-    )
+    const r = await db.listMoods(limit)
 
-    const { data, error } = await q
-
-    if (error) {
-      return { ok: false, error: { code: 'INTERNAL', message: 'RDB_ERR:' + JSON.stringify(error) } }
+    if (r.error) {
+      return { ok: false, error: { code: 'INTERNAL', message: 'RDB_ERR:' + JSON.stringify(r.error) } }
     }
 
-    const items = (data || []).map(rowToItem)
-    return { ok: true, data: { items, nextCursor: null } }
+    return { ok: true, data: { items: r.items, nextCursor: null } }
   } catch (e) {
     return {
       ok: false,
@@ -191,31 +129,16 @@ async function handlePost(event = {}) {
   }
 
   // —— 写入 ——
-  // 防重复（契约 §5.2「同一天重复提交 = 覆盖」）：数据库 unique(owner_id, date) 是最终保证。
-  // 先 insert；若命中唯一约束冲突，再 update 覆盖（不报错、不新增第二行）。
-  const row = { owner_id: DEMO_OWNER_ID, date, emoji: body.emoji, level, note }
+  // 防重复（契约 §5.2「同一天重复提交 = 覆盖」）的落点在 db.js 的 upsertMood：
+  // 数据库 unique(owner_id, date) 是最终保证，先 insert、命中冲突再 update。
   try {
-    const ins = await withPublicSchema(app.rdb().from('moods').insert(row))
-    if (ins.error) {
-      const msg = JSON.stringify(ins.error)
-      const isDup = /duplicate|unique|23505|moods_one_per_day/i.test(msg)
-      if (!isDup) {
-        console.error('[moods:POST] insert 失败: ' + msg)
-        return fail('INVALID_INPUT', '写入失败：' + msg)
-      }
-      // 同日已存在 → 覆盖（更新内容 + updated_at）
-      const upd = await withPublicSchema(
-        app
-          .rdb()
-          .from('moods')
-          .update({ emoji: body.emoji, level, note, updated_at: new Date().toISOString() })
-          .eq('owner_id', DEMO_OWNER_ID)
-          .eq('date', date)
-      )
-      if (upd.error) {
-        console.error('[moods:POST] 覆盖更新失败: ' + JSON.stringify(upd.error))
-        return fail('INVALID_INPUT', '覆盖更新失败：' + JSON.stringify(upd.error))
-      }
+    const w = await db.upsertMood({ date, emoji: body.emoji, level, note })
+    if (w.error) {
+      const isUpdate = w.step === 'update'
+      console.error('[moods:POST] ' + (isUpdate ? '覆盖更新失败' : 'insert 失败') + ': ' + JSON.stringify(w.error))
+      return fail('INVALID_INPUT', (isUpdate ? '覆盖更新失败' : '写入失败') + '：' + JSON.stringify(w.error))
+    }
+    if (w.overwritten) {
       console.log('[moods:POST] 同日已存在，已覆盖 date=' + date)
     } else {
       console.log('[moods:POST] 新增成功 date=' + date + ' emoji=' + body.emoji)
@@ -226,7 +149,7 @@ async function handlePost(event = {}) {
   }
 
   // —— 读回刚写的那一行 ——
-  const got = await selectByOwnerDate(date)
+  const got = await db.findMoodByDate(date)
   if (got.error) {
     return fail('INTERNAL', '写入成功但读回失败：' + JSON.stringify(got.error))
   }

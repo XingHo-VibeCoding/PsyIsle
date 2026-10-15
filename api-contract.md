@@ -743,6 +743,25 @@ HTTP 访问服务仍返回 200，错误信息放在统一信封里。
 
 ---
 
+### 6.4 Day 19 重构纪要（2026-10-15）
+
+**「查数据库这段代码从哪移到了哪？」**
+
+从 `cloudfunctions/moods/index.js` 和 `cloudfunctions/notes/index.js` 里，移到各自同目录的新文件 `db.js`。
+
+| | 改之前 | 改之后 |
+|---|---|---|
+| `index.js` | 分发 + 校验 + `app.rdb()` 查询 + 字段映射，一个文件全包 | 只留入口层：按 `httpMethod` 分发、校验参数、套错误信封 |
+| `db.js` | 不存在 | 数据访问层：SDK 初始化、public schema 注入、表的全部增查、snake_case → camelCase 映射 |
+
+**为什么拆**：契约 §2 要求「数据库的 snake_case 只在数据层转换，转换只允许有一个点」。拆分前字段映射躺在入口层，换 SDK、接登录要动两个文件；拆分后数据库的唯一接触点是 `db.js`——入口层不出现 `app.rdb()`，也不出现表字段名。
+
+**对外形状零变化**：路径、字段、错误码、信封全部没动（契约不许动）。回归覆盖 5 个端点的 17 项检查：GET × 4、POST 成功 × 2、同日重复幂等 × 1（两次返回同一个 id）、错误路径 × 10，全部通过。
+
+**新增测试**：`cloudfunctions/moods/db.test.js`、`cloudfunctions/notes/db.test.js` 锁字段映射形状（照 `health/index.test.js` 的模式；`health` 不查库，没有数据访问层可拆）。
+
+---
+
 ## 7. 还没定的（别照着猜）
 
 | 还没定 | 卡在哪 | 什么时候定 |
