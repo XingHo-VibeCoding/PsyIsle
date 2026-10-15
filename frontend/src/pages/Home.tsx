@@ -1,9 +1,9 @@
 import { Link } from 'react-router-dom'
 import { Compass, MessageCircle, NotebookPen } from 'lucide-react'
-import homeImg from '../assets/home-watercolor.jpg'
+import homeImg from '../assets/firefly-girl.jpg'
 
-// 首页 = 一整幅插画（2026-10-13 深夜老板定稿：月亮+星+波浪的构图不变，
-// 画风与色调重绘成深青绿水彩、光斑氤氲的治愈风）。画面整体偏深，文字用浅色。
+// 首页 = 一整幅插画（2026-10-15 老板定稿：萤火少女——白衣小孩蹲坐林间、
+// 满屏萤光绿蝶，画风延续夜森林水彩系）。画面整体偏深，文字用浅色。
 // 顶部只留问候语；三个入口收进底部一排小卡；名称与引导语仍是老板原话，不自造。
 // 插画是氛围主体，纯装饰，alt 留空不进无障碍树。
 // 危机入口不放在画面里：导航「求助」仍全站 1 次点击可达（红线，永久不可砍）。
