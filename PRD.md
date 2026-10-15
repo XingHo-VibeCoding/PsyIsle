@@ -111,6 +111,9 @@
 课程 Day 16 的「主对象 + 记录表」模式在 `moods`、`progress_notes`、`posts` 三处都成立。
 **阶段 1（课程 Day 7–12）一张表都不用建。**
 
+> **2026-10-15（Day 16）：`profiles` / `moods` / `progress_notes` 三张表已建**——建表语句、约束、行级权限的**唯一源是 `db/schema.sql`**（本节的表清单只管「有哪些表、属于哪个阶段」，列与约束不再在这份文件里重复）。演示数据在 `db/seed.sql`，跑法与验证语句见 `db/README.md`。
+> **`assessments` 刻意未建**（算法未裁定，见 `api-contract.md` §5.3）；其余表随各自阶段建。
+
 ---
 
 ## 6. 路线图（课程 Day 7–26，四个阶段）

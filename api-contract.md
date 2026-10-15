@@ -1,6 +1,6 @@
 # 心屿 · 接口契约
 
-> Day 15 起生效（2026-10-15 扩写）｜ 前端与云端之间的**唯一**约定
+> Day 15 起生效（2026-10-15 扩写）｜ Day 16 补表结构 ｜ 前端与云端之间的**唯一**约定
 > 任何接口的路径、入参、返回结构，**先写在这里，再写代码**。
 
 ---
@@ -8,8 +8,8 @@
 ## 1. 这份文件管什么
 
 - **管**：云端接口对外的形态——路径、方法、请求体、响应体、错误、鉴权。
-- **不管**：数据库表结构（Day 16 起另立）、页面结构（见 `PRD.md` 与 `docs/设计规范.md`）。
-- **现状**：**1 个已实现**（`GET /api/health`，第 4 节）+ **19 个占位**（第 5 节）。
+- **不管**：数据库表结构——**已另立**，唯一源是 `db/schema.sql`（Day 16 建，含建表、约束、行级权限）；页面结构见 `PRD.md` 与 `docs/设计规范.md`。
+- **现状**：**1 个已实现**（`GET /api/health`，第 4 节）+ **19 个占位**（第 5 节）；数据库**3 张表已建**（`profiles` / `moods` / `progress_notes`）。
 - 占位的意思是：**名字、路径、形状今天定下来，代码一行不写**。它是 Day 16 起建表写接口的唯一依据——先按这份文件建表，再按这份文件写接口。
 - 这条约束不是形式主义：**契约是唯一一处同时约束前端和云端的东西**。改一个字段名，两边都知道要改哪里；没有契约，两边各自猜，最后对不上。
 
@@ -25,6 +25,8 @@
 | 方法 | 读用 `GET`，写用 `POST`。本阶段不用 `PUT` / `PATCH` / `DELETE`——少三种方法，少三处能写错的地方 |
 | 编码 | UTF-8，请求体与响应体一律 JSON |
 | 字段命名 | camelCase。数据库的 snake_case 只在数据层转换，**转换只允许有一个点** |
+| id 形态 | 记录表的主键是**带前缀的字符串**（`m_` / `n_` + 32 位十六进制），**在库里就长这样**，接口原样透出——不在接口层拼前缀，少一处能拼错的地方。`profiles` 不对外给 id：它的主键就是登录身份 |
+| 长度上限 | `nickname` 24 字 / `note` 200 字 / `text`（小进步）200 字。**数据库层也设了同值的 CHECK**，不只靠接口拦——接口漏拦一次，就是一条永远进不了页面的数据 |
 | 时刻 | ISO 8601 UTC 字符串，例 `2026-10-14T15:20:00.000Z`。不用时间戳数字 |
 | 「哪一天」 | `YYYY-MM-DD` 本地日期，**按东八区（+08:00）判定**。打卡、小进步、测评的日期都是这一类，与「时刻」分开表达 |
 | 分页 | **游标分页**：请求带 `cursor`，响应带 `nextCursor`（`null` = 到底了）。不用 `offset`——记录只会不断新增，翻页时 offset 会漏读和重读 |
@@ -163,6 +165,9 @@ GET https://psyisle-prod-d9g109suw53257aed.service.tcloudbase.com/api/health
 - `themes` 取值必须是 `frontend/src/data/themes.ts` 里那 5 个 id：`lonely` / `meaning` / `worth` / `relation` / `loss`。**契约与前端共用同一份枚举**，不另起一套。
 - `settings.showStreak` **默认 `false`**——这是 `PRD.md` §2「压力机制默认关闭」在接口层的落点：**服务端不许默认帮用户打开**。
 - 还没建过 `profiles` 行时：回 `200` + 一份**默认 profile**（不报 404）。理由同第 2 节「空状态」条。
+- **落在哪张表**：`db/schema.sql` 的 `public.profiles`。**一个人一行**，主键就是登录身份（`owner_id` = 凭证里的 `sub`）——所以「还没建过」= 表里还没有你那一行，不是「另一个用户的行」。
+- `nickname` 未设置时是**空字符串**（不是 `null`）：前端少一个判空分支。
+- `themes` 里出现白名单外的 id、或 `nickname` 超 24 字，**数据库层也会拒绝**（`profiles_themes_known` / `profiles_nickname_len`）。接口按下面的错误表返回 `400`，别让数据库的 CHECK 报错直接冒到用户面前。
 
 **错误**：`401 UNAUTHORIZED`（没登录）。
 
@@ -232,6 +237,20 @@ GET https://psyisle-prod-d9g109suw53257aed.service.tcloudbase.com/api/health
 
 **错误**：`401 UNAUTHORIZED`；`from`/`to` 格式不对 → `400 INVALID_INPUT`。
 
+> **情绪白名单（2026-10-15 Day 16 定，原第 7 节待定项已销）**
+>
+> 契约与前端**共用同一份 id**：前端落地位置 `frontend/src/data/moods.ts`（Day 17 建该文件时照抄下表，**不另起名**）；数据库的 `moods_emoji_known` 约束用的是同一串 id。
+>
+> | id | 界面文字 | id | 界面文字 |
+> |---|---|---|---|
+> | `calm` | 平静 | `anxious` | 不安 |
+> | `warm` | 温暖 | `upset` | 烦躁 |
+> | `tired` | 疲惫 | `empty` | 空空的 |
+> | `low` | 低落 | | |
+>
+> 存 id 不存 emoji 字符：字符在不同设备上渲染得不一样，id 不会。
+> ⚠️ **`level` 的语义**：它是「这股感觉有多强」（1–5），**不是好坏打分**——1 和 5 只是强度两端，没有哪端更好。前端文案不许写成「心情指数」「得分」。
+
 #### `POST /api/moods` —— 打一次卡
 
 **请求体**
@@ -243,6 +262,8 @@ GET https://psyisle-prod-d9g109suw53257aed.service.tcloudbase.com/api/health
 - `date` 可省略 = **今天**（服务端按 +08:00 判定，不信客户端时钟）。
 - **幂等规则：同一天重复提交 = 覆盖**，不报错、不新增第二条。
   理由：打卡是「今天感觉怎么样」的快照，不是流水账；报错只会让用户以为自己做错了事——**这个产品不惩罚任何操作**。
+  **落点**：数据库层有 `unique (owner_id, date)` 兜底（`db/schema.sql`）。接口实现**不能**写成「先查有没有、没有就插」——两个请求同时进来会同时认为「还没有」。用 `on conflict (owner_id, date) do update`。
+- `note` 最长 200 字、`level` 只能空或 1–5、`emoji` 只能是上表白名单——三项在数据库层都有同名 CHECK。
 
 **200 响应**：`{ "ok": true, "data": { "item": { …与列表里单项同形… } } }`
 
@@ -251,7 +272,7 @@ GET https://psyisle-prod-d9g109suw53257aed.service.tcloudbase.com/api/health
 |---|---|
 | `emoji` 不在白名单 | `400 INVALID_INPUT` |
 | `level` 不在 1–5 | `400 INVALID_INPUT` |
-| `note` 超长（上限待定，见第 7 节） | `400 INVALID_INPUT` |
+| `note` 超 200 字 | `400 INVALID_INPUT` |
 | 没登录 | `401 UNAUTHORIZED` |
 
 #### `GET /api/notes` —— 一个小进步列表
@@ -293,6 +314,8 @@ GET https://psyisle-prod-d9g109suw53257aed.service.tcloudbase.com/api/health
 
 - `type` 只能取四个之一：`ipip` / `rses` / `gse` / `nfc18`（`PRD.md` §4.3 白名单，**授权未核实的量表一个不上**）。
 - 只存 `answers` 与完成时间，**不存分数、不存档位**（`PRD.md` §5 `assessments` 表原话）。
+
+> ⚠️ **这张表 Day 16 刻意没建**（`db/schema.sql` 里没有它）。理由不是遗漏：字段名定了、**算法没定**，现在建表等于把没定的东西先固化成列——等算法裁定时会发现列的形状是猜的。**表随裁定一起建。**
 
 **200 响应**
 
@@ -495,22 +518,48 @@ GET /api/tasks?themes=lonely,meaning
 
 ## 6. 表 ↔ 接口对应（建表那天的对照表）
 
-| 表（`PRD.md` §5） | 接口 | 阶段 | 状态 |
+| 表（`PRD.md` §5） | 接口 | 阶段 | 表 | 接口 |
+|---|---|---|---|---|
+| `users` | **不建接口** —— 走平台账号体系，**不自存密码** | 2 | **永不建**（平台自带 `auth` schema） | 用平台能力 |
+| `profiles` | `GET` / `POST /api/me` | 2 | ✅ **Day 16 已建** | 占位 |
+| `moods` | `GET` / `POST /api/moods` | 2 | ✅ **Day 16 已建** | 占位 |
+| `progress_notes` | `GET` / `POST /api/notes` | 2 | ✅ **Day 16 已建** | 占位 |
+| `assessments` | `POST /api/assessments`、`GET /api/assessments/latest` | 2 | ⏸ **刻意未建**（算法未裁定，见 5.3） | 占位 |
+| `chat_sessions` / `chat_messages` | `GET` / `POST /api/chat/messages`、`POST /api/chat/messages/clear` | 3 | 未建 | 占位 |
+| `posts` / `post_likes` / `reports` | `GET` / `POST /api/posts`、`POST /api/posts/like`、`POST /api/posts/report` | 4 | 未建 | 占位 |
+| `crisis_events` | `POST /api/crisis/events`（**只写不读**） | 3 | 未建 | 占位 |
+| —（内容层，不建表） | `GET /api/library`、`GET /api/tasks` | 3+ | **暂缓**，见 5.4 | **暂缓**，见 5.4 |
+
+数据库类型 = **PostgreSQL**（建环境时选定，**事后不可改**）。建表语句、约束、行级权限全部在 `db/schema.sql`；演示数据在 `db/seed.sql`；跑法与验证语句见 `db/README.md`。
+
+### 6.1 Day 16 建表纪要（2026-10-15）
+
+**「两张表分别存什么？靠哪个字段关联？」**
+
+| 表 | 行粒度 | 主键 | 与谁关联 |
 |---|---|---|---|
-| `users` | **不建接口** —— 走云服务账号体系，**不自存密码** | 2 | 用平台能力 |
-| `profiles` | `GET` / `POST /api/me` | 2 | 占位 |
-| `moods` | `GET` / `POST /api/moods` | 2 | 占位 |
-| `progress_notes` | `GET` / `POST /api/notes` | 2 | 占位 |
-| `assessments` | `POST /api/assessments`、`GET /api/assessments/latest` | 2 | 占位（**算法未裁定**） |
-| `chat_sessions` / `chat_messages` | `GET` / `POST /api/chat/messages`、`POST /api/chat/messages/clear` | 3 | 占位 |
-| `posts` / `post_likes` / `reports` | `GET` / `POST /api/posts`、`POST /api/posts/like`、`POST /api/posts/report` | 4 | 占位 |
-| `crisis_events` | `POST /api/crisis/events`（**只写不读**） | 3 | 占位 |
-| —（内容层，不建表） | `GET /api/library`、`GET /api/tasks` | 3+ | **暂缓**，见 5.4 |
+| `profiles` | **一个人一行**（主对象） | `owner_id`（= 登录身份） | — |
+| `moods` | **一次打卡一行**，一人一天至多一行（记录表） | `id`（`m_` 前缀） | `owner_id → profiles.owner_id` |
+| `progress_notes` | **一件小事一行**（与 `moods` 同构的第二张记录表） | `id`（`n_` 前缀） | `owner_id → profiles.owner_id` |
 
-**Day 16 的走法**：挑一行 → 建表 → 写云函数 → 前端把 `frontend/src/lib/api.ts` 里对应的 `load()` 换成真实请求。
-**先做 `moods`**：它最好验证（写一条、读回来、看列表），且不依赖任何未裁定的算法。
+**关联字段是 `owner_id`。** 同一个字段同时干三件事，缺一件都有漏：
 
-数据库类型 = **PostgreSQL**（建环境时选定，**事后不可改**）。
+| 作用 | 落点 |
+|---|---|
+| 表之间关联 | 外键 `moods.owner_id → profiles.owner_id`（`on delete cascade`） |
+| 数据隔离 | RLS 策略 `owner_id = auth.uid()`，**读不到别人的行** |
+| 自动归属 | 列默认值 `auth.uid()`，新行的归属由库从登录凭证里填，前端没机会传别人的 id |
+
+**几个刻意的选择**：
+
+- **外键指向 `profiles`，而不是「不设外键」**：代价是写 `moods` 前必须先有 `profiles` 行。这是主动认下的：Day 17 的写接口需要**先保证档案存在**（一句 `on conflict do nothing` 的 upsert 即可），换来的是「不可能存在没有主人的打卡」。
+- **`id` 用带前缀字符串**（`m_…` / `n_…`）而非 uuid 类型：库里生成的形状就是契约写给前端的形状，接口层零转换。以后要换，改的是默认值表达式，前端无感。
+- **`moods` 建了 `unique (owner_id, date)`**：「重复打卡 = 覆盖」由数据库保证，不靠接口先查再写。
+- **`progress_notes` 没有 `updated_at`**：契约里没有「改一条小进步」的接口，没有对应写操作的列，加了就是没人维护的陌生字段。
+- **`assessments` 没建**：见 5.3。
+
+**Day 17 的走法**：挑一行 → 写云函数读接口（表已经在了）→ 前端把 `frontend/src/lib/api.ts` 里对应的 `load()` 换成真实请求。
+**先做 `moods`**：它最好验证（读回来、看列表），且不依赖任何未裁定的算法。
 
 ---
 
@@ -520,8 +569,11 @@ GET /api/tasks?themes=lonely,meaning
 |---|---|---|
 | **跨域（CORS）** | 需要在 HTTP 网关的路由里配 | Day 16–20，**在那之前前端不能直连**（`frontend` 继续用本地 mock）。Day 15 刻意不配 |
 | 登录态怎么带（Header 还是 Cookie） | 取决于云服务账号能力的默认方式 | 与第一个用户数据接口同时定 |
-| `emoji` 白名单 | 产品/视觉 | Day 16 建 `moods` 表时定，必须与前端共用一份 |
-| 各类长度上限（`note` / `text` / `content` / `nickname`） | 需要一个具体数字 | Day 16 起逐个定，**先给一个宽的数也行，但必须有**（没有上限 = 免费给数据库写放大） |
+| ✅ ~~`emoji` 白名单~~ | **已定**：§5.2「情绪白名单」7 个 id，库约束与前端共用一份 | 2026-10-15 已定 |
+| ✅ ~~`note` / `text` / `nickname` 的长度上限~~ | **已定**：`note` 200 / `text` 200 / `nickname` 24（§2 通用约定） | 2026-10-15 已定 |
+| 长度上限：`content`（树洞消息、社区帖子） | 聊天与社区还没开工，先不拍数字 | 阶段 3 开工前 |
+| `settings.reminderTime` 有值时的形状 | 契约只写了 `null`；是 `"21:30"` 还是带时区？**做到「提醒」功能时才有真需求** | 做提醒功能时 |
+| `themes` 的 id 要不要给库里也加一层「新用户默认选哪几个」 | 现在默认是空数组（= 不筛选） | 阶段 2 收尾时 |
 | 内容是否先审后发（社区） | 产品 + 合规 | 阶段 4 开工前 |
 | 测评的 `dimensions` / `themes` 怎么算 | **4 个量表结果 → 5 个主题的映射未裁定**（`docs/MVP实施计划.md` 冲突 6） | 裁定后 |
 | 用户能不能**删**自己的一条打卡 | 产品问题，不是接口问题 | 阶段 2 收尾时 |
@@ -536,8 +588,10 @@ GET /api/tasks?themes=lonely,meaning
 
 ## 8. 改契约的规矩
 
-1. **先改本文件，再改云函数，再改前端**——顺序不能倒。
+1. **先改本文件，再改 `db/schema.sql`，再改云函数，再改前端**——顺序不能倒。
 2. 契约里每一条，云函数与前端各只允许有**一处**对应实现，不许多处各写一份。
 3. 云函数侧有单元测试锁形状（`cloudfunctions/health/index.test.js`），新增接口照这个模式补测试。
 4. 加了字段要问一句：**这个字段能不能让前端少做一次判断？** 不能就别加。
 5. 删字段要问一句：**谁在用它？**——契约里的字段一旦发出去，前端就可能已经写死了。
+6. **表结构以 `db/schema.sql` 为唯一源**，本文件只写它在接口层的形状。改表走 `alter` 追加，不要回头改 `db/schema.sql` 里已有的列定义——重跑那个文件不会改动已存在的表，只会让文件和库越走越远（原因写在文件抬头）。
+7. **`db/schema.sql` 与 `db/seed.sql` 必须可重复执行**：改它们之前先自问一句「再跑一遍会不会报错、会不会丢数据」。`seed.sql` 的删除范围必须始终锁在演示身份上。
