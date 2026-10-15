@@ -30,17 +30,15 @@ function ComfortCard() {
   return (
     <div className="card comfort-card">
       <span className="card-tag">安慰卡</span>
-      <h3>我 emo 了，点一下</h3>
+      <h3>我 emo 了</h3>
       {current === null ? (
-        <p>点上面的按钮，抽一句温柔的话。</p>
+        <p>点下面的按钮，抽一句温柔的话陪你。</p>
       ) : (
         <p className="comfort-text">{current}</p>
       )}
-      {current !== null && (
-        <button type="button" className="btn btn-quiet comfort-again" onClick={draw}>
-          再来一句
-        </button>
-      )}
+      <button type="button" className="btn btn-quiet comfort-again" onClick={draw}>
+        {current === null ? '抽一句' : '再来一句'}
+      </button>
       {count > GUIDE_AFTER && (
         <p className="comfort-guide">
           这阵子辛苦了。要是想说给真人听，<Link to="/help">这里有一些可以找的人</Link>。
