@@ -105,7 +105,7 @@
 node scripts/verify-project.mjs --with-build
 ```
 
-一条命令过 12 项检查（密钥没进仓库 / 构建能过且产物不旧 / 环境变量真内联了 / 子路由 fallback 齐全 / 公网探活 / 跨域白名单 / 接口字段形状 / 错误不外泄 / 写入幂等 / 软删生效 / 危机入口常驻 / 文档链接没失效），逐项给 PASS/FAIL 和证据，有 FAIL 退出码为 1——**有 FAIL 就不要发**。
+一条命令过 15 项检查（密钥没进仓库 / 构建能过且产物不旧 / 环境变量真内联了 / 子路由 fallback 齐全 / 公网探活 / 跨域白名单 / 接口字段形状 / 错误不外泄 / 写入幂等 / 软删生效 / PATCH 清空真生效 / 并发不重复 / 线上跑的是本地这份产物 / 危机入口常驻 / 文档链接没失效），逐项给 PASS/FAIL 和证据，有 FAIL 退出码为 1——**有 FAIL 就不要发**。
 
 - 检查项全部来自本项目踩过的坑，逐项的命令 / 通过标准 / 踩坑出处见 [`skills/verify-project/SKILL.md`](skills/verify-project/SKILL.md)
 - 每次实跑的报告落在 `skills/verify-project/runs/`，和上一次对照就知道有没有退步

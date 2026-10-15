@@ -465,9 +465,129 @@ async function v10(testId) {
 }
 
 // ============================================================
-// V11 危机入口红线（PRD 三条不可破的底线之一）
+// V11 PATCH 清空字段：说改好了就得真改好（Day 24 修的 Bug）
 // ============================================================
-async function v11() {
+async function v11PatchClear(testId) {
+  if (SKIP_NET) return record('V11', 'PATCH 清空字段真的生效', 'Day 24', 'SKIP', '--skip-net 已跳过公网项', [])
+  if (!testId) return record('V11', 'PATCH 清空字段真的生效', 'Day 24', 'SKIP', '幂等项没拿到测试 id，本项跳过', [])
+  try {
+    const patch = (body) =>
+      fetchJson(`${API_BASE}/api/moods?id=${encodeURIComponent(testId)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify(body),
+      })
+    const rowOf = async () => {
+      const { json } = await fetchJson(`${API_BASE}/api/moods?limit=200`)
+      return (json?.data?.items || []).find((r) => r.id === testId)
+    }
+    // 先写回有值的状态，再清空——否则「本来就是 null」会让检查空转
+    await patch({ emoji: 'calm', level: 3, note: '待清空' })
+    const p1 = await patch({ note: null })
+    const r1 = await rowOf()
+    const p2 = await patch({ level: null })
+    const r2 = await rowOf()
+    const checks = {
+      'PATCH {note:null} 返回 ok=true': p1.json?.ok === true,
+      '回读 note 真的是 null': r1 && r1.note === null,
+      'PATCH {level:null} 返回 ok=true': p2.json?.ok === true,
+      '回读 level 真的是 null': r2 && r2.level === null,
+    }
+    const bad = Object.entries(checks).filter(([, v]) => !v).map(([k]) => k)
+    record(
+      'V11',
+      'PATCH 清空字段真的生效',
+      'Day 24：T8/T9 接口回 ok:true、数据没动、还不报错——「说改好了但没改」最害人',
+      bad.length ? 'FAIL' : 'PASS',
+      bad.length ? `不符：${bad.join('、')}` : '清空后回读确实是 null（不是「接口说好了、库里没动」）',
+      [
+        `PATCH {note:null} → ${JSON.stringify(p1.json)}；回读 note=${JSON.stringify(r1?.note)}`,
+        `PATCH {level:null} → ${JSON.stringify(p2.json)}；回读 level=${JSON.stringify(r2?.level)}`,
+        '修法：清空要走「显式置 null」的分支，不能被「没传就不改」的逻辑吞掉',
+      ],
+    )
+  } catch (e) {
+    record('V11', 'PATCH 清空字段真的生效', 'Day 24', 'FAIL', `请求失败：${e.message}`, [])
+  }
+}
+
+// ============================================================
+// V12 并发连点：5 次同时写同一天，仍然只有 1 行（Day 24 C 段）
+// ============================================================
+async function v12Concurrent() {
+  if (SKIP_NET) return record('V12', '并发连点不产生第二行', 'Day 24', 'SKIP', '--skip-net 已跳过公网项', [])
+  try {
+    const shots = await Promise.all(
+      ['calm', 'warm', 'tired', 'low', 'empty'].map((emoji) =>
+        fetchJson(`${API_BASE}/api/moods`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({ date: TEST_DATE, emoji, level: 2, note: TEST_NOTE }),
+        }),
+      ),
+    )
+    const oks = shots.filter((s) => s.json?.ok === true).length
+    const { json } = await fetchJson(`${API_BASE}/api/moods?limit=200`)
+    const rows = (json?.data?.items || []).filter((r) => r.date === TEST_DATE)
+    const pass = oks === 5 && rows.length === 1
+    record(
+      'V12',
+      '并发连点不产生第二行',
+      'Day 24 C 段：同一天同时发 5 次，唯一约束 + upsert 必须兜住（串行幂等过了不代表并发过得去）',
+      pass ? 'PASS' : 'FAIL',
+      pass ? '5 发全成功、该日仍只有 1 行' : `5 发中 ${oks} 次成功，该日有 ${rows.length} 行——并发没兜住`,
+      [`并发 POST ×5 → 成功 ${oks}/5（顺序不定，内容取其中一次）`, `GET /api/moods?limit=200 中 ${TEST_DATE} 的行数：${rows.length}`],
+    )
+  } catch (e) {
+    record('V12', '并发连点不产生第二行', 'Day 24', 'FAIL', `请求失败：${e.message}`, [])
+  }
+}
+
+// ============================================================
+// V13 线上跑的是不是本地这份（Day 20 坑：部署像没生效 / CDN 缓存）
+// ============================================================
+async function v13Online() {
+  if (SKIP_NET) return record('V13', '线上跑的是本地这份产物', 'Day 20', 'SKIP', '--skip-net 已跳过公网项', [])
+  try {
+    const home = await fetch(SITE_ORIGIN + '/', { signal: AbortSignal.timeout(15000), headers: { 'Cache-Control': 'no-cache' } })
+    const html = await home.text()
+    const m = html.match(/\/assets\/([A-Za-z0-9._-]+\.js)/)
+    const onlineBundle = m ? m[1] : null
+    let same = false
+    let localInfo = '本地 dist 里没有同名文件'
+    if (onlineBundle && existsSync(path.join(DIST, 'assets', onlineBundle))) {
+      const localBuf = readFileSync(path.join(DIST, 'assets', onlineBundle))
+      const onlineBuf = Buffer.from(await (await fetch(`${SITE_ORIGIN}/assets/${onlineBundle}`, { signal: AbortSignal.timeout(15000) })).arrayBuffer())
+      same = localBuf.length === onlineBuf.length && localBuf.equals(onlineBuf)
+      localInfo = `本地 ${localBuf.length} 字节 / 线上 ${onlineBuf.length} 字节 → ${same ? '完全一致' : '不一致（线上是另一个版本，多半是没重新部署或 CDN 还挂着旧包）'}`
+    }
+    // 子路由直开：静态托管不做 fallback，只有直开能验出 fallback 到底部署上去没有
+    const sub = await fetch(`${SITE_ORIGIN}/daily`, { signal: AbortSignal.timeout(15000) })
+    const subHtml = sub.status === 200 ? await sub.text() : ''
+    const subOk = sub.status === 200 && /<div id="root"/.test(subHtml)
+    const pass = same && subOk
+    record(
+      'V13',
+      '线上跑的是本地这份产物',
+      'Day 20：部署看着没生效时别先怀疑网络——比对线上引用的 bundle 与本地 dist，再看子路由能不能直开',
+      pass ? 'PASS' : 'FAIL',
+      pass ? '线上 bundle 与本地逐字节一致，且 /daily 直开 200' : `线上与本地不一致，或子路由直开异常`,
+      [
+        `线上首页引用的 bundle：${onlineBundle ?? '未取到'}`,
+        `比对：${localInfo}`,
+        `/daily 直开：HTTP ${sub.status}${subOk ? '，含 <div id="root">（fallback 已生效）' : '，❌ 不是正常的 SPA 入口页'}`,
+        '修法：npm run build → node scripts/spa-fallback.mjs → tcb hosting deploy frontend/dist -e <env> --verify',
+      ],
+    )
+  } catch (e) {
+    record('V13', '线上跑的是本地这份产物', 'Day 20', 'FAIL', `请求失败：${e.message}`, [])
+  }
+}
+
+// ============================================================
+// V14 危机入口红线（PRD 三条不可破的底线之一）
+// ============================================================
+async function v14() {
   const appTsx = path.join(FRONTEND, 'src', 'App.tsx')
   const src = existsSync(appTsx) ? readFileSync(appTsx, 'utf8') : ''
   const helpLinks = (src.match(/to="\/help"/g) || []).length
@@ -480,13 +600,13 @@ async function v11() {
     '号码可点拨号（tel:）': hasTel,
   }
   const bad = Object.entries(checks).filter(([, v]) => !v).map(([k]) => k)
-  record('V11', '危机入口常驻（不可砍的红线）', 'PRD §2：任意页面 ≤1 次点击可达，号码打包进构建、可点拨号', bad.length ? 'FAIL' : 'PASS', bad.length ? `红线破了：${bad.join('、')}` : '导航 + 页脚双入口，热线在源码里、可点拨号', [`App.tsx 中 to="/help" 出现 ${helpLinks} 次`, `12356：${hasNumbers ? '✅' : '❌'}；tel: 链接：${hasTel ? '✅' : '❌'}`])
+  record('V14', '危机入口常驻（不可砍的红线）', 'PRD §2：任意页面 ≤1 次点击可达，号码打包进构建、可点拨号', bad.length ? 'FAIL' : 'PASS', bad.length ? `红线破了：${bad.join('、')}` : '导航 + 页脚双入口，热线在源码里、可点拨号', [`App.tsx 中 to="/help" 出现 ${helpLinks} 次`, `12356：${hasNumbers ? '✅' : '❌'}；tel: 链接：${hasTel ? '✅' : '❌'}`])
 }
 
 // ============================================================
-// V12 文档里的相对链接没失效（改口径容易忘改引用）
+// V15 文档里的相对链接没失效（改口径容易忘改引用）
 // ============================================================
-async function v12() {
+async function v15() {
   const mds = walk(REPO).filter((f) => f.endsWith('.md') && !f.includes(`${path.sep}备查${path.sep}`) && !f.includes(`${path.sep}runs${path.sep}`))
   const broken = []
   let total = 0
@@ -501,7 +621,7 @@ async function v12() {
     }
   }
   const pass = broken.length === 0
-  record('V12', '文档里的相对链接没失效', 'AGENTS §10：改口径要全文搜旧说法；链接失效就是文档漂了', pass ? 'PASS' : 'FAIL', pass ? `${mds.length} 篇文档、${total} 个站内链接全部有效` : `${broken.length} 个失效链接`, pass ? [`扫描 ${mds.length} 篇 .md、${total} 个站内相对链接`] : broken.slice(0, 6).map((b) => `❌ ${b}`))
+  record('V15', '文档里的相对链接没失效', 'AGENTS §10：改口径要全文搜旧说法；链接失效就是文档漂了', pass ? 'PASS' : 'FAIL', pass ? `${mds.length} 篇文档、${total} 个站内链接全部有效` : `${broken.length} 个失效链接`, pass ? [`扫描 ${mds.length} 篇 .md、${total} 个站内相对链接`] : broken.slice(0, 6).map((b) => `❌ ${b}`))
 }
 
 // ============================================================
@@ -531,10 +651,14 @@ async function main() {
   await v6()
   await v7()
   await v8()
+  // 写入类检查的顺序有讲究：先造行 → 清空字段 → 并发连点 → 最后软删收尾（删早了后面就没得测）
   const testId = await v9()
+  await v11PatchClear(testId)
+  await v12Concurrent()
   await v10(testId)
-  await v11()
-  await v12()
+  await v13Online()
+  await v14()
+  await v15()
 
   const pass = results.filter((r) => r.status === 'PASS').length
   const fail = results.filter((r) => r.status === 'FAIL').length
