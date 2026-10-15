@@ -74,8 +74,12 @@
 │   ├── schema.sql               # 建表唯一源（约束 + 行级权限）
 │   ├── seed.sql                 # 演示数据
 │   └── README.md                # 跑法与验证语句
-├── scripts/           # 部署辅助脚本（不是网站本体的一部分）
-│   └── spa-fallback.mjs         # 给静态托管补子路由入口，构建后必跑
+├── scripts/           # 部署与检查辅助脚本（不是网站本体的一部分）
+│   ├── spa-fallback.mjs         # 给静态托管补子路由入口，构建后必跑
+│   └── verify-project.mjs       # 发布前检查：12 项逐项 PASS/FAIL + 证据（Day 25）
+├── skills/            # 项目级 Skill（课程交付物：可复用的检查清单 + 用法）
+│   ├── verify-project/          # 发布前检查（用法见 README「发布前检查」）
+│   └── filter-audit/            # 找方向页筛选交互验收
 ├── docs/
 │   ├── 开发原则.md              # 开发工作规则唯一源
 │   ├── 设计规范.md              # 视觉令牌与组件约束（数值唯一源在 index.css）
@@ -94,6 +98,18 @@
 ## 本地跑起来
 
 见 [`运行说明.md`](运行说明.md)。
+
+## 发布前检查（Day 25 起）
+
+```
+node scripts/verify-project.mjs --with-build
+```
+
+一条命令过 12 项检查（密钥没进仓库 / 构建能过且产物不旧 / 环境变量真内联了 / 子路由 fallback 齐全 / 公网探活 / 跨域白名单 / 接口字段形状 / 错误不外泄 / 写入幂等 / 软删生效 / 危机入口常驻 / 文档链接没失效），逐项给 PASS/FAIL 和证据，有 FAIL 退出码为 1——**有 FAIL 就不要发**。
+
+- 检查项全部来自本项目踩过的坑，逐项的命令 / 通过标准 / 踩坑出处见 [`skills/verify-project/SKILL.md`](skills/verify-project/SKILL.md)
+- 每次实跑的报告落在 `skills/verify-project/runs/`，和上一次对照就知道有没有退步
+- 它给不出证据的三件事（收回 anon 写授权 / 恢复 RLS / 检查台加权限）会在结尾打印提醒，需要人确认，不算通过
 
 ## 文档索引与作废关系
 

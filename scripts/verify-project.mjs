@@ -179,6 +179,30 @@ async function v1() {
 async function v2() {
   const ev = []
   let pass = true
+  // 漏报防线（第一轮补的）：只看「dist 在不在」会放过一种假通过——
+  // 源码刚改过、dist 还是上一版，V3/V4 拿旧产物判成 PASS。所以也要比新鲜度。
+  const newestMtime = (files) =>
+    files.reduce((m, f) => {
+      try {
+        const s = statSync(f).mtimeMs
+        return s > m ? s : m
+      } catch {
+        return m
+      }
+    }, 0)
+  const watched = [
+    ...walk(path.join(FRONTEND, 'src')),
+    path.join(FRONTEND, 'package.json'),
+    path.join(FRONTEND, 'index.html'),
+    path.join(FRONTEND, 'vite.config.ts'),
+  ].filter(existsSync)
+  const srcNewest = newestMtime(watched)
+  const distNewest = existsSync(path.join(DIST, 'index.html')) ? statSync(path.join(DIST, 'index.html')).mtimeMs : 0
+  const fresh = distNewest >= srcNewest
+  if (!fresh) pass = false
+  ev.push(
+    `产物新鲜度：源码最新 ${new Date(srcNewest).toISOString()} vs 产物 ${new Date(distNewest).toISOString()} → ${fresh ? '✅ 产物不旧于源码' : '❌ 产物比源码旧（拿旧包判 PASS 不算数，先 --with-build 重跑）'}`,
+  )
   if (WITH_BUILD) {
     const r = spawnSync('npm.cmd', ['run', 'build'], { cwd: FRONTEND, encoding: 'utf8', shell: true, windowsHide: true })
     const out = (r.stdout || '') + (r.stderr || '')
@@ -518,6 +542,11 @@ async function main() {
 
   console.log('─'.repeat(72))
   console.log(`结论：${pass} PASS / ${fail} FAIL / ${skip} SKIP　——　${fail === 0 ? '可以发' : '有 FAIL，发之前先修'}`)
+  console.log('')
+  console.log('脚本查不了、发之前必须人确认的三件事（契约 §7 三条 🔴）：')
+  console.log('  1. 收回 anon 的 insert/update 授权（Day 18 演示期临时开的）')
+  console.log('  2. 恢复 moods / progress_notes 的 RLS（Day 17 临时关的）')
+  console.log('  3. 检查台 /check 的写入入口加权限或下线（现在公网任何人可点、会真写库）')
 
   // 报告落盘
   const lines = []
@@ -531,6 +560,12 @@ async function main() {
   for (const r of results) {
     lines.push(`| ${r.id} | ${r.title} | **${r.status}** | ${r.summary.replace(/\|/g, '\\|')} | ${r.source.replace(/\|/g, '\\|')} |`)
   }
+  lines.push('')
+  lines.push('## 脚本查不了、发之前必须人确认的三件事（契约 §7 三条 🔴）')
+  lines.push('')
+  lines.push('1. 收回 `anon` 的 insert/update 授权（Day 18 演示期临时开的）')
+  lines.push('2. 恢复 `moods` / `progress_notes` 的 RLS（Day 17 临时关的）')
+  lines.push('3. 检查台 `/check` 的写入入口加权限或下线（现在公网任何人可点、会真写库）')
   lines.push('')
   lines.push('## 逐项证据')
   lines.push('')
