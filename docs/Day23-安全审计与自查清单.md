@@ -185,6 +185,8 @@ cd frontend && node --experimental-strip-types scripts/check-error-messages.mts
 | 3 | RLS 未恢复 + `anon` 写授权未收回 | Day 18 的演示期临时授权（`grant insert, update on public.moods to anon`）仍在 | 接登录时收回（这条是上线前必须收的） |
 | 4 | 请求日志只在云函数日志里 | 没有集中查询与告警，出问题要人肉翻 | 后续有余力再考虑 |
 | 5 | 演示视频未录 | Day 21 起就登记着 | 交付前补 |
+| 6 | 本次提交里有两笔「不是我今天的改动」 | `scripts/verify-project.mjs`、`skills/verify-project/runs/2026-10-16.md` —— 是发布前检查脚本并行跑出来的产物，被 `git add -A` 一起带进了 Day 23 的提交。**归属说明放这里，避免以后误以为它们是 Day 23 写的** | 不影响功能；下次 `git add` 只加自己动过的文件 |
+| 7 | `frontend/dist` 与源码的一致性 | 今天跑过两次 `npm run build`，`dist` 会被清空重建，**子路由的 fallback 目录必须紧跟着跑 `node scripts/spa-fallback.mjs` 补回来**（今天就补了一次：9 条子路由 / 10 个入口） | 部署前固定按「build → spa-fallback → deploy」三步走 |
 
 **本轮的诚实边界**：这次证明的是「代码与仓库层面没有密钥、错误提示已统一」。
 它**不能**证明云端控制台侧的权限配置是安全的 —— RLS、`anon` 授权、环境变量注入这些
