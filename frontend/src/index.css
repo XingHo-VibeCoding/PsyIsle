@@ -906,6 +906,58 @@ a.door:active {
   text-decoration: underline;
 }
 
+/* ---- 写一写 · 真实数据列表（Day 17 接云端读接口） ---- */
+.feed-list {
+  list-style: none;
+  display: grid;
+  gap: var(--sp-3);
+}
+.feed-item {
+  display: flex;
+  gap: var(--sp-3);
+  padding: var(--sp-4) var(--sp-5);
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+}
+.feed-emoji {
+  flex: 0 0 auto;
+  font-size: 22px;
+  line-height: 1.4;
+}
+.feed-body {
+  min-width: 0;
+}
+.feed-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--sp-1) var(--sp-3);
+}
+.feed-date {
+  color: var(--ink-mute);
+  font-size: var(--fs-meta);
+}
+.feed-tag {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 var(--sp-3);
+  background: var(--forest-50);
+  border: 1px solid var(--forest-300);
+  border-radius: var(--r-pill);
+  color: var(--forest-700);
+  font-size: var(--fs-meta);
+  font-weight: var(--fw-bold);
+}
+.feed-note {
+  margin-top: var(--sp-1);
+  color: var(--ink-soft);
+  font-size: var(--fs-body);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 .lib-group {
   margin-top: var(--sp-5);
 }

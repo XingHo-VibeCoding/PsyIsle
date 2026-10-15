@@ -1,6 +1,6 @@
 # 心屿 · 接口契约
 
-> Day 15 起生效（2026-10-15 扩写）｜ Day 16 补表结构 ｜ 前端与云端之间的**唯一**约定
+> Day 15 起生效（2026-10-15 扩写）｜ Day 16 补表结构 ｜ Day 17 落地两支读接口 ｜ 前端与云端之间的**唯一**约定
 > 任何接口的路径、入参、返回结构，**先写在这里，再写代码**。
 
 ---
@@ -9,7 +9,7 @@
 
 - **管**：云端接口对外的形态——路径、方法、请求体、响应体、错误、鉴权。
 - **不管**：数据库表结构——**已另立**，唯一源是 `db/schema.sql`（Day 16 建，含建表、约束、行级权限）；页面结构见 `PRD.md` 与 `docs/设计规范.md`。
-- **现状**：**1 个已实现**（`GET /api/health`，第 4 节）+ **19 个占位**（第 5 节）；数据库**3 张表已建**（`profiles` / `moods` / `progress_notes`）。
+- **现状**：**3 个已实现**（`GET /api/health`、`GET /api/moods`、`GET /api/notes`，第 4 节）+ **17 个占位**（第 5 节）；数据库**3 张表已建**（`profiles` / `moods` / `progress_notes`）。
 - 占位的意思是：**名字、路径、形状今天定下来，代码一行不写**。它是 Day 16 起建表写接口的唯一依据——先按这份文件建表，再按这份文件写接口。
 - 这条约束不是形式主义：**契约是唯一一处同时约束前端和云端的东西**。改一个字段名，两边都知道要改哪里；没有契约，两边各自猜，最后对不上。
 
@@ -104,6 +104,63 @@ GET https://psyisle-prod-d9g109suw53257aed.service.tcloudbase.com/api/health
 
 ---
 
+### 4.2 `GET /api/moods`
+
+**用途**：读回心情打卡列表，给「写一写」页展示。形状同 §5.2 的定义，**今天正式落地**。
+
+**请求参数**（全部可选）
+
+| 参数 | 类型 | 说明 |
+|---|---|---|
+| `limit` | number | 返回条数，默认 `50`，上限 `200`（**Day 17 余力加练**：这是今天唯一实现的参数） |
+
+> `from` / `to` / `cursor` 本期**未实现**（登记在 §5.2，字段留着）；今天只做 `limit`。
+
+**200 响应**：`{ "ok": true, "data": { "items": [ … ], "nextCursor": null } }`，单项字段见 §5.2。
+按 `date` **倒序**。
+
+**错误**：无鉴权（Day 17 演示期，见下方「RLS」说明）；库/网络异常 → `{ "ok": false, "error": { "code": "INTERNAL", … } }`。
+
+**实测（2026-10-15 Day 17）**
+
+```
+GET https://psyisle-prod-d9g109suw53257aed.service.tcloudbase.com/api/moods
+200 OK  ·  application/json; charset=utf-8
+{"ok":true,"data":{"items":[{"id":"m_seed_08","date":"2026-10-15","emoji":"anxious","level":3,
+"note":"明天要交东西（Day17联动验证）","createdAt":"2026-10-15T03:25:00.000+08:00"}, …],
+"nextCursor":null}}
+```
+
+### 4.3 `GET /api/notes`
+
+**用途**：读回「小进步」列表，给「写一写」页展示。形状同 §5.2 定义。
+
+**请求参数**：同 `GET /api/moods`（只有 `limit`）。
+
+**200 响应**：`{ "ok": true, "data": { "items": [ { "id": "n_…", "date": "…", "text": "…", "createdAt": "…" } ], "nextCursor": null } }`，按 `date` 倒序。
+
+**实测（2026-10-15 Day 17）**：公网 200，返回 `progress_notes` 真实演示数据 12 条。
+
+---
+
+### 4.4 今天踩到的三件事（Day 17 记）
+
+**① 「表字段和接口字段对不上」——这就是今天要掌握的那一项。**
+`public.moods` 的列叫 `created_at`（snake_case），契约里接口字段叫 `createdAt`（camelCase）。云函数若把查出的行原样 `return`，前端拿到的是 `created_at`，按契约取 `item.createdAt` 就是 `undefined`，页面日期直接空白。
+**怎么发现的**：先按契约写前端取值 `createdAt`，接口返回里却找不到这个 key——名字对不上，不是数据错了。
+**落点**：两支云函数都显式 `select` 出契约规定的列，并逐字段改名（`created_at → createdAt`）。
+另外 `moods` 表里还有一个 `updated_at` 列，**契约里根本没有**——接口故意不选它，是「表里有的、接口不一定给」的落点。
+
+**② 云函数读 PG 的可行方式。**
+本环境是**体验版**，不支持 `pg` 直连（无内网地址）；经 HTTP 网关的 PostgREST 才是可用路径。最终用 `@cloudbase/node-sdk` 的 `app.rdb()`，并手动注入 `Accept-Profile: public`（云端全局 SDK 版本较旧，`schema()` / `setHeader()` 缺失，且默认把 schema 写成环境 ID → 会报 `Invalid schema`）。
+
+**③ RLS（行级权限）与「函数即可信后端」。**
+`moods` / `progress_notes` 的策略是 `owner_id = auth.uid()`，而云函数的调用身份不是 `service_role`（本环境拿不到），导致 `select` 回来 **0 行**——数据在库里（`moods` 9 行、`notes` 12 行），是被权限过滤掉的。
+Day 17 的定位是「函数作为可信后端读**全部演示数据**、前端只经函数读库」，因此这两张表**在 Day 17 演示期临时关闭 RLS**；**Day 18 接登录、按调用者身份过滤时恢复**（`db/schema.sql` 仍保留原始策略定义，恢复时按它重开）。
+
+---
+
+
 ## 5. 占位接口（今天只登记，代码一行不写）
 
 ### 5.0 总表
@@ -113,9 +170,9 @@ GET https://psyisle-prod-d9g109suw53257aed.service.tcloudbase.com/api/health
 | 1 | `/api/health` | GET | — | 2 | ✅ 已实现 |
 | 2 | `/api/me` | GET | `profiles` | 2 | 占位 |
 | 3 | `/api/me` | POST | `profiles` | 2 | 占位 |
-| 4 | `/api/moods` | GET | `moods` | 2 | 占位（**列表读取**） |
+| 4 | `/api/moods` | GET | `moods` | 2 | ✅ **已实现（列表读取）** |
 | 5 | `/api/moods` | POST | `moods` | 2 | 占位 |
-| 6 | `/api/notes` | GET | `progress_notes` | 2 | 占位（**列表读取**） |
+| 6 | `/api/notes` | GET | `progress_notes` | 2 | ✅ **已实现（列表读取）** |
 | 7 | `/api/notes` | POST | `progress_notes` | 2 | 占位 |
 | 8 | `/api/assessments` | POST | `assessments` | 2 | 占位（算法未裁定） |
 | 9 | `/api/assessments/latest` | GET | `assessments` | 2 | 占位（算法未裁定） |
@@ -197,16 +254,16 @@ GET https://psyisle-prod-d9g109suw53257aed.service.tcloudbase.com/api/health
 
 这一组是 `PRD.md` §5 里「主对象 + 记录表」模式的两处落点，**也是课程第 3 周的主要交付**。
 
-#### `GET /api/moods` —— 心情打卡列表
+#### `GET /api/moods` —— 心情打卡列表　✅ **Day 17 已实现**（见 §4.2）
 
 **请求参数**（全部可选）
 
 | 参数 | 类型 | 说明 |
 |---|---|---|
-| `from` | `YYYY-MM-DD` | 起始日期（含） |
-| `to` | `YYYY-MM-DD` | 结束日期（含） |
-| `limit` | number | 默认 `31`，上限 `100` |
-| `cursor` | string | 上一页返回的 `nextCursor` |
+| `from` | `YYYY-MM-DD` | 起始日期（含）｜**未实现**，登记备用 |
+| `to` | `YYYY-MM-DD` | 结束日期（含）｜**未实现**，登记备用 |
+| `limit` | number | ✅ 已实现。**实际默认 `50`、上限 `200`**（本节早先写的「默认 31、上限 100」是 Day 15 的草案数字，Day 17 落地时改成了 50/200；以本节这行为准） |
+| `cursor` | string | 上一页返回的 `nextCursor`｜**未实现**，登记备用 |
 
 > 「今天打过卡没有」**不另开接口**，用 `from=to=今天` 查——一个接口能回答的事，不开第二个。
 
@@ -275,7 +332,7 @@ GET https://psyisle-prod-d9g109suw53257aed.service.tcloudbase.com/api/health
 | `note` 超 200 字 | `400 INVALID_INPUT` |
 | 没登录 | `401 UNAUTHORIZED` |
 
-#### `GET /api/notes` —— 一个小进步列表
+#### `GET /api/notes` —— 一个小进步列表　✅ **Day 17 已实现**（见 §4.3）
 
 参数与形状同 `GET /api/moods`，`items[]` 单项为：
 
@@ -522,8 +579,8 @@ GET /api/tasks?themes=lonely,meaning
 |---|---|---|---|---|
 | `users` | **不建接口** —— 走平台账号体系，**不自存密码** | 2 | **永不建**（平台自带 `auth` schema） | 用平台能力 |
 | `profiles` | `GET` / `POST /api/me` | 2 | ✅ **Day 16 已建** | 占位 |
-| `moods` | `GET` / `POST /api/moods` | 2 | ✅ **Day 16 已建** | 占位 |
-| `progress_notes` | `GET` / `POST /api/notes` | 2 | ✅ **Day 16 已建** | 占位 |
+| `moods` | `GET` / `POST /api/moods` | 2 | ✅ **Day 16 已建** | **GET ✅ Day 17** / POST 占位 |
+| `progress_notes` | `GET` / `POST /api/notes` | 2 | ✅ **Day 16 已建** | **GET ✅ Day 17** / POST 占位 |
 | `assessments` | `POST /api/assessments`、`GET /api/assessments/latest` | 2 | ⏸ **刻意未建**（算法未裁定，见 5.3） | 占位 |
 | `chat_sessions` / `chat_messages` | `GET` / `POST /api/chat/messages`、`POST /api/chat/messages/clear` | 3 | 未建 | 占位 |
 | `posts` / `post_likes` / `reports` | `GET` / `POST /api/posts`、`POST /api/posts/like`、`POST /api/posts/report` | 4 | 未建 | 占位 |
@@ -561,13 +618,34 @@ GET /api/tasks?themes=lonely,meaning
 **Day 17 的走法**：挑一行 → 写云函数读接口（表已经在了）→ 前端把 `frontend/src/lib/api.ts` 里对应的 `load()` 换成真实请求。
 **先做 `moods`**：它最好验证（读回来、看列表），且不依赖任何未裁定的算法。
 
+### 6.2 Day 17 读接口纪要（2026-10-15）
+
+**「接口返回的数据里，哪一项和表对不上？怎么发现的？」——答案是 `createdAt`。**
+
+| | 表 `public.moods` | 契约 §5.2 | 结论 |
+|---|---|---|---|
+| 建表时间 | `created_at`（snake_case，`timestamptz`） | `createdAt`（camelCase） | **对不上** |
+| 备注列 | `updated_at` | **没有这个字段** | 表有的，接口不给 |
+
+**怎么发现的**：前端按契约取 `item.createdAt`，接口原样返回数据库行时是 `created_at` → 日期读不到、显示为空。名字对不上，会表现成「功能坏了」，但其实数据一条没少。
+
+**落点**：云函数显式 `select('id,date,emoji,level,note,created_at')` 并逐字段映射 → `createdAt`；`updated_at` 压根不选。
+
+**今天完成的两个交付**
+- `GET /api/moods`、`GET /api/notes` 部署到 CloudBase（Event 云函数 + HTTP 路由 `/api/moods`、`/api/notes`），公网 200、返回真库数据。
+- 真库验证：`update public.moods set note=… where id='m_seed_08'` 改一行 → 接口刷新后跟着变（列表顶部那一条即改后内容）。
+- 前端「写一写」页（`frontend/src/pages/Daily.tsx`）接真实接口，走 `loading / error / empty / ready` 四态。
+- 余力加练：`limit` 查询参数（默认 50、上限 200）。
+
+**明天（Day 18）**：写接口（`POST /api/moods`、`POST /api/notes`）、接登录、**把这两张表的 RLS 恢复**并按调用者身份过滤。
+
 ---
 
 ## 7. 还没定的（别照着猜）
 
 | 还没定 | 卡在哪 | 什么时候定 |
 |---|---|---|
-| **跨域（CORS）** | 需要在 HTTP 网关的路由里配 | Day 16–20，**在那之前前端不能直连**（`frontend` 继续用本地 mock）。Day 15 刻意不配 |
+| **跨域（CORS）** | ✅ **已解决**：Day 17 实测 CloudBase HTTP 网关会自动回 `access-control-allow-origin: <请求 Origin>`（含 `allow-credentials: true`），前端可直连，无需在路由里手配 | 2026-10-15 Day 17 |
 | 登录态怎么带（Header 还是 Cookie） | 取决于云服务账号能力的默认方式 | 与第一个用户数据接口同时定 |
 | ✅ ~~`emoji` 白名单~~ | **已定**：§5.2「情绪白名单」7 个 id，库约束与前端共用一份 | 2026-10-15 已定 |
 | ✅ ~~`note` / `text` / `nickname` 的长度上限~~ | **已定**：`note` 200 / `text` 200 / `nickname` 24（§2 通用约定） | 2026-10-15 已定 |
@@ -582,7 +660,8 @@ GET /api/tasks?themes=lonely,meaning
 | 时区（现在只按 +08:00 判定「哪一天」） | 只有国内用户就不必做 | 有真实需求再说 |
 | 限流（`429`） | 社区与 AI 接口都需要 | 阶段 3–4，上线前必须定 |
 | 「AI 陪你复盘」 | `PRD.md` §6 四个阶段里**从未排期** | **待排**，排期定了再登记接口 |
-| 错误响应状态码怎么落（4xx/5xx 具体怎么发出来） | 成功态已实测（第 3 节末条） | 与第一个业务接口同时实测确认 |
+| 🔴 **恢复 `moods` / `progress_notes` 的 RLS** | Day 17 为读演示数据**临时关闭**（见 §4.4③）；接登录后必须按 `owner_id = auth.uid()` 重开 | **Day 18**，接登录时同步做 |
+| 错误响应状态码怎么落（4xx/5xx 具体怎么发出来） | 成功态已实测（第 3 节末条）；Day 17 已实测错误态走 `{ok:false,error:{code:'INTERNAL'}}`（HTTP 仍 200），**业务错误的 4xx 发法仍未定** | 与第一个业务写接口（Day 18 POST）同时实测确认 |
 
 ---
 

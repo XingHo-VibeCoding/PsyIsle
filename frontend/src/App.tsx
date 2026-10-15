@@ -7,6 +7,7 @@ import CheckView from './pages/guide/CheckView'
 import LibraryView from './pages/guide/LibraryView'
 import TasksView from './pages/guide/TasksView'
 import About from './pages/About'
+import Daily from './pages/Daily'
 import UnderConstruction from './pages/UnderConstruction'
 
 // 导航 = 三扇门 + 求助。名字统一用户视角（听你说/找方向/写一写），
@@ -41,7 +42,8 @@ function App() {
             <Route path="library" element={<LibraryView />} />
             <Route path="check" element={<CheckView />} />
           </Route>
-          <Route path="/daily" element={<UnderConstruction name="写一写" />} />
+          {/* 写一写：Day 17 接入云端真实读接口（心情打卡 + 小进步） */}
+          <Route path="/daily" element={<Daily />} />
           {/* 已实现页面原样沿用：危机页不可砍；呼吸练习已并入「找方向 · 行动小任务」 */}
           <Route path="/help" element={<Help />} />
           <Route path="/breathe" element={<Breathe />} />

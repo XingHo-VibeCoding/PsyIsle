@@ -39,5 +39,8 @@ desktop.ini
 .vscode/
 .idea/
 
+# 云端函数部署配置（含服务端 API Key，只本地存在，绝不入库）
+cloudbaserc.json
+
 # 工作台/助手数据目录，不属于项目代码
 .workbuddy/

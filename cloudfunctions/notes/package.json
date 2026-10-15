@@ -1,0 +1,13 @@
+{
+  "name": "notes",
+  "version": "0.1.0",
+  "private": true,
+  "description": "小进步读接口（HTTP 网关路由 /api/notes）",
+  "main": "index.js",
+  "dependencies": {
+    "@cloudbase/node-sdk": "^3.18.3"
+  },
+  "scripts": {
+    "test": "node --test"
+  }
+}
