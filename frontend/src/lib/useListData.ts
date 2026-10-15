@@ -41,3 +41,38 @@ export function useListData<T>(load: () => Promise<T[]>): ListData<T> {
 
   return { status, data, retry }
 }
+
+// 单个对象（非列表）的同款四态。探活接口 /api/health 用它——取回的是一个对象，
+// 不是数组。竞态保护与重试语义和 useListData 完全一致：请求态的模式全站只有这一处实现。
+export function useFetch<T>(load: () => Promise<T>): {
+  status: ListStatus
+  data: T | null
+  retry: () => void
+} {
+  const [status, setStatus] = useState<ListStatus>('loading')
+  const [data, setData] = useState<T | null>(null)
+  const [attempt, setAttempt] = useState(0)
+
+  useEffect(() => {
+    let alive = true
+    setStatus('loading')
+    load().then(
+      (value) => {
+        if (!alive) return
+        setData(value)
+        setStatus('ready')
+      },
+      () => {
+        if (!alive) return
+        setStatus('error')
+      },
+    )
+    return () => {
+      alive = false
+    }
+  }, [load, attempt])
+
+  const retry = useCallback(() => setAttempt((n) => n + 1), [])
+
+  return { status, data, retry }
+}

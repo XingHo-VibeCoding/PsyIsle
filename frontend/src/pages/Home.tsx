@@ -1,12 +1,47 @@
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Compass, MessageCircle, NotebookPen } from 'lucide-react'
 import homeImg from '../assets/firefly-girl.jpg'
+import { fetchLatestMood, type MoodRow } from '../lib/api'
+import { moodMeta } from '../data/moods'
 
 // 首页 = 一整幅插画（2026-10-15 老板定稿：萤火少女——白衣小孩蹲坐林间、
 // 满屏萤光绿蝶，画风延续夜森林水彩系）。画面整体偏深，文字用浅色。
 // 顶部只留问候语；三个入口收进底部一排小卡；名称与引导语仍是老板原话，不自造。
 // 插画是氛围主体，纯装饰，alt 留空不进无障碍树。
 // 危机入口不放在画面里：导航「求助」仍全站 1 次点击可达（红线，永久不可砍）。
+
+// Day 20：「写一写」门卡上露一行数据库里的真实记录（公网首页要能看到真实数据）。
+// 克制是有意的：不显示计数、不显示连续天数——只回放最近一条，像一句「上次你记过这个」。
+// 取不到就不渲染：首页不承担报错职责，管道真出了问题去 /check 看。
+function LatestMoodLine() {
+  const [latest, setLatest] = useState<MoodRow | null>(null)
+
+  useEffect(() => {
+    let alive = true
+    fetchLatestMood().then(
+      (row) => {
+        if (alive) setLatest(row)
+      },
+      () => {
+        if (alive) setLatest(null)
+      },
+    )
+    return () => {
+      alive = false
+    }
+  }, [])
+
+  if (!latest) return null
+  const meta = moodMeta(latest.emoji)
+  const note = latest.note?.trim()
+  return (
+    <p className="door-latest">
+      最近一次 · {latest.date} {meta.label}
+      {note ? `「${note}」` : ''}
+    </p>
+  )
+}
 function greeting() {
   const h = new Date().getHours()
   if (h < 5) return '夜深了'
@@ -49,6 +84,7 @@ function Home() {
           </span>
           <h3>写一写</h3>
           <p>记下今天的心情，想写就写，不写也行。</p>
+          <LatestMoodLine />
         </Link>
       </nav>
     </section>

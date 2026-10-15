@@ -20,6 +20,7 @@ const ROUTES = [
   'guide/library',
   'guide/check',
   'daily',
+  'check',
   'help',
   'breathe',
   'about',

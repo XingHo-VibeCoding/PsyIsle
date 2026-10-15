@@ -8,6 +8,7 @@ import LibraryView from './pages/guide/LibraryView'
 import TasksView from './pages/guide/TasksView'
 import About from './pages/About'
 import Daily from './pages/Daily'
+import Check from './pages/Check'
 import UnderConstruction from './pages/UnderConstruction'
 
 // 导航 = 三扇门 + 求助。名字统一用户视角（听你说/找方向/写一写），
@@ -44,6 +45,9 @@ function App() {
           </Route>
           {/* 写一写：Day 17 接入云端真实读接口（心情打卡 + 小进步） */}
           <Route path="/daily" element={<Daily />} />
+          {/* 检查台（Day 20）：开发验收用——健康状态 / 核心表真实数据 / 写入测试。
+              不进主导航（不是产品功能），从页脚小链接或直接输地址进。 */}
+          <Route path="/check" element={<Check />} />
           {/* 已实现页面原样沿用：危机页不可砍；呼吸练习已并入「找方向 · 行动小任务」 */}
           <Route path="/help" element={<Help />} />
           <Route path="/breathe" element={<Breathe />} />
@@ -57,6 +61,10 @@ function App() {
         <Link to="/help" className="footer-help">需要马上找人说说？点这里</Link>
         <p>
           <Link to="/about" className="footer-about">关于与免责</Link>
+        </p>
+        <p>
+          {/* 检查台：开发验收入口，刻意不做成主导航——产品用户不需要看见它 */}
+          <Link to="/check" className="footer-about">检查台（开发验收用）</Link>
         </p>
         <p>本站不提供医疗诊断与治疗，不替代专业帮助。</p>
       </footer>

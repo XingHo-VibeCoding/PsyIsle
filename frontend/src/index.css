@@ -687,6 +687,19 @@ a.door:active {
   font-size: var(--fs-meta);
   line-height: 1.6;
 }
+/* 门卡上的一行真实数据（Day 20）：数据库里最近一条心情的回放。
+   窄卡里长 note 用省略号截断——完整记录在 /daily，这里只是回音；
+   截断用 CSS 不做 JS，内容再长也不会撑坏门卡布局。 */
+.door-latest {
+  margin-top: var(--sp-2);
+  max-width: 100%;
+  color: var(--ink-mute);
+  font-size: var(--fs-meta);
+  line-height: 1.5;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 
 /* ---- 拟人小角色：纯 CSS 画（不引图片、不手绘 SVG）----
    纪律：只陪伴不功能——不承载信息、不可点、aria-hidden 不进无障碍树；
@@ -938,6 +951,12 @@ a.door:active {
   color: var(--ink-mute);
   font-size: var(--fs-meta);
 }
+/* 情绪白名单 id 映射出的界面文字（契约 §5.2：存 id 不存字符，文字只在前端这一处映射） */
+.feed-mood {
+  color: var(--ink-soft);
+  font-size: var(--fs-meta);
+  font-weight: var(--fw-bold);
+}
 .feed-tag {
   display: inline-flex;
   align-items: center;
@@ -1040,6 +1059,75 @@ a.door:active {
   font-size: var(--fs-meta);
 }
 .comfort-guide a {
+  color: var(--forest-700);
+}
+
+/* ==========================================================================
+   6.5 页面层 · 检查台（Day 20，开发验收用）
+   ========================================================================== */
+.check {
+  max-width: var(--w-wide);
+  margin: 0 auto;
+  padding: var(--sp-10) var(--sp-6) var(--sp-12);
+}
+.check h1 {
+  font-size: var(--fs-h1);
+  margin-bottom: var(--sp-2);
+}
+.check-sub {
+  color: var(--ink-mute);
+  font-size: var(--fs-meta);
+  margin-bottom: var(--sp-6);
+}
+/* 顶栏：刷新 + 最后更新时间。工具页不需要氛围，信息密度优先 */
+.check-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-6);
+}
+.check-meta {
+  color: var(--ink-mute);
+  font-size: var(--fs-meta);
+}
+/* 健康状态「通」：绿点 + 文字两路信号，不靠颜色单独承担（色盲用户同样分得清） */
+.check-ok {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-4) var(--sp-5);
+  background: var(--forest-50);
+  border: 1px solid var(--forest-300);
+  border-radius: var(--r-md);
+  color: var(--forest-700);
+  font-size: var(--fs-meta);
+  font-weight: var(--fw-bold);
+}
+.check-dot {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: var(--r-pill);
+  background: var(--forest-500);
+}
+/* 区块标题右侧的计数/表名：小字号、次要色，不抢标题 */
+.check-count {
+  margin-left: var(--sp-3);
+  color: var(--ink-mute);
+  font-size: var(--fs-meta);
+  font-weight: var(--fw-normal);
+}
+.check-count-line {
+  margin-bottom: var(--sp-3);
+  color: var(--ink-mute);
+  font-size: var(--fs-meta);
+}
+.check-write-msg {
+  margin-top: var(--sp-3);
+  font-size: var(--fs-meta);
+}
+.check-write-ok {
   color: var(--forest-700);
 }
 

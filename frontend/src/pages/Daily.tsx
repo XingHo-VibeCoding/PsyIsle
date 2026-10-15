@@ -1,6 +1,7 @@
 import { usePageTitle } from '../lib/usePageTitle'
 import { useListData } from '../lib/useListData'
 import { ListLoading, ListError, ListEmpty } from '../components/ListStates'
+import { moodMeta } from '../data/moods'
 import { fetchMoods, fetchNotes, type MoodRow, type NoteRow } from '../lib/api'
 
 // 写一写 · 心情打卡 + 小进步（Day 17 正式接入云端真实读接口）。
@@ -8,16 +9,20 @@ import { fetchMoods, fetchNotes, type MoodRow, type NoteRow } from '../lib/api'
 // 一块取不回来不影响另一块，也不用把两个请求捏成一个（捏了反而一损俱损）。
 
 function MoodCard({ m }: { m: MoodRow }) {
+  const meta = moodMeta(m.emoji)
   return (
     <li className="feed-item">
       <span className="feed-emoji" aria-hidden="true">
-        {m.emoji ?? '🌿'}
+        {meta.glyph}
       </span>
       <div className="feed-body">
         <div className="feed-head">
           <span className="feed-date">{m.date}</span>
-          {/* level 可空：没打分的人就不展示这一格，不为空数据硬占位 */}
-          {typeof m.level === 'number' && <span className="feed-tag">心情 {m.level}/5</span>}
+          {/* emoji 是契约白名单 id，界面文字在这里才映射出来（data/moods.ts，全站唯一一处） */}
+          <span className="feed-mood">{meta.label}</span>
+          {/* level 可空：没打分的人就不展示这一格，不为空数据硬占位。
+              文案是「强度」不是「得分」——契约 §5.2：1 和 5 只是强度两端，没有哪端更好 */}
+          {typeof m.level === 'number' && <span className="feed-tag">强度 {m.level}/5</span>}
         </div>
         {m.note && <p className="feed-note">{m.note}</p>}
       </div>
