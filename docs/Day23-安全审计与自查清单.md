@@ -113,6 +113,21 @@ git grep -n -E "RDB_ERR|THROW:|JSON\.stringify\([a-z]*\.?error\)" -- cloudfuncti
 三类文案的**唯一定义点**是 `frontend/src/lib/errors.ts`；后端同一口径写在
 `cloudfunctions/moods|notes/index.js` 的 `SERVER_ERROR_MESSAGE`。契约同步更新见 `api-contract.md` §3。
 
+### 4.1 两条自检脚本（已入库，随时可重跑）
+
+```bash
+# 后端：喂两个云函数「假的数据库错误」，检查响应体只有中文、没有内部细节
+node scripts/check-error-messages.cjs
+# → ✓ 全部通过：两类错误都只回中文，响应体无表名/字段/SQL/英文堆栈
+
+# 前端：直接跑真实的 src/lib/errors.ts，检查三类文案与状态码边界
+cd frontend && node --experimental-strip-types scripts/check-error-messages.mts
+# → ✓ 全部通过：三类错误都是中文，英文原文与状态码都没有上屏
+```
+
+规格：退出码 0 = 全过，1 = 有断言没过（哪条没过会打印出来）。
+以后改错误提示，先跑这两条 —— 它们就是「三类错误口径」的回归测试。
+
 ---
 
 ## 5. 安全自查清单（每项含验证方法）
@@ -127,8 +142,8 @@ git grep -n -E "RDB_ERR|THROW:|JSON\.stringify\([a-z]*\.?error\)" -- cloudfuncti
 | 4 | `.env.example` 入库、里面没有真值 | 模板可被 add；内容全是占位符 | `git check-ignore -q .env.example; echo $?` → **1**；再读一遍文件确认无真值 | ✅ |
 | 5 | 部署配置与凭据文件不入库 | 0 个被跟踪 | `git ls-files -- '*.pem' '*.key' '*.p12' 'secrets.*' 'credentials*.json' 'cloudbaserc.json' \| wc -l` → 0 | ✅ 0 |
 | 6 | 敏感配置走环境变量 | 代码里没有密钥；环境相关值优先读 `process.env` | `git grep -n "process.env" -- cloudfunctions`；对照仓库根 `.env.example` 的变量名 | ✅ 只有 `TCB_ENV`（环境 ID，公开配置） |
-| 7 | 响应体不含内部细节 | 无表名 / 字段名 / SQL / 英文堆栈 / 状态码 | 后端自检脚本喂假库错误，断言响应串里不含 `does not exist`、`42P01`、`permission denied`、`SSL`、`RDB_ERR`、`THROW` | ✅ 7/7 无泄漏 |
-| 8 | 三类错误都有中文提示 | 三类各一句中文；无英文原文 | 后端：`node backend-check.cjs`（喂假库错误）；前端：`node --experimental-strip-types` 跑 `errors.ts` 自检 | ✅ 后端 7 例 / 前端 9 例 |
+| 7 | 响应体不含内部细节 | 无表名 / 字段名 / SQL / 英文堆栈 / 状态码 | `node scripts/check-error-messages.cjs`：喂假库错误（里面故意塞了表名、`42P01`、内网 IP），断言它们不出现在响应体里 | ✅ 7/7 无泄漏 |
+| 8 | 三类错误都有中文提示 | 三类各一句中文；无英文原文 | 后端同上；前端 `cd frontend && node --experimental-strip-types scripts/check-error-messages.mts`（跑真实的 `errors.ts`） | ✅ 后端 7 例 / 前端 11 例 + 4 条边界 |
 | 9 | 前端错误文案只有一个出处 | 页面里不自己拼文案 | `git grep -n "失败（\|Failed to fetch" -- frontend/src` → 只应出现在 `errors.ts` 的注释里 | ✅ |
 | 10 | 非法输入在接口层被拦且有中文原因 | 非法值返回中文 + `INVALID_INPUT` | 公网：`curl -s -X POST <base>/api/moods -H "Content-Type: application/json" -d '{"emoji":"zzz"}'`；`…/api/notes -d '{"text":""}'` | ✅ 两句中文 |
 | 11 | 依赖与构建产物不入库 | 0 个被跟踪 | `git ls-files -- '*node_modules*' \| wc -l`；`git ls-files -- '*dist/*' \| wc -l` | ✅ 0 / 0 |
@@ -153,6 +168,8 @@ git grep -n -E "RDB_ERR|THROW:|JSON\.stringify\([a-z]*\.?error\)" -- cloudfuncti
 | `.env.example` | **新增**：环境变量模板（纯占位符 + 外泄处置顺序） | Day 23 |
 | `api-contract.md` | §3 补「三类错误口径」+ `requestId` 字段 + 不得回传内部细节的红线 | Day 23 |
 | `docs/Day23-安全审计与自查清单.md` | **新增**：本文件 | Day 23 |
+| `scripts/check-error-messages.cjs` | **新增**：后端错误提示自检脚本（7 例） | Day 23 |
+| `frontend/scripts/check-error-messages.mts` | **新增**：前端错误提示自检脚本（11 例 + 4 条边界） | Day 23 |
 | `docs/Day23-安全审计截图/*.png` | **新增**：两张实测截图 | Day 23 |
 
 **明确没做的事（今天不做）**：不加异常处理框架、不动业务逻辑、不加 notes 的 DELETE 接口（属 Day 22 降级的可选项，留到有余力时补）。
