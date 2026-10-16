@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Trash2 } from 'lucide-react'
 import { usePageTitle } from '../lib/usePageTitle'
 import { useListData } from '../lib/useListData'
 import { ListLoading, ListError, ListEmpty } from '../components/ListStates'
@@ -191,16 +192,20 @@ function MoodCard({
         {m.note && <p className="feed-note">{m.note}</p>}
       </div>
       {/* Day 22：删除按钮。真正的「二次确认」在父组件的 onDelete 里用 window.confirm 实现——
-          一次点击表达意图，一次确认才真正发请求，避免手滑删掉一条记录。 */}
-      <button
-        type="button"
-        className="feed-del"
-        disabled={disabled}
-        aria-label="删除这条心情记录"
-        onClick={() => onDelete(m.id)}
-      >
-        删除
-      </button>
+          一次点击表达意图，一次确认才真正发请求，避免手滑删掉一条记录。
+          按钮本身走全站统一的 .icon-btn（44×44 圆形图标），外层的 .feed-act 把它
+          锚在内容首行——note 写多长它都不往下漂。 */}
+      <div className="feed-act">
+        <button
+          type="button"
+          className="icon-btn"
+          disabled={disabled}
+          aria-label="删除这条心情记录"
+          onClick={() => onDelete(m.id)}
+        >
+          <Trash2 size={18} strokeWidth={1.75} aria-hidden="true" />
+        </button>
+      </div>
     </li>
   )
 }
@@ -247,8 +252,15 @@ function Daily() {
   const deletingId = del.phase === 'deleting' ? del.id : null
 
   return (
-    <>
-      <section className="zone">
+    <div className="page">
+      {/* 页面主标题：改前这页直接从 h2 区块开始，全站只有它没有 h1，
+          读屏用户进页后不知道自己在哪一层。文案仍是「想写就写，不写也行」。 */}
+      <header className="page-head">
+        <h1>写一写</h1>
+        <p className="page-sub">今天的心情和小进步，想记就记，不记也没关系。</p>
+      </header>
+
+      <section className="zone zone-flat">
         <h2>今天的心情</h2>
         <p className="zone-tip">记一笔今天的状态，想写就写，不写也行。</p>
 
@@ -269,7 +281,7 @@ function Daily() {
         {del.phase === 'error' && <p className="write-hint">{del.text}</p>}
       </section>
 
-      <section className="zone">
+      <section className="zone zone-flat">
         <h2>小进步</h2>
         <p className="zone-tip">再小的事也是往前走。</p>
 
@@ -288,7 +300,7 @@ function Daily() {
           </ul>
         )}
       </section>
-    </>
+    </div>
   )
 }
 

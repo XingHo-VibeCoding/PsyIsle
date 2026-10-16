@@ -107,20 +107,46 @@
   --r-lg: 24px;
   --r-pill: 999px;
 
-  /* ---- 1.13 阴影：暖调。灰黑阴影会把奶油底压脏 ---- */
-  /* 阴影用冷调（原来的暖褐色投影落在冷底卡上会泛黄，正是要清掉的那种旧暖） */
-  --sh-1: 0 1px 2px rgba(20, 54, 44, 0.06);
-  --sh-2: 0 6px 18px -6px rgba(20, 54, 44, 0.14);
-  --sh-3: 0 14px 34px -14px rgba(20, 54, 44, 0.22);
+  /* ---- 1.13 阴影：冷调三层（灰黑/暖褐阴影会把奶油底压脏）----
+     三层不是三档深浅，是三种距离：贴地 / 抬起 / 浮起。卡片默认只用 --sh-1，
+     hover 才升到 --sh-2 —— 静止时安静、被指向时才浮起来。 */
+  --sh-1: 0 1px 2px rgba(20, 54, 44, 0.05);
+  --sh-2: 0 8px 20px -8px rgba(20, 54, 44, 0.14);
+  --sh-3: 0 18px 40px -18px rgba(20, 54, 44, 0.22);
+  /* 柔光环：给圆形图标用。它不是阴影，是「这颗点自己在发光」——
+     首页插画的萤火气质落到组件上就是这一圈。 */
+  --glow-1: 0 0 0 4px rgba(233, 243, 238, 0.7);
+  --glow-2: 0 0 0 6px rgba(233, 243, 238, 0.55);
 
-  /* ---- 1.14 动效 ---- */
-  --t-fast: 120ms ease;
-  --t-base: 200ms ease;
+  /* ---- 1.14 动效 ----
+     缓动曲线统一走 ease-soft（尾段收得慢）：线性/标准 ease 在「被安抚」的语境里
+     显得急，同样 200ms，尾段慢下来就像有人轻轻把东西放下而不是丢下。 */
+  --ease-soft: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --t-fast: 120ms var(--ease-soft);
+  --t-base: 220ms var(--ease-soft);
+  --t-slow: 420ms var(--ease-soft);
 
   /* ---- 1.15 布局 ---- */
   --w-page: 720px; /* 长文阅读宽 */
   --w-wide: 960px; /* 卡片栅格宽 */
   --tap: 44px;     /* 触控目标最小边长（WCAG 2.5.5 AA 级为 24px，这里是移动端留的余量） */
+
+  /* ---- 1.16 表面质感（治愈感来源）----
+     页面底不是纯色：一层极淡的绿雾从顶部往下褪，配合卡片白，读起来是
+     「纸铺在林间」而不是「白板」。雾的浓度刻意压到 2%——看得见方向、看不出边界。 */
+  --mist: linear-gradient(
+    180deg,
+    rgba(233, 243, 238, 0.55) 0%,
+    rgba(247, 251, 249, 0) 320px
+  );
+  /* 卡片上的一道顶光：白卡在浅绿底上会显得平，加 1px 内高光就有厚度 */
+  --sheen: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+
+  /* ---- 1.17 图形按钮（本次新增：位置逻辑的落点）----
+     全站所有「只有一个图标、没有文字」的按钮共用这一条尺寸与对齐规则，
+     组件里不许再各写一套 width/height。规则见 §3.6。 */
+  --icon-btn: var(--tap); /* 44×44：与文字按钮同高，混排时不参差 */
+  --icon-glyph: 18px;     /* 图标本体：lucide 1.75 描边在这个尺寸下最清晰 */
 }
 
 /* ==========================================================================
@@ -148,7 +174,12 @@ body {
   font-weight: var(--fw-normal);
   line-height: var(--lh-body);
   color: var(--ink-soft);
-  background: var(--cream);
+  background-color: var(--cream);
+  /* 顶部一层极淡绿雾（见 §1.16）。用 no-repeat + fixed 让它只铺一屏上部，
+     页面滚动时雾不跟着走，长列表不会整屏发绿。 */
+  background-image: var(--mist);
+  background-repeat: no-repeat;
+  background-attachment: fixed;
 }
 
 /* 标题统一走「紧行高 + 真 600」；字号由各自的作用域决定 */
@@ -170,11 +201,15 @@ button {
   color: inherit;
 }
 
-/* 键盘焦点：全站统一，不用改各组件 */
+/* 键盘焦点：全站统一，不用改各组件。
+   2px 实线 + 一圈同色柔光（3:1 对比仍然达标）——纯实线在圆角卡片上会显硬，
+   加一层光后焦点看起来像「被照亮」而不是「被框住」。
+   注意：柔光不能替代实线（色弱用户可能只看到实线），它是加分项不是唯一信号。 */
 :focus-visible {
-  outline: 3px solid var(--focus);
+  outline: 2px solid var(--focus);
   outline-offset: 2px;
   border-radius: var(--r-sm);
+  box-shadow: 0 0 0 6px rgba(79, 143, 117, 0.18);
 }
 
 /* 只给屏幕阅读器读、视觉上不占位的文本。
@@ -284,9 +319,12 @@ button {
   transition: background-color var(--t-fast), border-color var(--t-fast), color var(--t-fast),
     transform var(--t-fast);
 }
+/* 悬停微抬 1px：胶囊是「可以多选」的东西，抬起一点是在说「它会被选中」，
+   位移只给 1px——这是筛选器不是按钮，动作幅度要比按钮克制。 */
 .chip:hover {
   border-color: var(--forest-300);
   color: var(--forest-700);
+  transform: translateY(-1px);
 }
 .chip:active {
   transform: translateY(1px);
@@ -362,14 +400,16 @@ button {
   white-space: nowrap;
 }
 
-/* ---- 3.3 卡片 ---- */
+/* ---- 3.3 卡片 ----
+   静止时只有 1px 描边 + 贴地阴影（安静）；被指向时才描边转绿、浮起 2px。
+   --sheen 那道顶光让白卡在浅绿底上有厚度，不至于像贴上去的白纸片。 */
 .card {
   display: block;
   padding: var(--sp-6);
   background: var(--card);
   border: 1px solid var(--line);
   border-radius: var(--r-lg);
-  box-shadow: var(--sh-1);
+  box-shadow: var(--sh-1), var(--sheen);
   text-decoration: none;
   transition: transform var(--t-base), border-color var(--t-base), box-shadow var(--t-base);
 }
@@ -377,11 +417,11 @@ button {
 a.card:hover {
   transform: translateY(-2px);
   border-color: var(--forest-300);
-  box-shadow: var(--sh-2);
+  box-shadow: var(--sh-2), var(--sheen);
 }
 a.card:active {
   transform: translateY(0);
-  box-shadow: var(--sh-1);
+  box-shadow: var(--sh-1), var(--sheen);
 }
 
 /* ---- 3.4 卡片标签 ---- */
@@ -406,19 +446,22 @@ a.card:active {
   margin-top: var(--sp-5);
 }
 /* 加载用骨架行而不是转圈：形状先立住，内容回来时列表不会整体跳一下。
-   扫光特意做得极淡（forest-50 ↔ line-strong）——它表达的是「还在取」，不是「出事了」。 */
+   扫光的深浅差压到 forest-50 ↔ forest-100（改前用到 line-strong，对比过强，
+   夜里看着像在闪）——「还在取」不该有存在感，它只需要让人知道这儿会有东西。
+   节奏也放慢到 2.4s：1.6s 一轮的移动会被余光一直追着看，反而更焦躁。 */
 .skeleton-row {
   display: block;
-  height: 72px;
+  height: 76px; /* 对齐 .feed-item 的真实高度（16 内边距×2 + 内容约 44），
+                   内容回来时列表几乎不跳——骨架的意义就是别跳 */
   border-radius: var(--r-md);
   background: linear-gradient(
     90deg,
     var(--forest-50) 25%,
-    var(--line-strong) 37%,
+    var(--forest-100) 37%,
     var(--forest-50) 63%
   );
   background-size: 220% 100%;
-  animation: skeleton-sweep 1.6s ease-in-out infinite;
+  animation: skeleton-sweep 2.4s ease-in-out infinite;
 }
 @keyframes skeleton-sweep {
   from { background-position: 120% 0; }
@@ -454,6 +497,127 @@ a.card:active {
 .state-note-quiet {
   background: transparent;
   border-color: var(--line-strong);
+  box-shadow: none;
+}
+/* 空态顶上那一点萤火：纯装饰（伪元素内容为空，读屏读不到）。
+   空态是本产品出现频率最高的界面之一——「还没有记录」不该是一片空白，
+   给一点光，它读起来是「这里空着，在等你」，不是「这里什么都没有」。 */
+.state-note-quiet::before {
+  content: '';
+  display: block;
+  width: 34px;
+  height: 34px;
+  margin: 0 auto var(--sp-3);
+  border-radius: var(--r-pill);
+  background: radial-gradient(circle at 38% 32%, #ffffff 0%, var(--forest-100) 68%);
+  box-shadow: var(--glow-1);
+}
+
+/* ==========================================================================
+   3.6 图形按钮（图标按钮）· 位置逻辑的唯一出处
+   --------------------------------------------------------------------------
+   改前的问题：删除用文字小按钮、垂直居中悬挂在卡片右端；呼吸页的按钮数量随
+   状态增减，每一次切换按钮都横向跳一次位。两处的病根是同一个——按钮的位置
+   由「它此刻是什么」决定，而不是由「它作用在谁身上」决定。
+
+   定死三条，全站所有图标按钮一律照办：
+   ① 尺寸固定 44×44 圆形，与文字按钮同高，混排时不参差；
+   ② 位置贴它作用对象的**末端**（行内最右 / 卡片角上），不居中、不悬空；
+   ③ 纵向对齐到**内容首行**（align-self:start），不是整块垂直居中——
+      首行才是这行的「基准线」，居中会让按钮随着内容变长而往下漂。
+
+   状态随内容变、位置不随状态变：槽位永远在，按钮可以不在。
+   ========================================================================== */
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: var(--icon-btn);
+  height: var(--icon-btn);
+  padding: 0;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--r-pill);
+  color: var(--ink-mute);
+  cursor: pointer;
+  transition: background-color var(--t-fast), border-color var(--t-fast), color var(--t-fast),
+    transform var(--t-fast);
+}
+.icon-btn svg {
+  width: var(--icon-glyph);
+  height: var(--icon-glyph);
+}
+.icon-btn:hover:not(:disabled) {
+  background: var(--forest-50);
+  border-color: var(--forest-300);
+  color: var(--forest-700);
+}
+.icon-btn:active:not(:disabled) {
+  transform: translateY(1px);
+  background: var(--forest-100);
+}
+.icon-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+/* 危险动作的图标按钮：不加红（产品红线），用「填满绿底」表达「这一步要你确认」，
+   配合组件层的二次确认弹窗——颜色只是提示，真开关在确认框里。 */
+.icon-btn-strong:hover:not(:disabled) {
+  background: var(--forest-500);
+  border-color: var(--forest-500);
+  color: var(--on-dark);
+}
+
+/* ---- 动作槽位：一组按钮的「位置契约」----
+   .act-row 用 grid 固定列数，格子永远在；格子空着时占位不塌陷，
+   于是「开始→暂停→继续」这类状态切换不会再让整排按钮横向跳。
+   中间那格 auto 会被两端推开，视觉上是「左主 / 右次 / 最右退出」。 */
+.act-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-3);
+}
+/* 槽位本身不设宽：min-width 只保证「按钮不在时这格仍占一点位置」，
+   避免单按钮时整行从中间往左缩。 */
+.act-slot {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap);
+}
+/* 退出类动作永远钉在最右：它是「离开这里」，不该和「操作内容」的按钮抢位置 */
+.act-exit {
+  margin-left: auto;
+}
+
+/* ==========================================================================
+   3.7 内页统一骨架
+   --------------------------------------------------------------------------
+   凡是「有标题的一整页」都套 .page + .page-head，不要再各自写 max-width 与 padding。
+   改前 .guide / .help / .about / .breathe / .check 五处各写一套上下内边距，
+   不同页面之间的留白节奏对不上，同一篇文章换页就换气质。
+   ========================================================================== */
+.page {
+  max-width: var(--w-wide);
+  margin: 0 auto;
+  padding: var(--sp-10) var(--sp-6) var(--sp-12);
+}
+.page-head {
+  margin-bottom: var(--sp-4);
+}
+.page-head h1 {
+  font-size: var(--fs-h1);
+  margin-bottom: var(--sp-2);
+}
+.page-sub {
+  color: var(--ink-mute);
+  font-size: var(--fs-meta);
+}
+/* 按钮里的图标统一右留一口气：16px 的 lucide 图标贴到字上会显得挤 */
+.btn svg {
+  flex: none;
+  margin-right: var(--sp-2);
 }
 
 /* ==========================================================================
@@ -461,8 +625,14 @@ a.card:active {
    ========================================================================== */
 
 /* width:100% 必须显式声明：列向 flex 里 auto margin 会把 .nav 收缩成 fit-content 并居中，
-   导致 logo 与正文左缘错位、「求助」的 margin-left:auto 失效（Day 9 审查发现） */
+   导致 logo 与正文左缘错位、「求助」的 margin-left:auto 失效（Day 9 审查发现）。
+
+   容器宽度纪律（本次修的一条真错位）：全站外框一律 --w-wide(960)，
+   长文页不再另起 720 外框——两个外框宽度并存时，导航左缘与正文左缘永远差
+   (960-720)/2，看着像没对齐又找不出为什么。长文改用「外框 960 + 内部段落限宽
+   720 且左对齐」：限宽只吃掉右边，左缘仍然贴着全站基准线。 */
 .nav {
+  position: relative;
   display: flex;
   align-items: center;
   gap: var(--sp-6);
@@ -470,6 +640,18 @@ a.card:active {
   max-width: var(--w-wide);
   margin: 0 auto;
   padding: var(--sp-4) var(--sp-6);
+  /* 内页导航压一层极淡磨砂：滚到内容里时导航不会和正文糊在一起 */
+  background: rgba(247, 251, 249, 0.86);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--line);
+}
+/* 首页沉浸模式：导航浮在插画上，磨砂与分隔线一并撤掉 */
+.app-immersive .nav {
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border-bottom-color: transparent;
 }
 /* 五个入口全部按 --tap 撑开：logo 40×36、求助 30×44 曾都点不中 */
 .logo {
@@ -481,6 +663,22 @@ a.card:active {
   font-weight: var(--fw-bold);
   color: var(--forest-700);
   text-decoration: none;
+}
+/* logo 前那一点萤火：全站唯一一处纯装饰标记，和插画里的光点是同一件事。
+   它不承载信息，读屏不会读到（::before 伪元素内容为空）。 */
+.logo::before {
+  content: '';
+  flex: none;
+  width: 7px;
+  height: 7px;
+  margin-right: var(--sp-2);
+  border-radius: var(--r-pill);
+  background: var(--forest-500);
+  box-shadow: var(--glow-1);
+}
+.app-immersive .logo::before {
+  background: var(--forest-300);
+  box-shadow: 0 0 0 4px rgba(134, 184, 161, 0.32);
 }
 .nav a:not(.logo) {
   display: inline-flex;
@@ -540,7 +738,11 @@ a.card:active {
   display: none;
 }
 
+/* 页脚：外框与导航同宽（--w-wide），内容与正文左缘共用一条基准线。
+   上方留一大口气再画分隔线——页脚是「到这里就结束了」的信号，不是另一段内容。 */
 .footer {
+  max-width: var(--w-wide);
+  margin: var(--sp-10) auto 0;
   padding: var(--sp-6) var(--sp-6) var(--sp-8);
   border-top: 1px solid var(--line);
   text-align: center;
@@ -645,30 +847,38 @@ a.card:active {
   align-items: center;
   text-align: center;
   min-height: var(--tap);
-  padding: var(--sp-4) var(--sp-2);
+  padding: var(--sp-4) var(--sp-3);
   background: var(--door-bg);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   border-radius: var(--r-lg);
-  box-shadow: var(--sh-2);
+  box-shadow: var(--sh-2), var(--sheen);
   text-decoration: none;
   transition: transform var(--t-base), box-shadow var(--t-base);
 }
 a.door:hover {
   transform: translateY(-2px);
-  box-shadow: var(--sh-3);
+  box-shadow: var(--sh-3), var(--sheen);
 }
 a.door:active {
   transform: translateY(0);
-  box-shadow: var(--sh-1);
+  box-shadow: var(--sh-1), var(--sheen);
+}
+/* 文字组：桌面竖排时它在图标下方，手机横排时它在图标右侧。
+   没有这层包裹，手机横排会把 h3 和 p 肩并肩排成一行。 */
+.door-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: var(--sp-1);
 }
 .door-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   flex: none;
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
   margin-bottom: var(--sp-2);
   border-radius: var(--r-pill);
   /* 2026-10-13 深夜老板要求：图标收进夜森林绿，与内页按钮同一族色
@@ -676,7 +886,7 @@ a.door:active {
   background: var(--forest-50);
   color: var(--forest-700);
   /* 一圈淡淡的绿光：让白圆片和白卡不黏在一起，也留住插画那种柔晕 */
-  box-shadow: 0 0 0 4px rgba(233, 243, 238, 0.6);
+  box-shadow: var(--glow-1);
 }
 .door h3 {
   font-size: var(--fs-body);
@@ -767,6 +977,11 @@ a.door:active {
   max-width: var(--w-wide);
   margin: 0 auto;
   padding: var(--sp-5) var(--sp-6);
+}
+/* 相邻区块之间拉开一口气：两个区块各 20px 内边距只隔 40px，
+   标题与上一块内容会黏在一起，读不出「换了个话题」 */
+.zone + .zone {
+  padding-top: var(--sp-8);
 }
 .zone h2 {
   font-size: var(--fs-h2);
@@ -886,6 +1101,21 @@ a.door:active {
   border: 1px solid var(--line);
   border-radius: var(--r-md);
 }
+/* 浅卡族统一质感：顶光让白卡在浅绿底上有厚度；
+   悬停只转描边、不位移——这几类卡片里都嵌着链接，整卡浮起会让人以为整块可点。 */
+.task-item,
+.lib-item,
+.hotline-item,
+.state-note {
+  box-shadow: var(--sh-1), var(--sheen);
+  transition: border-color var(--t-base), box-shadow var(--t-base);
+}
+.task-item:hover,
+.lib-item:hover,
+.hotline-item:hover {
+  border-color: var(--forest-300);
+  box-shadow: var(--sh-2), var(--sheen);
+}
 .task-head {
   display: flex;
   flex-wrap: wrap;
@@ -919,28 +1149,10 @@ a.door:active {
   text-decoration: underline;
 }
 
-/* ---- 写一写 · 真实数据列表（Day 17 接云端读接口） ---- */
-.feed-list {
-  list-style: none;
-  display: grid;
-  gap: var(--sp-3);
-}
-.feed-item {
-  display: flex;
-  gap: var(--sp-3);
-  padding: var(--sp-4) var(--sp-5);
-  background: var(--card);
-  border: 1px solid var(--line);
-  border-radius: var(--r-md);
-}
-.feed-emoji {
-  flex: 0 0 auto;
-  font-size: 22px;
-  line-height: 1.4;
-}
-.feed-body {
-  min-width: 0;
-}
+/* ---- 写一写 · 真实数据列表（Day 17 接云端读接口）----
+   行的骨架（.feed-list / .feed-item / .feed-emoji / .feed-body / .feed-act）
+   统一定义在本文件末尾「列表项与删除按钮」一节，那里是位置逻辑的唯一出处；
+   这里只放行内元素的排版。 */
 .feed-head {
   display: flex;
   flex-wrap: wrap;
@@ -987,7 +1199,7 @@ a.door:active {
   background: var(--card);
   border: 1px solid var(--line);
   border-radius: var(--r-md);
-  box-shadow: var(--sh-1);
+  box-shadow: var(--sh-1), var(--sheen);
 }
 .write-label {
   margin-bottom: var(--sp-3);
@@ -1256,10 +1468,13 @@ a.door:active {
   justify-content: center;
   width: 220px;
   height: 220px;
-  background: var(--forest-50);
+  /* 圆心比边缘淡：一层径向渐变让它是「一团在呼吸的光」而不是一个色块。
+     和 --glow-2 的外圈柔光接上，边缘不硬。 */
+  background:
+    radial-gradient(circle at 50% 45%, #ffffff 0%, var(--forest-50) 70%);
   border: 2px solid var(--forest-500);
   border-radius: 50%;
-  box-shadow: var(--sh-2);
+  box-shadow: var(--sh-2), var(--glow-2);
 }
 .breathe-phase {
   font-size: var(--fs-h3);
@@ -1292,10 +1507,18 @@ a.door:active {
 /* ==========================================================================
    8. 页面层 · 危机资源页（全站最高优先级）
    ========================================================================== */
+/* 危机页：外框跟全站走 --w-wide，内部每段限宽 --w-page 且**左对齐**。
+   限宽只吃掉右边、左缘仍贴基准线，于是标题左缘 = 导航左缘 = 正文左缘。
+   （改前外框是 720，比导航窄 240，整页内容看着像整体右移了一截。） */
 .help {
-  max-width: var(--w-page);
+  max-width: var(--w-wide);
   margin: 0 auto;
   padding: var(--sp-10) var(--sp-6) var(--sp-12);
+}
+.help > * {
+  max-width: var(--w-page);
+  margin-left: 0;
+  margin-right: auto;
 }
 .help h1 {
   font-size: var(--fs-h1);
@@ -1320,11 +1543,14 @@ a.door:active {
   padding: var(--sp-5);
   background: var(--forest-50);
   border-radius: var(--r-lg);
+  box-shadow: var(--sh-1), var(--sheen);
   text-decoration: none;
-  transition: background-color var(--t-fast), transform var(--t-fast);
+  transition: background-color var(--t-fast), transform var(--t-fast),
+    box-shadow var(--t-fast);
 }
 .emergency-btn:hover {
   background: var(--forest-100);
+  box-shadow: var(--sh-2), var(--sheen);
 }
 .emergency-btn:active {
   background: var(--forest-800);
@@ -1492,10 +1718,16 @@ a.door:active {
 /* ==========================================================================
    9. 页面层 · 关于与免责
    ========================================================================== */
+/* 关于页：同危机页的处理——外框 960 对齐全站，正文限宽 720 左对齐 */
 .about {
-  max-width: var(--w-page);
+  max-width: var(--w-wide);
   margin: 0 auto;
   padding: var(--sp-10) var(--sp-6) var(--sp-12);
+}
+.about > * {
+  max-width: var(--w-page);
+  margin-left: 0;
+  margin-right: auto;
 }
 .about h1 {
   font-size: var(--fs-h1);
@@ -1591,21 +1823,55 @@ a.door:active {
     --fs-h1: 1.375rem;
   }
 
+  /* 导航不再换行：一换行，「求助」的 margin-left:auto 就失效、掉到第二行左边，
+     而它恰恰是全站唯一必须「永远在同一处」的入口。
+     一行放得下（实测 320px 宽屏仍有余量）；万一放不下，宁可让它横向滚动，
+     也不让危机入口换位置。 */
   .nav {
-    flex-wrap: wrap;
-    gap: var(--sp-3);
-    row-gap: var(--sp-1);
+    flex-wrap: nowrap;
+    gap: var(--sp-2);
     padding: var(--sp-3) var(--sp-4);
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .nav::-webkit-scrollbar {
+    display: none;
+  }
+  .logo {
+    font-size: var(--fs-h3);
+  }
+  .logo::before {
+    margin-right: var(--sp-1);
+  }
+  .nav a.nav-help {
+    padding-left: var(--sp-3);
   }
   .scene-greet {
     padding-top: var(--sp-12); /* 手机上导航一行放得下，顶部纱留够即可 */
   }
+  /* 门卡单列：三列挤在手机上一张只有 110px 宽，标题和说明全被压成四五行，
+     看着像三块路牌而不是三扇门。单列 + 图标在左、文字在右，读起来是一张清单。 */
   .scene-door {
+    grid-template-columns: 1fr;
     gap: var(--sp-2);
-    padding: var(--sp-10) var(--sp-3) var(--sp-5);
+    max-width: 460px;
+    padding: var(--sp-8) var(--sp-4) var(--sp-5);
   }
   .door {
-    padding: var(--sp-3) var(--sp-1);
+    flex-direction: row;
+    align-items: center;
+    text-align: left;
+    gap: var(--sp-3);
+    padding: var(--sp-3) var(--sp-4);
+  }
+  .door-icon {
+    margin-bottom: 0;
+  }
+  .door-text {
+    flex: 1 1 auto;
+  }
+  .page {
+    padding: var(--sp-6) var(--sp-4) var(--sp-10);
   }
   .zone {
     padding: var(--sp-4) var(--sp-4);
@@ -1643,57 +1909,68 @@ a.door:active {
     animation-iteration-count: 1 !important;
   }
   .btn:active,
+  .chip:hover,
   .chip:active,
   .copy-btn:active,
+  .icon-btn:active,
   a.card:hover,
+  a.door:hover,
   .emergency-btn:active {
     transform: none;
   }
 }
 
 /* ==========================================================================
-   写一写 · 列表项与删除按钮（Day 22 补齐 feed-* 专属样式）
-   feed-* 此前无专属样式；这里统一成卡片式行，删除按钮走中性色，
-   不踩产品红线（全站禁红色警示色）。
+   写一写 · 列表项与删除按钮
+   --------------------------------------------------------------------------
+   本次重做的位置逻辑：改用三列栅格 —— 情绪符号 | 内容 | 动作。
+   改前是 flex + align-self:center，删除按钮垂直居中悬挂在卡片右端：
+   note 写两行，按钮就往下漂一行；写五行，按钮就掉到中间。它跟着内容长度走，
+   于是「同一个按钮在同一页的不同卡片上出现在不同高度」——这就是不自洽。
+
+   现在动作列的纵向锚点是**内容首行**（align-self:start + -11px 让按钮圆心
+   对上首行圆心）：首行是这一行的基准线，note 再长按钮也不动。
+   删除走 .icon-btn（44×44 圆形、图标），不再用文字小按钮——文字按钮和
+   旁边的日期/情绪文字抢层级，图标按钮一眼就知道是「这一行的动作」。
+   不踩产品红线：删除用中性色，hover 转绿，全站无红色警示色。
    ========================================================================== */
 .feed-list {
   list-style: none;
   margin: 0;
   padding: 0;
+  display: grid;
+  gap: var(--sp-3);
 }
 .feed-item {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  padding: 12px 14px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: var(--sp-3);
+  padding: var(--sp-4) var(--sp-5);
   background: var(--card);
   border: 1px solid var(--line);
-  border-radius: 14px;
-  margin-bottom: 10px;
+  border-radius: var(--r-md);
+  box-shadow: var(--sh-1), var(--sheen);
+  transition: border-color var(--t-base), box-shadow var(--t-base);
+}
+/* 整行被指向时描边转绿：让「这是一条可以操作的记录」被看见，
+   但浮起只给真能点的卡片（这里不位移，避免列表在手指下抖） */
+.feed-item:hover {
+  border-color: var(--forest-300);
+  box-shadow: var(--sh-2), var(--sheen);
 }
 .feed-body {
-  flex: 1 1 auto;
   min-width: 0;
 }
-.feed-del {
-  flex: 0 0 auto;
-  align-self: center;
-  font: inherit;
-  font-size: 13px;
-  line-height: 1;
-  color: var(--ink-mute);
-  background: transparent;
-  border: 1px solid var(--line-strong);
-  border-radius: 10px;
-  padding: 7px 12px;
-  cursor: pointer;
-  transition: border-color 0.15s ease, color 0.15s ease;
+.feed-emoji {
+  flex: none;
+  font-size: 20px;
+  line-height: 1.5; /* 与 .feed-head 同高，符号与首行文字同一水平线 */
 }
-.feed-del:hover:not(:disabled) {
-  color: var(--forest-700);
-  border-color: var(--forest-300);
-}
-.feed-del:disabled {
-  opacity: 0.5;
-  cursor: default;
+/* 动作列：锚点固定在首行。
+   -11px = 首行圆心(11px) − 按钮圆心(22px)，把 44px 的按钮中心对上首行中心 */
+.feed-act {
+  align-self: start;
+  margin-top: -11px;
+  margin-right: -8px; /* 右侧贴边一点：动作本来就该在边缘，不必和正文抢内边距 */
 }

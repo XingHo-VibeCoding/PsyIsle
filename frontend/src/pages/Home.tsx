@@ -68,23 +68,29 @@ function Home() {
           <span className="door-icon" aria-hidden="true">
             <MessageCircle size={18} strokeWidth={1.75} />
           </span>
-          <h3>听你说</h3>
-          <p>想说就说，AI 会认真听。</p>
+          <span className="door-text">
+            <h3>听你说</h3>
+            <p>想说就说，AI 会认真听。</p>
+          </span>
         </Link>
         <Link to="/guide" className="door">
           <span className="door-icon" aria-hidden="true">
             <Compass size={18} strokeWidth={1.75} />
           </span>
-          <h3>找方向</h3>
-          <p>做个小测评、领一件小事，帮你找到方向。</p>
+          <span className="door-text">
+            <h3>找方向</h3>
+            <p>做个小测评、领一件小事，帮你找到方向。</p>
+          </span>
         </Link>
         <Link to="/daily" className="door">
           <span className="door-icon" aria-hidden="true">
             <NotebookPen size={18} strokeWidth={1.75} />
           </span>
-          <h3>写一写</h3>
-          <p>记下今天的心情，想写就写，不写也行。</p>
-          <LatestMoodLine />
+          <span className="door-text">
+            <h3>写一写</h3>
+            <p>记下今天的心情，想写就写，不写也行。</p>
+            <LatestMoodLine />
+          </span>
         </Link>
       </nav>
     </section>

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { Home, Pause, Play, RotateCcw } from 'lucide-react'
 
 // F7 呼吸练习：4-7-8 节奏 × 3 循环
 // 动画用 JS 每帧算 scale（不用 CSS transition 追进度）：暂停后继续不跳帧的唯一稳妥做法
@@ -110,19 +111,38 @@ function Breathe() {
         <p className="breathe-done">三个循环做完了。不用急着做别的——想再来一趟随时回来，想休息就去休息。</p>
       ) : null}
 
-      <div className="breathe-actions">
-        {(status === 'idle' || status === 'paused') && (
-          <button type="button" className="btn btn-primary" onClick={start}>
-            {status === 'paused' ? '继续' : '开始'}
-          </button>
-        )}
-        {status === 'running' && (
-          <button type="button" className="btn btn-quiet" onClick={pause}>暂停</button>
-        )}
+      {/* 三个固定槽位：主动作 | 次动作 | 离开。
+          改前按钮是按「此刻该显示哪个」条件渲染的，于是 idle 只有 [开始][回首页]、
+          running 变成 [暂停][重来][回首页]、done 又变成 [重来][回首页]——
+          「重来」一会儿在第 2 位一会儿在第 1 位，手指刚记住的位置每次都变。
+          现在槽位恒定：槽里有没有按钮会变，槽在哪不会变。
+          回首页用 .act-exit（margin-left:auto）永远钉在最右。 */}
+      <div className="breathe-actions act-row">
+        <span className="act-slot">
+          {status === 'running' ? (
+            <button type="button" className="btn btn-quiet" onClick={pause}>
+              <Pause size={16} strokeWidth={1.75} aria-hidden="true" />
+              暂停
+            </button>
+          ) : (
+            <button type="button" className="btn btn-primary" onClick={start}>
+              <Play size={16} strokeWidth={1.75} aria-hidden="true" />
+              {status === 'paused' ? '继续' : status === 'done' ? '再来一趟' : '开始'}
+            </button>
+          )}
+        </span>
         {status !== 'idle' && (
-          <button type="button" className="btn btn-quiet" onClick={reset}>重来</button>
+          <span className="act-slot">
+            <button type="button" className="btn btn-quiet" onClick={reset}>
+              <RotateCcw size={16} strokeWidth={1.75} aria-hidden="true" />
+              重来
+            </button>
+          </span>
         )}
-        <Link to="/" className="btn btn-quiet">回首页</Link>
+        <Link to="/" className="btn btn-quiet act-exit">
+          <Home size={16} strokeWidth={1.75} aria-hidden="true" />
+          回首页
+        </Link>
       </div>
     </div>
   )
