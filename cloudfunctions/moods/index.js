@@ -13,8 +13,14 @@ const db = require('./db.js')
 // 契约 §5.2 情绪白名单（与 db/schema.sql 的 moods_emoji_known、前端 moods.ts 共用同一串 id）
 const EMOJI_WHITELIST = ['calm', 'warm', 'tired', 'low', 'anxious', 'upset', 'empty']
 
+// limit 只接受 1 以上的整数。
+// 2026-10-16 修：原来只要能 Number() 出个数字就放行，`?limit=-1` 会一路喂到 PostgreSQL
+// （报 LIMIT must not be negative），于是**用户输入错被当成了服务端错** —— 用户看到的是
+// 「服务出了点小状况」，而真正该说的是「limit 填错了」。这正是 Day 23 那条口径：
+// 能对上用户输入的错，就要说清楚哪一项不对。传了却解析不出来（如 abc）也一样报，
+// 不用默认值悄悄糊过去 —— 那是把用户犯的错藏起来。
 function pickLimit(event) {
-  if (!event) return 50
+  if (!event) return { ok: true, value: 50 }
   const cands = [
     event.limit,
     event.queryString && event.queryString.limit,
@@ -23,10 +29,11 @@ function pickLimit(event) {
   for (const c of cands) {
     if (c != null && c !== '') {
       const n = Number(c)
-      if (!Number.isNaN(n)) return n
+      if (!Number.isInteger(n) || n < 1) return { ok: false }
+      return { ok: true, value: n }
     }
   }
-  return 50
+  return { ok: true, value: 50 }
 }
 
 // 统一错误信封（契约 §3）：业务错误也走 ok:false 信封，HTTP 仍是 200（Event 函数直接 return 对象）
@@ -182,7 +189,9 @@ function validateMoodFields(body, { requireEmoji }) {
 
 async function handleGet(event = {}, reqId = '-') {
   try {
-    const limit = Math.min(pickLimit(event), 200)
+    const picked = pickLimit(event)
+    if (!picked.ok) return fail('INVALID_INPUT', 'limit 必须是 1 到 200 之间的整数，或留空不传')
+    const limit = Math.min(picked.value, 200)
     const r = await db.listMoods(limit)
 
     // 库出错 = 服务端错：细节进日志，用户只看到一句人话

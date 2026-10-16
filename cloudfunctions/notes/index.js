@@ -10,8 +10,10 @@
 // 也不出现表字段名。以后换库、接登录，入口层不用动。
 const db = require('./db.js')
 
+// limit 只接受 1 以上的整数（与 moods/index.js 同一口径，理由见那里的注释）。
+// 2026-10-16 修：`?limit=-1` 原来会一路喂到 PostgreSQL，把用户输入错变成服务端错。
 function pickLimit(event) {
-  if (!event) return 50
+  if (!event) return { ok: true, value: 50 }
   const cands = [
     event.limit,
     event.queryString && event.queryString.limit,
@@ -20,10 +22,11 @@ function pickLimit(event) {
   for (const c of cands) {
     if (c != null && c !== '') {
       const n = Number(c)
-      if (!Number.isNaN(n)) return n
+      if (!Number.isInteger(n) || n < 1) return { ok: false }
+      return { ok: true, value: n }
     }
   }
-  return 50
+  return { ok: true, value: 50 }
 }
 
 function fail(code, message) {
@@ -101,7 +104,9 @@ function todayInShanghai() {
 
 async function handleGet(event = {}, reqId = '-') {
   try {
-    const limit = Math.min(pickLimit(event), 200)
+    const picked = pickLimit(event)
+    if (!picked.ok) return fail('INVALID_INPUT', 'limit 必须是 1 到 200 之间的整数，或留空不传')
+    const limit = Math.min(picked.value, 200)
     const r = await db.listNotes(limit)
 
     // 库出错 = 服务端错：细节进日志，用户只看到一句人话

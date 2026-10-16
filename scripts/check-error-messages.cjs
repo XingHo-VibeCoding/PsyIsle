@@ -51,6 +51,11 @@ const CASES = [
   ['输入错 · POST /api/moods 情绪不在白名单', 'INVALID_INPUT', () => moods.main({ httpMethod: 'POST', path: '/api/moods', body: JSON.stringify({ emoji: 'zzz' }) })],
   ['输入错 · POST /api/notes 内容为空', 'INVALID_INPUT', () => notes.main({ httpMethod: 'POST', path: '/api/notes', body: JSON.stringify({ text: '   ' }) })],
   ['输入错 · DELETE /api/moods?id=不存在', 'NOT_FOUND', () => moods.main({ httpMethod: 'DELETE', path: '/api/moods', queryStringParameters: { id: 'm_404' } })],
+  // limit 是用户输入，非法要报 INVALID_INPUT。
+  // 2026-10-16 公网实测踩到：`?limit=-1` 一路喂到 PostgreSQL，被当成服务端错（INTERNAL）。
+  ['输入错 · GET /api/moods?limit=-1（负数）', 'INVALID_INPUT', () => moods.main({ httpMethod: 'GET', path: '/api/moods', queryStringParameters: { limit: '-1' } })],
+  ['输入错 · GET /api/moods?limit=abc（不是数字）', 'INVALID_INPUT', () => moods.main({ httpMethod: 'GET', path: '/api/moods', queryStringParameters: { limit: 'abc' } })],
+  ['输入错 · GET /api/notes?limit=-1（负数）', 'INVALID_INPUT', () => notes.main({ httpMethod: 'GET', path: '/api/notes', queryStringParameters: { limit: '-1' } })],
   ['服务端错 · GET /api/moods 数据库报错', 'INTERNAL', () => moods.main({ httpMethod: 'GET', path: '/api/moods' })],
   ['服务端错 · PATCH /api/moods 数据库报错', 'INTERNAL', () => moods.main({ httpMethod: 'PATCH', path: '/api/moods', queryStringParameters: { id: 'm_1' }, body: JSON.stringify({ emoji: 'calm' }) })],
   ['服务端错 · GET /api/notes 数据库报错', 'INTERNAL', () => notes.main({ httpMethod: 'GET', path: '/api/notes' })],

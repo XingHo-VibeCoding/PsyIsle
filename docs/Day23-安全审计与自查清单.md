@@ -299,7 +299,7 @@ git diff --cached --name-only | git grep -E "\.env$|\.env\.|hdr\.txt|\.pem|\.key
 
 | # | 事项 | 说明 | 建议 |
 |---|---|---|---|
-| 1 | **后端改动尚未部署到云端** | 改了 `moods` / `notes` 两个云函数，但**没执行 `tcb fn deploy`**（部署属对外动作，按规则先报备）。当前公网接口跑的仍是旧代码，裸报错问题在线上还没消失 | 你说一句「可以部署」，我就发（记得加 `--force`，非 TTY 环境不加会卡住） |
+| 1 | ~~后端改动尚未部署到云端~~ **已于 2026-10-16 17:25 部署** | `tcb fn deploy moods|notes -e <env> --dir cloudfunctions/<名> --force --deployMode zip --install-dependency true`；静态托管同步发了 `tcb hosting deploy frontend/dist -e <env> --verify`。公网验证：改前 `?limit=-1` 回 `INTERNAL` + `RDB_ERR:{"message":"LIMIT must not be negative",…}`，改后回固定中文 + `requestId`；发布前检查 15 PASS / 0 FAIL（V11、V13 两个「本地已改线上没更」已消除） | 已闭环 |
 | 2 | 检查台 `/check` 无鉴权 | Day 21 就登记过：接登录后要加权限或下线 | 接登录时一起收 |
 | 3 | RLS 未恢复 + `anon` 写授权未收回 | Day 18 的演示期临时授权（`grant insert, update on public.moods to anon`）仍在 | 接登录时收回（这条是上线前必须收的） |
 | 4 | 请求日志只在云函数日志里 | 没有集中查询与告警，出问题要人肉翻 | 后续有余力再考虑 |
@@ -326,8 +326,12 @@ git diff --cached --name-only | git grep -E "\.env$|\.env\.|hdr\.txt|\.pem|\.key
 | 全部 Git 历史 | 56 笔提交，逐笔扫 | **0 命中** |
 | 工作区全部文件 | 185 个，含被 `.gitignore` 忽略的 | **0 命中** |
 
-**抓到的那一处**：`frontend/.env.production`（内容 `TCB_SECRET_KEY=sk-verifyproject000000000000fake`）
+**抓到的那一处**：`frontend/.env.production`（内容一行 `TCB_SECRET_KEY=sk-` 开头接一串假值、末尾自带 `fake` 字样）
 是发布前检查脚本埋的测试夹具，被 `git add -f` **强推进了暂存区**。
+
+> ⚠️ 这里**故意不把那串假值原样抄进来**：写全了会被项目自己的扫描器（V1 / `check-secrets.cjs`）
+> 当成真密钥命中，制造一个假警报。文档里讲密钥长什么样，用「`sk-` 开头 + 说明」就够了。
+> 同理 §5.1 里那枚埋的假令牌也只写了前缀 `ghp_FAKEPROBE…`。
 
 - 处置：`git rm --cached` 移出索引 + 删除文件；
 - 查证：**从未进入任何提交（0 笔）**，远端 `origin/main` 上也没有（远端只有两个 `.env.example`）；
@@ -392,3 +396,28 @@ git diff --cached --name-only | git grep -E "\.env$|\.env\.|hdr\.txt|\.pem|\.key
 
 **新脚本反过来验过了**：故意埋一枚假令牌 + 强推一个 `.env.production` 进暂存区，
 脚本报 `✗ 未通过 3 项`、退出码 1；清理后恢复全过。验完两样都已删除（`git ls-files` 无残留）。
+
+### 8.5 部署之后又抓到一个：`?limit=-1` 把用户输入错当成了服务端错
+
+部署完做线上验证时，想找一个**能在公网触发的服务端错**来证明新代码真上线了，
+试了 `GET /api/moods?limit=-1`，结果：
+
+```
+{"ok":false,"error":{"code":"INTERNAL","message":"服务出了点小状况，请稍后再试。","requestId":"mvari77sb12x1q"}}
+```
+
+这证明了新代码确实上线（旧代码这里会回 `RDB_ERR:{"message":"LIMIT must not be negative",…}`），
+但**同时暴露了一个真问题**：`-1` 是**用户传错的**，不是服务端出状况，
+该回 `INVALID_INPUT` + 说清哪一项不对 —— 这正是 Day 23 那条口径，只是方向反过来
+（Day 23 修的是「服务端的事被标成 INVALID_INPUT」，这个是「用户的事被标成 INTERNAL」）。
+
+根因：`pickLimit` 只判 `!Number.isNaN(n)` 就放行，`-1` 一路喂到 PostgreSQL。
+
+- 修法：`limit` 只接受 ≥1 的整数；传了却解析不出来（如 `abc`）也报，不用默认值悄悄糊过去；
+- 已加进常驻自检（后端脚本 7 例 → **10 例**）；
+- 已重新部署并公网验证：`?limit=-1` / `?limit=abc` → `limit 必须是 1 到 200 之间的整数，或留空不传`；
+  `?limit=1` 与不传都正常返回。
+
+> **附带收获（方法论）**：想在线上验「服务端错」口径，不必改代码也不必碰数据库 ——
+> 去找**一路能喂到数据库、中间没校验的输入**（`?limit=-1` 在被修掉之前就是这么一个入口）。
+> 这类入口每堵一个就少一个，堵完了就只能靠本地注入（§8.3 的做法）来验。
