@@ -23,6 +23,7 @@ const ROUTES = [
   'help',
   'breathe',
   'about',
+  'suggest',
 ]
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')

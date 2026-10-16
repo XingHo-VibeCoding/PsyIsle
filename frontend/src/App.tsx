@@ -9,6 +9,8 @@ import TasksView from './pages/guide/TasksView'
 import About from './pages/About'
 import Daily from './pages/Daily'
 import UnderConstruction from './pages/UnderConstruction'
+import Suggest from './pages/Suggest'
+import Fireflies from './components/Fireflies'
 
 // 导航 = 三扇门 + 求助。名字统一用户视角（听你说/找方向/写一写），
 // 不用「功能/板块/专区」这类行业词，也全站只保留这一套称呼（改名必须连 PRD 一起想，别留两个名字）。
@@ -27,6 +29,8 @@ function App() {
         <NavLink to="/daily">写一写</NavLink>
         {/* 危机入口常驻导航：全站任意页 1 次点击可达，永久不可砍 */}
         <NavLink to="/help" className="nav-help">求助</NavLink>
+        {/* 提建议：放在求助右边，鼓励用户反馈；纯本地收集，不触碰危机红线 */}
+        <NavLink to="/suggest">提建议</NavLink>
       </nav>
 
       <main className="main">
@@ -50,9 +54,18 @@ function App() {
           <Route path="/help" element={<Help />} />
           <Route path="/breathe" element={<Breathe />} />
           <Route path="/about" element={<About />} />
+          <Route path="/suggest" element={<Suggest />} />
           <Route path="*" element={<UnderConstruction name="你要找的页面" />} />
         </Routes>
       </main>
+
+      {/* 萤火层挂在 .app 里、.main 之后：同一个父层下的 DOM 顺序就是它的层序。
+          z-index:-1 把它放进根堆叠层的负层，于是首页浮在插画与薄纱之上、
+          内页躲在实心白卡之下（卡片是不透明的，粒子只在留白里看得见，不会爬到字上）。
+          它不承载任何信息，所以 aria-hidden 且不可点。
+          ⚠️ 2026-10-17 深夜补记：这一行曾被并行会话的 checkout 冲掉过一次，
+          结果 CSS 还在、组件没了——改完 App.tsx 务必确认它在。 */}
+      <Fireflies />
 
       <footer className="footer">
         {/* 页脚兜底危机入口：除首页（画面里由导航承担）外的所有页面都在 */}
