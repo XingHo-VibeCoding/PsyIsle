@@ -147,6 +147,36 @@
      组件里不许再各写一套 width/height。规则见 §3.6。 */
   --icon-btn: var(--tap); /* 44×44：与文字按钮同高，混排时不参差 */
   --icon-glyph: 18px;     /* 图标本体：lucide 1.75 描边在这个尺寸下最清晰 */
+
+  /* ---- 1.18 光（2026-10-17：氛围层）----
+     那份参考里最打动人的不是它的配色（深空紫），是它的「光」——物体会发光、
+     光有方向、画面里飘着细小的亮粒子。这套感觉搬到心汐要用我们自己的绿来发：
+     夜森林的冷绿打底，萤火虫那点黄绿做点睛。
+
+     ⚠️ 2026-10-17 深夜复原过一次：这一段曾被并行会话的 checkout 整体冲掉，
+     当时 §3.8 的动效因为写在它后面反而活了下来，导致「有动画但没有光」——
+     粒子层变成一堆没有样式的空 <i>。改这个文件前先确认这一段还在。 */
+
+  /* 萤火光：取黄绿偏冷的那一端。刻意避开暖黄——暖黄与蜜桃橙是 2026-10-13 退役的
+     旧配色，别让它从装饰里溜回来。--fire 是光心（近白），--fire-halo 是晕。 */
+  --fire: #f3f9d6;
+  --fire-halo: rgba(201, 224, 138, 0.55);
+
+  /* 极光：铺在页面顶部的三团柔光（两团冷绿 + 一团萤火）。
+     浓度压到 20% 上下——看得见光从哪来，看不出光到哪结束。 */
+  --aurora:
+    radial-gradient(58% 40% at 12% -8%, rgba(134, 184, 161, 0.24) 0%, transparent 72%),
+    radial-gradient(50% 36% at 88% -12%, rgba(207, 194, 238, 0.2) 0%, transparent 74%),
+    radial-gradient(34% 26% at 58% 2%, rgba(201, 224, 138, 0.16) 0%, transparent 70%);
+
+  /* 玻璃：导航那层磨砂的统一配比。saturate 那一点是关键——
+     只加 blur 的玻璃是「灰纱」，加一点饱和后身后的绿才透得上来。 */
+  --glass-nav: rgba(247, 251, 249, 0.78);
+  --glass-blur: blur(16px) saturate(1.15);
+
+  /* 外发光：不是阴影，是「这东西自己在发光」。--halo-1 给按钮，--halo-2 给大圆。 */
+  --halo-1: 0 0 0 1px rgba(201, 224, 138, 0.28), 0 6px 22px -8px rgba(44, 106, 82, 0.32);
+  --halo-2: 0 0 60px -6px rgba(201, 224, 138, 0.4), 0 0 24px -2px rgba(79, 143, 117, 0.22);
 }
 
 /* ==========================================================================
@@ -175,11 +205,67 @@ body {
   line-height: var(--lh-body);
   color: var(--ink-soft);
   background-color: var(--cream);
-  /* 顶部一层极淡绿雾（见 §1.16）。用 no-repeat + fixed 让它只铺一屏上部，
-     页面滚动时雾不跟着走，长列表不会整屏发绿。 */
-  background-image: var(--mist);
+  /* 两层底合成一张：极光（三团柔光，只铺顶部一屏）压着绿雾（顶部往下褪）。
+     顺序即层序——写在前面的一层盖在上面。
+     两层都是 fixed：滚长列表时底不动，雾不会跟着荡到屏幕中间去。 */
+  background-image: var(--aurora), var(--mist);
   background-repeat: no-repeat;
   background-attachment: fixed;
+}
+
+/* ---- 萤火层（2026-10-17：氛围层，见 §1.18）----
+   全站唯一一层浮动的纯装饰。三条纪律：
+   ① aria-hidden + pointer-events:none：读屏读不到、鼠标点不到——它不承载任何信息；
+   ② z-index:-1 落在根堆叠层：于是首页它浮在插画与薄纱之上、内页它躲在卡片与文字之下
+      （白卡是实心的，粒子自然只在留白里看得见，不会爬到字上）；
+   ③ 只动 transform / opacity：这是合成层动画，不触发布局与重绘。
+      改前想用 background-position 动画省一个组件，但那是每帧重绘整屏——手机上会掉帧。 */
+.fireflies {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+  /* 整层会跟着指针做 12px 视差（见组件里的 AMPLITUDE）：提前告诉浏览器这层要动，
+     它就会把这一层单独提出来，位移不再牵动下面的页面重绘 */
+  will-change: transform;
+}
+.fireflies i {
+  position: absolute;
+  left: var(--x);
+  top: var(--y);
+  width: var(--s);
+  height: var(--s);
+  border-radius: var(--r-pill);
+  /* 光点自己做一层径向渐变：中心近白、边缘化掉——直接给个黄绿实心点会像噪点 */
+  background: radial-gradient(circle at 42% 40%, var(--fire) 0%, var(--fire-halo) 52%, transparent 74%);
+  opacity: 0;
+  will-change: transform, opacity;
+  animation: firefly-drift var(--dur) var(--ease-soft) var(--delay) infinite;
+}
+/* 一轮里「亮—暗—亮—灭」：萤火虫不是稳定的灯，是一明一暗的。
+   位移量很小（几像素到几十像素），它表达的是「浮着」，不是「飞过去」——
+   大位移会在余光里变成干扰，而这个产品最不该做的就是抢注意力。 */
+@keyframes firefly-drift {
+  0% {
+    transform: translate3d(0, 0, 0) scale(0.6);
+    opacity: 0;
+  }
+  14% {
+    opacity: var(--peak);
+  }
+  46% {
+    transform: translate3d(var(--dx), var(--dy), 0) scale(1);
+    opacity: calc(var(--peak) * 0.6);
+  }
+  72% {
+    transform: translate3d(calc(var(--dx) * 0.4), calc(var(--dy) * 1.6), 0) scale(0.86);
+    opacity: var(--peak);
+  }
+  100% {
+    transform: translate3d(calc(var(--dx) * -0.3), calc(var(--dy) * 2.2), 0) scale(0.6);
+    opacity: 0;
+  }
 }
 
 /* 标题统一走「紧行高 + 真 600」；字号由各自的作用域决定 */
@@ -281,7 +367,9 @@ button {
 .btn-primary {
   background: var(--forest-700);
   color: var(--on-dark);
-  box-shadow: var(--sh-1);
+  /* 主按钮是「这一页唯一该按的东西」，所以它自带一点外发光——
+     一屏里只会有一个主按钮，光也就只有一处，不会互相抵消。 */
+  box-shadow: var(--sh-1), var(--halo-1);
 }
 .btn-primary:hover {
   background: var(--forest-800);
@@ -621,6 +709,216 @@ a.card:active {
 }
 
 /* ==========================================================================
+   3.8 交互动效
+   --------------------------------------------------------------------------
+   「灵动」不等于「动得多」。这里每一条动画都对应一次真实的状态变化：
+   换了一屏、数据到了、手指按下去了、某个选项被选中了。
+   没有「为了好看而一直动」的装饰——那是噪音，而这个产品最怕的就是抢注意力。
+
+   三条纪律：
+   ① 只动 transform / opacity：合成层动画，不触发布局与重绘，手机上不掉帧。
+      绝不动 width/height/top/left——那些是每帧重排，列表一长就会卡；
+   ② 位移压在 6–10px、时长 220–520ms：看得见方向，看不出过程；
+   ③ 系统开了「减少动态效果」时全部退化为瞬移（§12 的全局兜底统一处理）。
+
+   入场动画靠一个 CSS 事实工作：React 换路由 = 插入新 DOM 节点 = 动画自动重播。
+   所以不需要给组件加 key、不需要 JS 计时器、也不需要引动画库。
+   ========================================================================== */
+
+/* ---- 入场 · 换页 ----
+   6px：这是翻页不是弹窗。幅度一大就成了表演，用户会等着动画放完才敢点。 */
+@keyframes page-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 6px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.main > * {
+  animation: page-in 420ms var(--ease-soft) both;
+}
+/* 首页是整幅插画（100dvh 撑满屏）：任何向下位移都会让它在那一瞬撑出滚动条，
+   于是画面底部抖一下。这一屏只淡入、不位移。 */
+.app-immersive .main > * {
+  animation-name: fade-in;
+}
+
+/* ---- 入场 · 列表错落 ----
+   数据到达时一行一行落下来，而不是整块「啪」地出现——后者会让人以为页面跳了一下。
+   延迟用 nth-child 写死前 7 行，之后统一吃最后一档：这点动效不值得引一个动画库，
+   也不该给一个会无限滚动的列表一路抖下去。 */
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 10px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+.feed-item,
+.task-item,
+.cards > *,
+.door {
+  animation: rise-in 460ms var(--ease-soft) both;
+}
+.feed-item:nth-child(2),
+.task-item:nth-child(2),
+.cards > *:nth-child(2),
+.door:nth-child(2) {
+  animation-delay: 70ms;
+}
+.feed-item:nth-child(3),
+.task-item:nth-child(3),
+.cards > *:nth-child(3),
+.door:nth-child(3) {
+  animation-delay: 140ms;
+}
+.feed-item:nth-child(4),
+.task-item:nth-child(4),
+.cards > *:nth-child(4),
+.door:nth-child(4) {
+  animation-delay: 210ms;
+}
+.feed-item:nth-child(5),
+.task-item:nth-child(5),
+.cards > *:nth-child(5),
+.door:nth-child(5) {
+  animation-delay: 280ms;
+}
+/* 第 6 行起共用最后一档：再往后拉长只会让人等着列表慢慢爬完 */
+.feed-item:nth-child(n + 6),
+.task-item:nth-child(n + 6),
+.cards > *:nth-child(n + 6),
+.door:nth-child(n + 6) {
+  animation-delay: 340ms;
+}
+/* 门卡不吃 .main > *（那是 .main 的直接子元素才有的），只吃自己的错落：
+   换页淡入由外层场景负责，门卡负责自己那一行一行落下来。 */
+
+/* 找方向的三个子分区（任务 / 书影音 / 检查台）不换路由层级，
+   只有中间那块内容被替换掉，吃不到上面的换页动画。
+   给它一条更短的纯淡入：切页签时内容不会「啪」地跳出来。
+   这里刻意不带位移——外层 .main > * 已经在位移，内外一起动会晃。 */
+.zone {
+  animation: fade-in 320ms var(--ease-soft) both;
+}
+
+/* ---- 悬停 · 导航细线由中间展开 ----
+   只用颜色表达 hover 时，鼠标划过一串链接像在扫雷；
+   一道从中间长出来的细线给了「落在哪一条上了」的确切位置。
+   用 scaleX 而不是 width：宽度变化会重排后面的兄弟节点，导航会跟着抖。 */
+.nav a:not(.logo) {
+  position: relative;
+}
+.nav a:not(.logo)::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 6px;
+  height: 2px;
+  border-radius: var(--r-pill);
+  background: currentColor;
+  transform: scaleX(0);
+  opacity: 0;
+  transition: transform var(--t-base), opacity var(--t-base);
+}
+.nav a:not(.logo):hover::after,
+.nav a:not(.logo):focus-visible::after {
+  transform: scaleX(1);
+  opacity: 0.55;
+}
+/* 当前所在页的线不展开、常驻：它是「你在这里」，不是「你可以点这里」 */
+.nav a:not(.logo)[aria-current='page']::after {
+  transform: scaleX(1);
+  opacity: 0.9;
+  bottom: 4px;
+}
+/* 「求助」左边借了 16px 补点击区（见 §4），细线跟着内缩，否则那道线会比字长一截、
+   还从空白里长出来，看着像标错了对象 */
+.nav a.nav-help::after {
+  left: var(--sp-4);
+}
+
+/* ---- 悬停 · 门卡图标轻轻浮起 ----
+   卡片整体已经会抬起 2px，图标再浮 2px 并让光晕涨一圈：
+   两层不同幅度的位移叠在一起才有「活的」感觉，同幅度同步移动等于没动。 */
+a.door:hover .door-icon,
+a.door:focus-visible .door-icon {
+  transform: translateY(-2px);
+  box-shadow: 0 0 0 6px rgba(233, 243, 238, 0.75), var(--glow-1);
+}
+
+/* ---- 按下 · 主按钮 ----
+   悬停抬起 1px、按下落回 0：抬起来是在说「可以按」，
+   落回去是在说「按到了」。方向必须相反，否则手指分不清有没有按上。 */
+.btn-primary:hover {
+  transform: translateY(-1px);
+}
+.btn-primary:active {
+  transform: translateY(0);
+}
+
+/* ---- 选中 · 芯片弹一下 ----
+   选中态已经有底色 + 描边 + 字重 + aria-pressed 四种信号，
+   这一下弹动是给「刚刚那次点击生效了」的即时回执——
+   离手指最近、比任何文案都快。 */
+@keyframes chip-pop {
+  0% {
+    transform: scale(1);
+  }
+  42% {
+    transform: scale(1.06);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+.chip-on {
+  animation: chip-pop 260ms var(--ease-soft);
+}
+
+/* ---- 常驻 · logo 那颗萤火缓慢脉动 ----
+   全站唯一一处「一直在动」的装饰。它是品牌标记而不是信息，
+   4s 一轮、只在 0.85–1.15 之间缩放，余光里能感觉到、盯着看不出来。 */
+@keyframes firefly-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.18);
+    opacity: 0.72;
+  }
+}
+.logo::before {
+  animation: firefly-pulse 4s var(--ease-soft) infinite;
+}
+/* 悬停 logo 时它亮一下：整个站里唯一一处「回应鼠标」的品牌反馈 */
+.logo:hover::before {
+  box-shadow: 0 0 0 5px rgba(201, 224, 138, 0.45), var(--glow-1);
+}
+
+/* 刻意没有做的一件事：滚动进场（scroll reveal）。
+   它需要 JS 观察器或动画时间线，而一旦页面不够长、元素一上来就在「已滚过」的区间，
+   卡片会卡在半透明状态——内容看不见比没有动画严重得多。
+   换页 + 列表错落已经把「内容到了」这件事说清楚了，不缺这一层。 */
+
+/* ==========================================================================
    4. 页面层 · 导航与页脚
    ========================================================================== */
 
@@ -640,10 +938,11 @@ a.card:active {
   max-width: var(--w-wide);
   margin: 0 auto;
   padding: var(--sp-4) var(--sp-6);
-  /* 内页导航压一层极淡磨砂：滚到内容里时导航不会和正文糊在一起 */
-  background: rgba(247, 251, 249, 0.86);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  /* 内页导航压一层磨砂玻璃：滚到内容里时导航不会和正文糊在一起。
+     配比走 --glass-nav / --glass-blur（见 §1.18），saturate 让身后的绿透上来 */
+  background: var(--glass-nav);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
   border-bottom: 1px solid var(--line);
 }
 /* 首页沉浸模式：导航浮在插画上，磨砂与分隔线一并撤掉 */
@@ -834,7 +1133,12 @@ a.card:active {
 /* ---- 门卡：底部一排三张磨砂小卡。卡片是白纸、画面是画，边界靠磨砂不靠描边 ---- */
 .scene-door {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  /* minmax(0, 1fr) 而不是 1fr：1fr 的「自动最小尺寸」等于轨道内容的最小内容宽，
+     而门卡里那行最近记录是 nowrap，它会把整条轨道顶到 416px，三张卡一起冲出容器
+     （手机上右侧被裁、桌面上第三张明显更宽）。
+     ⚠️ 这条规则被并行会话冲掉过一次、又复发过一次——改这个文件前先确认它还在。
+     凡栅格/弹性布局里可能出现不可换行的内容，一律 minmax(0, 1fr) 或给子项 min-width:0。 */
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--sp-3);
   width: 100%;
   max-width: 640px;
@@ -883,10 +1187,12 @@ a.door:active {
   border-radius: var(--r-pill);
   /* 2026-10-13 深夜老板要求：图标收进夜森林绿，与内页按钮同一族色
      （此前的星黄退役——同屏两套动作色会让人以为是两种状态） */
-  background: var(--forest-50);
+  /* 圆心比边缘亮：和呼吸圆是同一套做法——它是「一团光」而不是一个色片 */
+  background: radial-gradient(circle at 38% 32%, #ffffff 0%, var(--forest-100) 68%);
   color: var(--forest-700);
   /* 一圈淡淡的绿光：让白圆片和白卡不黏在一起，也留住插画那种柔晕 */
   box-shadow: var(--glow-1);
+  transition: transform var(--t-base), box-shadow var(--t-base);
 }
 .door h3 {
   font-size: var(--fs-body);
@@ -900,15 +1206,20 @@ a.door:active {
 /* 门卡上的一行真实数据（Day 20）：数据库里最近一条心情的回放。
    窄卡里长 note 用省略号截断——完整记录在 /daily，这里只是回音；
    截断用 CSS 不做 JS，内容再长也不会撑坏门卡布局。 */
+/* 门卡上的一行真实数据（Day 20）：数据库里最近一条心情的回放。
+   窄卡里长 note 用省略号截断——完整记录在 /daily，这里只是回音。
+   两行上限（-webkit-line-clamp）而不是 nowrap：单行省略在 1/3 屏宽里
+   常常只剩「最近一次 · 2026-10-…」，读不出任何东西，不如让它占两行。 */
 .door-latest {
   margin-top: var(--sp-2);
   max-width: 100%;
   color: var(--ink-mute);
   font-size: var(--fs-meta);
   line-height: 1.5;
-  white-space: nowrap;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
   overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 /* ---- 拟人小角色：纯 CSS 画（不引图片、不手绘 SVG）----
@@ -1915,8 +2226,19 @@ a.door:active {
   .icon-btn:active,
   a.card:hover,
   a.door:hover,
-  .emergency-btn:active {
+  .emergency-btn:active,
+  .btn-primary:hover {
     transform: none;
+  }
+  /* 萤火层整层撤掉，而不是「让它静止」：静止的光点在页面上等于一堆斑点，
+     它唯一的意义就是「在动」。系统不要动效，它就该消失。
+     （组件里的指针视差读的是同一个媒体查询，不会再来改它的 transform） */
+  .fireflies {
+    display: none;
+  }
+  /* logo 那颗萤火同理：不再脉动时它就是一颗多余的绿点，不如让它安静待着 */
+  .logo::before {
+    animation: none;
   }
 }
 
