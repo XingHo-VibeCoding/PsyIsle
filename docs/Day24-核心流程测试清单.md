@@ -12,7 +12,7 @@
 
 | 你清单里的名字 | 本项目实际的落点 | 说明 |
 |---|---|---|
-| 「检查台」 | `/check` 页面 + `GET /api/health` | Day 20 上线，页脚进入 |
+| 「检查台」 | `/check` 页面 + `GET /api/health` | Day 20 上线，页脚进入（**2026-10-16 已下线**：清单中的检查台步骤以 `GET /api/health` 为准，页面不再存在） |
 | `plan_days` | `public.moods`（心情打卡，一天一行） | 契约 §5.2， Day 16 建表、Day 17 读、Day 18 写 |
 | `checkins` | `GET/POST /api/notes`（一件件小事，一天可多件） | 契约 §5.2 |
 | 写入打卡 | `POST /api/moods` | 同日重复＝**覆盖**（幂等） |

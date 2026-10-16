@@ -670,7 +670,7 @@ async function main() {
   console.log('脚本查不了、发之前必须人确认的三件事（契约 §7 三条 🔴）：')
   console.log('  1. 收回 anon 的 insert/update 授权（Day 18 演示期临时开的）')
   console.log('  2. 恢复 moods / progress_notes 的 RLS（Day 17 临时关的）')
-  console.log('  3. 检查台 /check 的写入入口加权限或下线（现在公网任何人可点、会真写库）')
+  console.log('  3. 检查台 /check 已于 Day21 收尾下线（2026-10-16）；恢复须先接登录加权限')
 
   // 报告落盘
   const lines = []
@@ -689,7 +689,7 @@ async function main() {
   lines.push('')
   lines.push('1. 收回 `anon` 的 insert/update 授权（Day 18 演示期临时开的）')
   lines.push('2. 恢复 `moods` / `progress_notes` 的 RLS（Day 17 临时关的）')
-  lines.push('3. 检查台 `/check` 的写入入口加权限或下线（现在公网任何人可点、会真写库）')
+  lines.push('3. 检查台 `/check` 已于 Day21 收尾下线（2026-10-16）；恢复须先接登录加权限')
   lines.push('')
   lines.push('## 逐项证据')
   lines.push('')
