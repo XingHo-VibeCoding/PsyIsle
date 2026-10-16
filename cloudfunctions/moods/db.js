@@ -117,10 +117,14 @@ async function findMoodByDate(date) {
   return { item: rowToItem((data || [])[0]) }
 }
 
-// 按 id 查一条（带 owner 隔离，且排除已软删的行）。
-// 成功回 { item }；id 不存在或已被软删回 { item: null }；失败回 { error }。
-// PATCH / DELETE 的「id 存在性校验」都靠它：软删的行当作不存在，避免「改/删一条不存在的记录」。
-async function findMoodById(id) {
+// 按 id 查一条（带 owner 隔离）。
+// includeDeleted=false（默认）：额外排除已软删的行 —— DELETE 用它，所以「删两次」第二次回 NOT_FOUND，
+//   也避免「删除一条根本不存在的记录」被当成成功（防呆）。
+// includeDeleted=true：不排除软删行 —— PATCH 用它，编辑一条已软删的记录才能把它复位回来（找回）。
+//   两者必须分开：若 PATCH 也排除软删行，patchMood 里那句 is_deleted:false 永远执行不到，成了死代码
+//   （Day 22 完成后检查发现：契约 §4.7 写着重编辑即找回，代码却把它堵死了）。
+// 成功回 { item }；查不到回 { item: null }；失败回 { error }。
+async function findMoodById(id, { includeDeleted = false } = {}) {
   const q = withPublicSchema(
     app
       .rdb()
@@ -128,8 +132,8 @@ async function findMoodById(id) {
       .select('id,date,emoji,level,note,created_at')
       .eq('owner_id', DEMO_OWNER_ID)
       .eq('id', id)
-      .eq('is_deleted', false)
   )
+  if (!includeDeleted) q.eq('is_deleted', false)
   const { data, error } = await q
   if (error) return { error }
   const row = (data || [])[0]
@@ -140,7 +144,8 @@ async function findMoodById(id) {
 // 同时复位 is_deleted=false（被软删的某天若重新编辑，等于找回）。
 // 成功回 { item }（改后那行）；行不存在回 { notFound: true }；失败回 { error }。
 async function patchMood(id, { emoji, level, note }) {
-  const before = await findMoodById(id)
+  // 必须 includeDeleted：软删的行也要能被编辑到，否则「删错了找回」走不通（契约 §4.7 / §4.8.1）。
+  const before = await findMoodById(id, { includeDeleted: true })
   if (before.error) return { error: before.error }
   if (before.item === null) return { notFound: true }
 
