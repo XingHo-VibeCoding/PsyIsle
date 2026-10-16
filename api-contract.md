@@ -221,6 +221,8 @@ POST https://psyisle-prod-d9g109suw53257aed.service.tcloudbase.com/api/notes
 改一条已存在的打卡记录。目标 id 通过查询参数 `?id=` 传递（HTTP 网关按路径 `/api/moods` 路由，PATCH/DELETE 复用同一云函数，故 id 走查询参数最稳；请求体里带 `id` 也认）。
 
 - 可改字段（契约 §5.2）：`emoji`（情绪 id）、`level`（强度 1–5）、`note`（附言 ≤200 字）。**三者都可选，只改调用方真正传了的字段**，没传的保持原值——不会把「没传」误写成 `null`。
+- ⚠️ **「没传」与「传了 `null`」是两件事（Day 24 修 Bug 时定的规则）**：`level` 与 `note` 本身允许为空（§5.2「level 可空」「note 可为 null」），所以 `PATCH {"note": null}` 的含义是**把附言清掉**、`{"level": null}` 是**取消这次的评分**；只有请求体里压根没有这个 key 时才表示「不动它」。`emoji` 不可为空，`{"emoji": null}` → `INVALID_INPUT`。
+  > 为什么要单独立这条：修复前，入口层用 `body.note !== undefined` 判「有没有传」、校验层又用 `body.note !== null` 跳过 `null`——三层各自看起来都对，组合起来 `null` 被当成「没传」吞掉，于是**接口回 `ok:true` 而数据没动**，连一句报错都没有。判定「有没有传」只能看**请求体里有没有这个 key**，不能看值。
 - `emoji` 必须在白名单内；`level` 给了必须是 1–5 整数；`note` 给了 ≤200 字；三项一个都没传 → `400 INVALID_INPUT`（中文提示）。
 - `date` **不可改**（它是「一天一行」唯一键的一部分，改它会撞唯一约束，交给用户「删了重记」即可）。
 - **id 不存在（或已被软删）→ `200` + 信封 `ok:false`、`code: NOT_FOUND`、中文提示「找不到这条打卡记录：id 不存在，或它已经被删除」**。这是「删除比新增更容易出事」的第一道防线：先确认目标存在，再动手。

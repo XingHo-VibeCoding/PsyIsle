@@ -126,6 +126,14 @@ function pickId(event) {
 // 校验 emoji / level / note 三个字段的形状。POST 必填 emoji；PATCH 三个都可选，给了才校验。
 // 返回 { ok:true, value:{emoji,level,note} }（未提供的字段保持 undefined，调用方据此「只改传了的」）
 // 或 { ok:false, fail:{code,message} }。错误信息全中文（契约 §5.2 错误表）。
+//
+// ⚠️ Day 24 的 Bug 就长在这一段里——「有没有传这个字段」只能看 key 在不在请求体里，不能看值：
+//   改之前 level / note 的判定写成了 `body.level !== undefined && body.level !== null`，
+//   于是「传了 null」（＝用户想清空）被当成「没传」，值又回到 undefined 往下传；
+//   入口层再判一次 `!== undefined` 把它丢掉，最后数据库压根没收到这个字段。
+//   三层各自的判断都自洽，组合起来 null 被悄悄吞了：接口回 ok:true，数据一动没动，也没有一句报错。
+//   现在的规定：key 存在且值是 null → 视为「清空」，value 显式给 null；key 不在 → 才是不动它。
+//   （契约 §4.7 补的那条「「没传」与「传了 null」是两件事」就是这里的实现依据）
 function validateMoodFields(body, { requireEmoji }) {
   let emoji = undefined
   if (body.emoji !== undefined) {
@@ -140,24 +148,33 @@ function validateMoodFields(body, { requireEmoji }) {
     return { ok: false, fail: { code: 'INVALID_INPUT', message: '未选择情绪：emoji 是必填项，且必须是 calm / warm / tired / low / anxious / upset / empty 之一' } }
   }
 
+  // level 可空（契约 §5.2「level 可空」）：显式传 null 或空串 = 取消这次的强度评分，
+  // 不是「没传」。空串归到 null：前端表单里「清空选项」最容易递出来的是 ''。
   let level = undefined
-  if (body.level !== undefined && body.level !== null && body.level !== '') {
-    const n = Number(body.level)
-    if (!Number.isInteger(n) || n < 1 || n > 5) {
-      return { ok: false, fail: { code: 'INVALID_INPUT', message: 'level 只能是 1 到 5 的整数，或留空不评分' } }
+  if (body.level !== undefined) {
+    if (body.level === null || body.level === '') {
+      level = null
+    } else {
+      const n = Number(body.level)
+      if (!Number.isInteger(n) || n < 1 || n > 5) {
+        return { ok: false, fail: { code: 'INVALID_INPUT', message: 'level 只能是 1 到 5 的整数，或留空不评分' } }
+      }
+      level = n
     }
-    level = n
   }
 
+  // note 可空：显式传 null = 把已经写的话擦掉（同一套规则，见上面 level 的说明）
   let note = undefined
-  if (body.note !== undefined && body.note !== null) {
-    if (typeof body.note !== 'string') {
+  if (body.note !== undefined) {
+    if (body.note === null) {
+      note = null
+    } else if (typeof body.note !== 'string') {
       return { ok: false, fail: { code: 'INVALID_INPUT', message: '想说的话必须是文字' } }
-    }
-    if (body.note.length > 200) {
+    } else if (body.note.length > 200) {
       return { ok: false, fail: { code: 'INVALID_INPUT', message: '想说的话不能超过 200 字（当前 ' + body.note.length + ' 字）' } }
+    } else {
+      note = body.note
     }
-    note = body.note
   }
 
   return { ok: true, value: { emoji, level, note } }
@@ -206,7 +223,7 @@ async function handlePost(event = {}, reqId = '-') {
   // 防重复（契约 §5.2「同一天重复提交 = 覆盖」）的落点在 db.js 的 upsertMood：
   // 数据库 unique(owner_id, date) 是最终保证，先 insert、命中冲突再 update。
   try {
-    const w = await db.upsertMood({ date, emoji: body.emoji, level, note })
+    const w = await db.upsertMood({ date, emoji, level, note })
     if (w.error) {
       // 写入失败是服务端的事，不是用户填错了 —— 之前这里误标成 INVALID_INPUT，
       // 还把库错误原文拼进了文案，等于把内部细节直接说给用户听。现在归位到服务端错。
@@ -248,7 +265,8 @@ async function handlePatch(event = {}, reqId = '-') {
     return fail(v.fail.code, v.fail.message)
   }
 
-  // 只把「调用方真的传了」的字段交给数据层（未传的保持原值，不会被写成 null）
+  // 只把「调用方真的传了」的字段交给数据层（未传的保持原值，不会被写成 null）。
+  // 注意这里判的是请求体里有没有这个 key，不看值：值是 null 表示「要清空」，照传。
   const fields = {}
   if (body.emoji !== undefined) fields.emoji = v.value.emoji
   if (body.level !== undefined) fields.level = v.value.level
@@ -306,3 +324,7 @@ exports.main = async (event = {}) => {
   logRequest(event, method, reqId, t0, res && res.ok ? 'ok' : (res && res.error && res.error.code) || 'unknown')
   return res
 }
+
+// 导出只为让单元测试锁「null = 清空」这条语义（Day 24），云函数入口仍是 exports.main。
+// 这条语义改过一次就悄悄坏过一次，不容再退回去。
+exports.validateMoodFields = validateMoodFields

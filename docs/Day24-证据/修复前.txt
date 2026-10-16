@@ -1,0 +1,99 @@
+=== Day 24 核心流程测试 2026-10-15T16:03:41.469Z ===
+BASE=https://psyisle-prod-d9g109suw53257aed.service.tcloudbase.com
+TEST_DATE=2026-10-16（避开今天的演示数据）
+
+T1 GET /api/health → HTTP 200 791ms
+   {"ok":true,"service":"PsyIsle","version":"0.1.0","time":"2026-10-15T16:03:42.205Z"}
+
+T2 GET /api/moods?limit=200 → HTTP 200 315ms  条数=11
+T3 GET /api/notes?limit=200 → HTTP 200 217ms  条数=19
+
+T4 POST /api/moods（写入打卡）→ HTTP 200 344ms
+   {"ok":true,"data":{"item":{"id":"m_bb25b9932c884af5af6b9cb24c355831","date":"2026-10-16","emoji":"calm","level":3,"note":"Day24 写入·原始","createdAt":"2026-10-15T23:58:35.559254+08:00"}}}
+
+T5 GET /api/moods（刷新确认）→ 条数 11 → 12
+   2026-10-16 的行：[{"id":"m_bb25b9932c884af5af6b9cb24c355831","date":"2026-10-16","emoji":"calm","level":3,"note":"Day24 写入·原始","createdAt":"2026-10-15T23:58:35.559254+08:00"}]
+
+T6 PATCH /api/moods?id=m_bb25b9932c884af5af6b9cb24c355831 → HTTP 200 283ms
+   {"ok":true,"data":{"item":{"id":"m_bb25b9932c884af5af6b9cb24c355831","date":"2026-10-16","emoji":"warm","level":5,"note":"Day24 修改·已改","createdAt":"2026-10-15T23:58:35.559254+08:00"}}}
+
+T7 GET /api/moods（确认修改生效）
+   [{"id":"m_bb25b9932c884af5af6b9cb24c355831","date":"2026-10-16","emoji":"warm","level":5,"note":"Day24 修改·已改","createdAt":"2026-10-15T23:58:35.559254+08:00"}]
+
+T8 PATCH {note:null}（把附言清掉）→ HTTP 200 292ms
+   响应里的 note = "Day24 修改·已改"
+   回读后的 note = "Day24 修改·已改"
+   FAIL 还在原地
+
+T9 PATCH {level:null}（取消强度评分）→ HTTP 200
+   回读后的 level = 5
+   FAIL 还在原地
+
+T10 POST 同一天第二次（应覆盖，id 不变）→ HTTP 200
+   id: m_bb25b9932c884af5af6b9cb24c355831 → m_bb25b9932c884af5af6b9cb24c355831（应相同）
+   该日行数=1（同一 owner 应为 1）
+
+T11 DELETE /api/moods?id=m_bb25b9932c884af5af6b9cb24c355831 → HTTP 200 238ms
+   {"ok":true,"data":{"id":"m_bb25b9932c884af5af6b9cb24c355831","deleted":true}}
+   删除后该日行数=0
+
+T12 DELETE 同一 id 第二次 → HTTP 200
+   {"ok":false,"error":{"code":"NOT_FOUND","message":"找不到这条打卡记录：id 不存在，或它已经被删除"}}
+
+=== 刁钻输入 ===
+C1  POST 缺 emoji → HTTP 200 84ms
+   {"ok":false,"error":{"code":"INVALID_INPUT","message":"未选择情绪：emoji 是必填项，且必须是 calm / warm / tired / low / anxious / upset / empty 之一"}}
+C2  POST emoji 空串 → HTTP 200 72ms
+   {"ok":false,"error":{"code":"INVALID_INPUT","message":"emoji 不能为空：必须是 calm / warm / tired / low / anxious / upset / empty 之一"}}
+C3  POST emoji 非法值 → HTTP 200 80ms
+   {"ok":false,"error":{"code":"INVALID_INPUT","message":"情绪不在允许范围内，请选择：calm / warm / tired / low / anxious / upset / empty"}}
+C4  POST level=0 → HTTP 200 76ms
+   {"ok":false,"error":{"code":"INVALID_INPUT","message":"level 只能是 1 到 5 的整数，或留空不评分"}}
+C5  POST level=6 → HTTP 200 78ms
+   {"ok":false,"error":{"code":"INVALID_INPUT","message":"level 只能是 1 到 5 的整数，或留空不评分"}}
+C6  POST level=2.5 → HTTP 200 70ms
+   {"ok":false,"error":{"code":"INVALID_INPUT","message":"level 只能是 1 到 5 的整数，或留空不评分"}}
+C7  POST level="3" 字符串 → HTTP 200 272ms
+   {"ok":true,"data":{"item":{"id":"m_bb25b9932c884af5af6b9cb24c355831","date":"2026-10-16","emoji":"calm","level":3,"note":"Day24 同日覆盖","createdAt":"2026-10-15T23:58:35.559254+08:00"}}}
+C8  POST note 201 字 → HTTP 200 69ms
+   {"ok":false,"error":{"code":"INVALID_INPUT","message":"想说的话不能超过 200 字（当前 201 字）"}}
+C9  POST note 200 字（边界内） → HTTP 200 262ms
+   {"ok":true,"data":{"item":{"id":"m_bb25b9932c884af5af6b9cb24c355831","date":"2026-10-16","emoji":"calm","level":3,"note":"字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字…
+C10 POST date 格式错 → HTTP 200 73ms
+   {"ok":false,"error":{"code":"INVALID_INPUT","message":"date 格式应为 YYYY-MM-DD（省略则默认今天）"}}
+C11 POST 非法 JSON → HTTP 200 61ms
+   {"ok":false,"error":{"code":"INVALID_INPUT","message":"请求体必须是合法 JSON"}}
+C12 PATCH 缺 id → HTTP 200 68ms
+   {"ok":false,"error":{"code":"INVALID_INPUT","message":"缺少 id：PATCH 需要目标记录 id（查询参数 ?id= 或请求体 id）"}}
+C13 PATCH 空字段 → HTTP 200 69ms
+   {"ok":false,"error":{"code":"INVALID_INPUT","message":"没有可修改的字段：emoji / level / note 至少传一个"}}
+C14 PATCH id 不存在 → HTTP 200 118ms
+   {"ok":false,"error":{"code":"NOT_FOUND","message":"找不到这条打卡记录：id 不存在，或它已经被删除"}}
+C15 DELETE 缺 id → HTTP 200 77ms
+   {"ok":false,"error":{"code":"INVALID_INPUT","message":"缺少 id：DELETE 需要目标记录 id（查询参数 ?id= 或请求体 id）"}}
+C16 DELETE id 不存在 → HTTP 200 134ms
+   {"ok":false,"error":{"code":"NOT_FOUND","message":"找不到这条打卡记录：id 不存在，或它已经被删除"}}
+C17 POST notes 空 text → HTTP 200 84ms
+   {"ok":false,"error":{"code":"INVALID_INPUT","message":"text 不能为空：记一件今天做了的小事"}}
+C18 POST notes 201 字 → HTTP 200 84ms
+   {"ok":false,"error":{"code":"INVALID_INPUT","message":"小进步内容不能超过 200 字（当前 201 字）"}}
+C19 GET moods limit=abc → HTTP 200 125ms
+   {"ok":true,"data":{"items":[{"id":"m_bb25b9932c884af5af6b9cb24c355831","date":"2026-10-16","emoji":"calm","level":3,"note":"字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字…
+C20 GET moods limit=999（应被上限 200 夹住） → HTTP 200 124ms
+   {"ok":true,"data":{"items":[{"id":"m_bb25b9932c884af5af6b9cb24c355831","date":"2026-10-16","emoji":"calm","level":3,"note":"字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字…
+
+=== 快速连点：同一天并发写 5 次 ===
+  第1发：HTTP 200 id=m_bb25b9932c884af5af6b9cb24c355831 level=1
+  第2发：HTTP 200 id=m_bb25b9932c884af5af6b9cb24c355831 level=4
+  第3发：HTTP 200 id=m_bb25b9932c884af5af6b9cb24c355831 level=4
+  第4发：HTTP 200 id=m_bb25b9932c884af5af6b9cb24c355831 level=4
+  第5发：HTTP 200 id=m_bb25b9932c884af5af6b9cb24c355831 level=4
+  连点后 2026-10-16 行数=1（同一 owner 应只有 1 行）
+  详情：[{"id":"m_bb25b9932c884af5af6b9cb24c355831","date":"2026-10-16","emoji":"calm","level":4,"note":"连点#4","createdAt":"2026-10-15T23:58:35.559254+08:00"}]
+
+=== 收尾：软删测试日期的全部行 ===
+  删 m_bb25b9932c884af5af6b9cb24c355831 → {"ok":true,"data":{"id":"m_bb25b9932c884af5af6b9cb24c355831","deleted":true}}
+  收尾后 moods 条数=11（测试前为 11）
+  收尾后 2026-10-16 行数=0
+
+=== 结束 2026-10-15T16:03:48.544Z ===
