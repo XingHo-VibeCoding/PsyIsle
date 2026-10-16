@@ -41,7 +41,9 @@ function rowToItem(r) {
   }
 }
 
-// 读列表：按 date 倒序，最多 limit 条。成功回 { items }，失败回 { error }（原始库错误）。
+// 读列表：按 date 倒序，同日多行再用 created_at 倒序做次级排序键，避免同日 tie 顺序在多次调用间跳变
+// （Day 21 周验收登记的遗留：progress_notes 不限一天一条，只按 date 倒序时同日多行的先后不稳定）。
+// 成功回 { items }，失败回 { error }（原始库错误）。
 async function listNotes(limit) {
   const q = withPublicSchema(
     app
@@ -49,6 +51,7 @@ async function listNotes(limit) {
       .from('progress_notes')
       .select('id,date,text,created_at')
       .order('date', { ascending: false })
+      .order('created_at', { ascending: false })
       .limit(limit)
   )
   const { data, error } = await q
