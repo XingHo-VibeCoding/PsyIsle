@@ -30,9 +30,21 @@ export class AppError extends Error {
   }
 }
 
-// 浏览器网络失败的英文原文（各浏览器措辞不同），命中即归为「网络错」
+// 网络失败的英文原文（各环境措辞不同），命中即归为「网络错」。
+// 浏览器说 Failed to fetch / NetworkError；Node 的 fetch 说 fetch failed，并把
+// ECONNREFUSED / ENOTFOUND / ETIMEDOUT 放在 cause.code 里。三处都认，
+// 免得换个环境就漏成「未知错误」——那句话对用户没有任何指向性。
 const NETWORK_HINTS =
-  /failed to fetch|networkerror|network request failed|load failed|err_network|err_internet_disconnected/i
+  /failed to fetch|fetch failed|networkerror|network request failed|load failed|err_network|err_internet_disconnected/i
+
+const NETWORK_CODES = /ECONNREFUSED|ENOTFOUND|ETIMEDOUT|ECONNRESET|EAI_AGAIN|ERR_INTERNET/i
+
+function isNetworkError(e: Error): boolean {
+  if (NETWORK_HINTS.test(e.message)) return true
+  const cause = (e as unknown as { cause?: { code?: string; message?: string } }).cause
+  if (!cause) return false
+  return NETWORK_CODES.test(cause.code ?? '') || NETWORK_HINTS.test(cause.message ?? '')
+}
 
 // HTTP 状态码 → 错误类别。状态码本身不上屏，只用来选哪句话。
 export function kindOfStatus(status: number): ErrorKind {
@@ -57,7 +69,7 @@ export function kindOfCode(code?: string): ErrorKind {
 export function toUserMessage(e: unknown): string {
   if (e instanceof AppError) return e.message
   if (e instanceof Error) {
-    if (NETWORK_HINTS.test(e.message)) return ERROR_MESSAGES.network
+    if (isNetworkError(e)) return ERROR_MESSAGES.network
     return ERROR_MESSAGES.unknown
   }
   return ERROR_MESSAGES.unknown

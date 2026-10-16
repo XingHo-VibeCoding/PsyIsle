@@ -53,6 +53,27 @@ check('兜底 · Unexpected token < in JSON…', toUserMessage(new Error('Unexpe
 check('兜底 · 非 Error 抛出（字符串）', toUserMessage('boom'), ERROR_MESSAGES.unknown)
 check('兜底 · 非 Error 抛出（null）', toUserMessage(null), ERROR_MESSAGES.unknown)
 
+// 真断网：不造字符串，真发一次请求。
+//   · 127.0.0.1:1 没人监听 → 连接被拒（等于「把后端停掉」）
+//   · .invalid 是保留域，一定解析不到 → DNS 失败（等于「断网」）
+// 两次都要被认成网络错，而不是漏成「出了点问题」那种没有指向性的话。
+async function realFetchError(url: string): Promise<unknown> {
+  try {
+    await fetch(url)
+    return new Error('居然连上了（不该发生）')
+  } catch (e) {
+    return e
+  }
+}
+
+const refused = await realFetchError('http://127.0.0.1:1/api/moods')
+check('网络错 · 真发请求到没人监听的端口（连接被拒）', toUserMessage(refused), ERROR_MESSAGES.network)
+rows[rows.length - 1] += '\n     底层原文：' + (refused as Error)?.message
+
+const dns = await realFetchError('https://psyisle-does-not-exist.invalid/api/health')
+check('网络错 · 真发请求到解析不到的域名（DNS 失败）', toUserMessage(dns), ERROR_MESSAGES.network)
+rows[rows.length - 1] += '\n     底层原文：' + (dns as Error)?.message
+
 // 状态码 → 类别 的边界
 if (kindOfStatus(400) !== 'input') problems.push('kindOfStatus(400) 期望 input')
 if (kindOfStatus(404) !== 'input') problems.push('kindOfStatus(404) 期望 input')
