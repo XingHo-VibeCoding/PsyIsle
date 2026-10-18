@@ -18,7 +18,6 @@ const ROUTES = [
   'talk',
   'guide',
   'guide/library',
-  'guide/check',
   'daily',
   'help',
   'breathe',

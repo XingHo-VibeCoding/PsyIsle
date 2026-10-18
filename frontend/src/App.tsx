@@ -3,7 +3,6 @@ import Home from './pages/Home'
 import Help from './pages/Help'
 import Breathe from './pages/Breathe'
 import Guide from './pages/Guide'
-import CheckView from './pages/guide/CheckView'
 import LibraryView from './pages/guide/LibraryView'
 import TasksView from './pages/guide/TasksView'
 import About from './pages/About'
@@ -44,12 +43,12 @@ function App() {
           <Route path="/guide" element={<Guide />}>
             <Route index element={<TasksView />} />
             <Route path="library" element={<LibraryView />} />
-            <Route path="check" element={<CheckView />} />
           </Route>
           {/* 写一写：Day 17 接入云端真实读接口（心情打卡 + 小进步） */}
           <Route path="/daily" element={<Daily />} />
-          {/* 检查台（Day 20 引入）已于 Day21 收尾下线：公网任何人可写，属契约 §7 红线之一。
-              写入验证由 /daily 的写入 UI 与 API 级测试承担；恢复须先接登录加权限（git 历史可找回）。 */}
+          {/* 检查台（Day 20 引入）实际一直未真正下线——/guide/check 仍公网可达且 anon 可写，踩契约 §7 红线。
+              本次 Day 26 补做真正下线：删除路由与 spa-fallback 入口，使 /guide/check/ 返回 404。
+              恢复须先接登录加权限；CheckView.tsx 暂留仓库（git 历史可找回），待登录接通后按需重新挂载。 */}
           {/* 已实现页面原样沿用：危机页不可砍；呼吸练习已并入「找方向 · 行动小任务」 */}
           <Route path="/help" element={<Help />} />
           <Route path="/breathe" element={<Breathe />} />
