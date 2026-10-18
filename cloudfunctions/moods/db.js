@@ -14,10 +14,10 @@
 // 云端全局 SDK 版本较旧：rdb() 有，但 setHeader / schema() 方法缺失，且把 schema 写死成环境 ID。
 // 所以这里用「包裹构造器自身的 fetch」手动注入 Accept-Profile: public（PostgREST 用它选 schema）。
 //
-// 身份（Day 18 暂态）：本环境云函数身份拿不到 service_role，也没有真实登录态，
-// auth.uid() 在函数上下文里是 null —— 而 moods.owner_id 是 NOT NULL 且有外键指向 profiles。
-// 所以这里先用一个固定的演示身份写入（与 Day 17「函数作为可信后端读全部演示数据」同一思路）。
-// TODO(Day 18 接登录)：登录接通后，把 DEMO_OWNER_ID 换成 auth.uid()，并恢复 profiles/moods 的 RLS。
+// 身份（Day 26 接登录）：前端经 Web SDK callFunction 调用时，网关会把当前登录用户的身份注入，
+// app.auth().getUserInfo().uid 即可读到真实 uid（匿名用户拿到稳定的匿名 uid）。
+// 取不到（极端异常）才回退到固定演示身份，保证过渡期不会因身份缺失而整页崩溃。
+// 数据隔离的最终保证：所有查询都 eq('owner_id', owner)，写入也都带 owner_id。
 const DEMO_OWNER_ID = '00000000-0000-4000-8000-000000000099'
 
 const { init } = require('@cloudbase/node-sdk')
@@ -26,6 +26,16 @@ const { init } = require('@cloudbase/node-sdk')
 // 兜底值不是密钥——它就写在公网域名里，也写在 api-contract.md §2，属于公开配置。
 // 真密钥一律不进代码：本仓库没有任何密钥，变量名见仓库根 .env.example。
 const app = init({ env: process.env.TCB_ENV || 'psyisle-prod-d9g109suw53257aed' })
+
+function currentOwner() {
+  try {
+    const info = app.auth().getUserInfo()
+    if (info && info.uid) return info.uid
+  } catch (_) {
+    /* 忽略，回退演示身份 */
+  }
+  return DEMO_OWNER_ID
+}
 
 // 旧版 SDK 没有 setHeader：包裹 fetch，给每一次请求注入 public schema
 function withPublicSchema(q) {
@@ -56,14 +66,17 @@ function rowToItem(r) {
   }
 }
 
-// 读列表：按 date 倒序，最多 limit 条。成功回 { items }，失败回 { error }（原始库错误）。
-// Day 22：只返回「没被软删」的行（is_deleted = false），被删的不会进列表、但库里还在、可找回。
+// 读列表：按 date 倒序，最多 limit 条。只返回「当前登录用户」且「没被软删」的行。
+// 成功回 { items }，失败回 { error }（原始库错误）。
+// Day 22：排除已软删（is_deleted = false）。Day 26：加 owner_id 过滤，每人只看自己的。
 async function listMoods(limit) {
+  const owner = currentOwner()
   const q = withPublicSchema(
     app
       .rdb()
       .from('moods')
       .select('id,date,emoji,level,note,created_at')
+      .eq('owner_id', owner)
       .eq('is_deleted', false)
       .order('date', { ascending: false })
       .limit(limit)
@@ -78,8 +91,9 @@ async function listMoods(limit) {
 // 两个请求同时进来会同时认为「还没有」。
 // 成功回 { ok: true, overwritten }，失败回 { ok: false, step: 'insert' | 'update', error }。
 async function upsertMood({ date, emoji, level, note }) {
+  const owner = currentOwner()
   const ins = await withPublicSchema(
-    app.rdb().from('moods').insert({ owner_id: DEMO_OWNER_ID, date, emoji, level, note })
+    app.rdb().from('moods').insert({ owner_id: owner, date, emoji, level, note })
   )
   if (ins.error) {
     const msg = JSON.stringify(ins.error)
@@ -92,7 +106,7 @@ async function upsertMood({ date, emoji, level, note }) {
         .rdb()
         .from('moods')
         .update({ emoji, level, note, updated_at: new Date().toISOString(), is_deleted: false })
-        .eq('owner_id', DEMO_OWNER_ID)
+        .eq('owner_id', owner)
         .eq('date', date)
     )
     if (upd.error) return { ok: false, step: 'update', error: upd.error }
@@ -104,12 +118,13 @@ async function upsertMood({ date, emoji, level, note }) {
 // 读回刚写的那一行：按 owner_id + date 用唯一键定位，不依赖 insert 的返回结构。
 // 成功回 { item }，失败回 { error }。
 async function findMoodByDate(date) {
+  const owner = currentOwner()
   const q = withPublicSchema(
     app
       .rdb()
       .from('moods')
       .select('id,date,emoji,level,note,created_at')
-      .eq('owner_id', DEMO_OWNER_ID)
+      .eq('owner_id', owner)
       .eq('date', date)
   )
   const { data, error } = await q
@@ -125,12 +140,13 @@ async function findMoodByDate(date) {
 //   （Day 22 完成后检查发现：契约 §4.7 写着重编辑即找回，代码却把它堵死了）。
 // 成功回 { item }；查不到回 { item: null }；失败回 { error }。
 async function findMoodById(id, { includeDeleted = false } = {}) {
+  const owner = currentOwner()
   const q = withPublicSchema(
     app
       .rdb()
       .from('moods')
       .select('id,date,emoji,level,note,created_at')
-      .eq('owner_id', DEMO_OWNER_ID)
+      .eq('owner_id', owner)
       .eq('id', id)
   )
   if (!includeDeleted) q.eq('is_deleted', false)
@@ -154,12 +170,13 @@ async function patchMood(id, { emoji, level, note }) {
   if (level !== undefined) patch.level = level
   if (note !== undefined) patch.note = note
 
+  const owner = currentOwner()
   const upd = await withPublicSchema(
     app
       .rdb()
       .from('moods')
       .update(patch)
-      .eq('owner_id', DEMO_OWNER_ID)
+      .eq('owner_id', owner)
       .eq('id', id)
   )
   if (upd.error) return { error: upd.error }
@@ -176,12 +193,13 @@ async function softDeleteMood(id) {
   if (before.error) return { ok: false, error: before.error }
   if (before.item === null) return { ok: false, notFound: true }
 
+  const owner = currentOwner()
   const upd = await withPublicSchema(
     app
       .rdb()
       .from('moods')
       .update({ is_deleted: true, updated_at: new Date().toISOString() })
-      .eq('owner_id', DEMO_OWNER_ID)
+      .eq('owner_id', owner)
       .eq('id', id)
   )
   if (upd.error) return { ok: false, error: upd.error }

@@ -4,7 +4,7 @@
 // 分层理由、SDK 用法、演示身份与 moods/db.js 完全相同，那里有详细注释，这里不复述。
 // 这张表没有 level / note / emoji —— 单项只有 id / date / text / created_at。
 //
-// 身份同 moods（Day 18 暂态）：先用固定演示身份写入，登录接通后换 auth.uid() 并恢复 RLS。
+// 身份同 moods（Day 26 接登录）：优先取网关注入的调用方 uid，取不到才回退演示身份。
 const DEMO_OWNER_ID = '00000000-0000-4000-8000-000000000099'
 
 const { init } = require('@cloudbase/node-sdk')
@@ -13,6 +13,16 @@ const { init } = require('@cloudbase/node-sdk')
 // 兜底值不是密钥——它就写在公网域名里，也写在 api-contract.md §2，属于公开配置。
 // 真密钥一律不进代码：本仓库没有任何密钥，变量名见仓库根 .env.example。
 const app = init({ env: process.env.TCB_ENV || 'psyisle-prod-d9g109suw53257aed' })
+
+function currentOwner() {
+  try {
+    const info = app.auth().getUserInfo()
+    if (info && info.uid) return info.uid
+  } catch (_) {
+    /* 忽略，回退演示身份 */
+  }
+  return DEMO_OWNER_ID
+}
 
 // 旧版 SDK 没有 setHeader：包裹 fetch，给每一次请求注入 public schema
 function withPublicSchema(q) {
@@ -43,13 +53,15 @@ function rowToItem(r) {
 
 // 读列表：按 date 倒序，同日多行再用 created_at 倒序做次级排序键，避免同日 tie 顺序在多次调用间跳变
 // （Day 21 周验收登记的遗留：progress_notes 不限一天一条，只按 date 倒序时同日多行的先后不稳定）。
-// 成功回 { items }，失败回 { error }（原始库错误）。
+// 只返回「当前登录用户」的行。成功回 { items }，失败回 { error }（原始库错误）。
 async function listNotes(limit) {
+  const owner = currentOwner()
   const q = withPublicSchema(
     app
       .rdb()
       .from('progress_notes')
       .select('id,date,text,created_at')
+      .eq('owner_id', owner)
       .order('date', { ascending: false })
       .order('created_at', { ascending: false })
       .limit(limit)
@@ -62,8 +74,9 @@ async function listNotes(limit) {
 // 记一件小事。progress_notes 不限一天一条（契约 §5.2），直接 insert，不防重复。
 // 成功回 { ok: true }，失败回 { ok: false, error }。
 async function insertNote({ date, text }) {
+  const owner = currentOwner()
   const ins = await withPublicSchema(
-    app.rdb().from('progress_notes').insert({ owner_id: DEMO_OWNER_ID, date, text })
+    app.rdb().from('progress_notes').insert({ owner_id: owner, date, text })
   )
   if (ins.error) return { ok: false, error: ins.error }
   return { ok: true }
@@ -72,12 +85,13 @@ async function insertNote({ date, text }) {
 // 读回刚写的那一行：表不限一天一条，故按 owner + date 取 created_at 最新的一条。
 // 成功回 { item }，失败回 { error }。
 async function findLatestNoteByDate(date) {
+  const owner = currentOwner()
   const q = withPublicSchema(
     app
       .rdb()
       .from('progress_notes')
       .select('id,date,text,created_at')
-      .eq('owner_id', DEMO_OWNER_ID)
+      .eq('owner_id', owner)
       .eq('date', date)
       .order('created_at', { ascending: false })
       .limit(1)

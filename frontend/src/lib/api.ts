@@ -58,7 +58,26 @@ const API_BASE = (import.meta.env.VITE_API_BASE ?? '').replace(/\/$/, '')
 //  · fetch 直接抛 = 网络错（断网 / DNS / 被拦截），浏览器原文是英文，这里换成人话
 //  · HTTP 状态码 >= 400 = 按类别给中文，状态码本身不上屏
 //  · 响应体不是 JSON = 服务端错（多半是网关返回了 HTML 错误页）
-async function callApi<T>(path: string, init?: RequestInit): Promise<T> {
+//
+// Day 26：除健康检查外，moods/notes 改走 Web SDK 的 callFunction —— 网关会把当前登录用户的
+// 身份注入云函数，后端据此用 app.auth().getUserInfo().uid 做数据隔离（见 cloudfunctions/*/db.js）。
+// 健康检查是公开探活，无需身份，仍走 HTTP 公网接口。
+import { app } from './cloudbase'
+
+async function callFunctionRaw<T>(name: string, data: Record<string, unknown>): Promise<T> {
+  let res: any
+  try {
+    res = await app.callFunction({ name, data })
+  } catch {
+    // callFunction 抛错（网络/SDK/鉴权失败）= 网络错口径，不把英文原文上屏
+    throw new AppError('network')
+  }
+  const result = res?.result
+  if (result == null) throw new AppError('server')
+  return result as T
+}
+
+async function callApiHttp<T>(path: string, init?: RequestInit): Promise<T> {
   let res: Response
   try {
     res = await fetch(`${API_BASE}${path}`, {
@@ -68,13 +87,42 @@ async function callApi<T>(path: string, init?: RequestInit): Promise<T> {
   } catch {
     throw new AppError('network')
   }
-
   if (!res.ok) throw new AppError(kindOfStatus(res.status), messageForStatus(res.status))
-
   try {
     return (await res.json()) as T
   } catch {
     throw new AppError('server')
+  }
+}
+
+async function callApi<T>(path: string, init?: RequestInit): Promise<T> {
+  // 健康检查：公开探活，走 HTTP 公网接口
+  if (path === '/api/health') return callApiHttp<T>(path, init)
+
+  // moods / notes：优先走 callFunction（身份被网关注入，后端按 uid 隔离）。
+  // 若 SDK/鉴权层抛错（例如控制台尚未开启「匿名登录」→ EXCEED_AUTHORITY），
+  // 自动回退到 HTTP 公网接口，保证应用始终可用；回退路径下后端用 DEMO_OWNER_ID，不做隔离。
+  const method = (init?.method || 'GET').toUpperCase()
+  const fn = path.startsWith('/api/notes') ? 'notes' : 'moods'
+  let body: unknown
+  if (init?.body != null) {
+    try {
+      body = JSON.parse(init.body as string)
+    } catch {
+      body = undefined
+    }
+  }
+  const qi = path.indexOf('?')
+  const query = qi >= 0 ? Object.fromEntries(new URLSearchParams(path.slice(qi + 1))) : {}
+  const data: Record<string, unknown> = { method, ...query }
+  if (body != null) data.body = body
+
+  try {
+    return await callFunctionRaw<T>(fn, data)
+  } catch (e) {
+    // 仅当 callFunction 这一层抛错才回退；函数正常返回（哪怕 ok:false）不回退。
+    console.warn('[api] callFunction 失败，回退 HTTP：', (e as Error)?.message || String(e))
+    return callApiHttp<T>(path, init)
   }
 }
 

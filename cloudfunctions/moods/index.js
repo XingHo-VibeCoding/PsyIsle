@@ -114,11 +114,13 @@ function todayInShanghai() {
   }).format(new Date())
 }
 
-// 从事件里取目标记录 id：优先查询参数 ?id=，回退到请求体里的 id。
-// HTTP 网关按路径 /api/moods 路由，PATCH/DELETE 复用同一函数，故 id 走查询参数最稳。
+// 从事件里取目标记录 id：优先 callFunction 顶层的 id / body.id，回退 HTTP 网关的查询参数 ?id=。
+// 两种调用形态都要支持：Web SDK callFunction 把 id 放在 data 顶层；HTTP 访问服务放在查询串。
 function pickId(event) {
   if (!event) return null
   const cands = [
+    event.id,
+    event.body && event.body.id,
     event.queryString && event.queryString.id,
     event.queryStringParameters && event.queryStringParameters.id,
   ]

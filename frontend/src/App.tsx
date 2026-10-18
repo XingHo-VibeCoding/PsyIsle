@@ -10,6 +10,7 @@ import Daily from './pages/Daily'
 import UnderConstruction from './pages/UnderConstruction'
 import Suggest from './pages/Suggest'
 import Fireflies from './components/Fireflies'
+import AuthPanel from './components/AuthPanel'
 
 // 导航 = 三扇门 + 求助。名字统一用户视角（听你说/找方向/写一写），
 // 不用「功能/板块/专区」这类行业词，也全站只保留这一套称呼（改名必须连 PRD 一起想，别留两个名字）。
@@ -30,6 +31,8 @@ function App() {
         <NavLink to="/help" className="nav-help">求助</NavLink>
         {/* 提建议：放在求助右边，鼓励用户反馈；纯本地收集，不触碰危机红线 */}
         <NavLink to="/suggest">提建议</NavLink>
+        {/* 登录入口：启动即匿名自动登录，点开可升级为邮箱账号（Day 26 接登录） */}
+        <AuthPanel />
       </nav>
 
       <main className="main">
