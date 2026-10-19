@@ -13,34 +13,38 @@ import {
   subscribe,
   type AuthState,
 } from '../lib/auth'
+import { subscribeAuthPanel } from '../lib/authPanel'
 
 function useAuth(): AuthState {
   return useSyncExternalStore(subscribe, getAuthState)
 }
 
+// 样式仍走内联（这个弹层是 Day 26 独立加的，没进 index.css 的组件区），
+// 但颜色一律引用设计令牌：原来用的是亮紫 #7c6ef0 和报错红 #c0392b，
+// 前者不在全站色板里、后者踩了「全站禁红色警示色」这条红线（2026-10-19 统一）。
 const overlay: CSSProperties = {
   position: 'fixed',
   inset: 0,
-  background: 'rgba(40,40,60,0.32)',
+  background: 'rgba(20, 54, 44, 0.32)',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
   zIndex: 50,
 }
 const card: CSSProperties = {
-  background: '#fff',
-  borderRadius: 16,
+  background: 'var(--card)',
+  borderRadius: 'var(--r-lg)',
   padding: 24,
   width: 'min(360px, 92vw)',
-  boxShadow: '0 12px 40px rgba(0,0,0,0.18)',
+  boxShadow: 'var(--sh-3)',
   fontFamily: 'inherit',
 }
 const input: CSSProperties = {
   width: '100%',
   padding: '10px 12px',
   margin: '6px 0',
-  borderRadius: 10,
-  border: '1px solid #d9d9e3',
+  borderRadius: 'var(--r-sm)',
+  border: '1px solid var(--line-strong)',
   fontSize: 15,
   boxSizing: 'border-box',
 }
@@ -48,9 +52,9 @@ const btn: CSSProperties = {
   width: '100%',
   padding: '10px 12px',
   margin: '6px 0',
-  borderRadius: 10,
+  borderRadius: 'var(--r-sm)',
   border: 'none',
-  background: '#7c6ef0',
+  background: 'var(--forest-700)',
   color: '#fff',
   fontSize: 15,
   cursor: 'pointer',
@@ -58,8 +62,8 @@ const btn: CSSProperties = {
 const ghost: CSSProperties = {
   ...btn,
   background: 'transparent',
-  color: '#7c6ef0',
-  border: '1px solid #7c6ef0',
+  color: 'var(--forest-700)',
+  border: '1px solid var(--forest-300)',
 }
 
 export default function AuthPanel() {
@@ -76,6 +80,10 @@ export default function AuthPanel() {
   useEffect(() => {
     ensureSession()
   }, [])
+
+  // 别的组件（匿名存储提示）要让用户去注册/登录时，通过这个订阅把弹层打开，
+  // 不必把 open 状态提到 App 层（见 lib/authPanel.ts）。
+  useEffect(() => subscribeAuthPanel(() => setOpen(true)), [])
 
   async function login() {
     setBusy(true)
@@ -159,7 +167,7 @@ export default function AuthPanel() {
         <div style={overlay} onClick={() => setOpen(false)}>
           <div style={card} onClick={(e) => e.stopPropagation()}>
             <h3 style={{ margin: '0 0 4px' }}>登录 / 注册</h3>
-            <p style={{ margin: '0 0 12px', color: '#666', fontSize: 13 }}>
+            <p style={{ margin: '0 0 12px', color: 'var(--ink-mute)', fontSize: 13 }}>
               你是这里唯一能看见自己记录的人。匿名也能用；想长期保存就绑个邮箱。
             </p>
 
@@ -226,27 +234,29 @@ export default function AuthPanel() {
             )}
 
             {msg && (
-              <p style={{ color: '#c0392b', fontSize: 13, margin: '8px 0 0' }}>
+              <p style={{ color: 'var(--ink-soft)', fontSize: 13, margin: '8px 0 0' }}>
                 {msg}
               </p>
             )}
 
             <button
-              style={{ ...ghost, marginTop: 12, borderColor: '#ccc', color: '#888' }}
+              style={{ ...ghost, marginTop: 12, borderColor: 'var(--line-strong)', color: 'var(--ink-mute)' }}
               onClick={() => setOpen(false)}
             >
               关闭
             </button>
-            {state.mode !== 'none' && (
+            {/* 只有正式账号才给「退出」：匿名用户点它只会换到一个新的匿名 uid，
+                原来那些记录当场就再也取不回来了 —— 这个按钮对他们不是功能，是陷阱。 */}
+            {state.mode === 'password' && (
               <button
-                style={{ ...ghost, borderColor: '#ccc', color: '#888' }}
+                style={{ ...ghost, borderColor: 'var(--line-strong)', color: 'var(--ink-mute)' }}
                 disabled={busy}
                 onClick={logout}
               >
                 退出到匿名
               </button>
             )}
-            <p style={{ color: '#999', fontSize: 12, margin: '10px 0 0' }}>
+            <p style={{ color: 'var(--ink-mute)', fontSize: 12, margin: '10px 0 0' }}>
               若提示“未开启”，请在 CloudBase 控制台 → 身份认证 → 登录方式 开启邮箱登录。
             </p>
           </div>

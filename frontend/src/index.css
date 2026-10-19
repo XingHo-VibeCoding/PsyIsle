@@ -2953,3 +2953,101 @@ a.door:active {
     max-width: none;
   }
 }
+
+/* ==========================================================================
+   15. 匿名存储提示（2026-10-19）
+   --------------------------------------------------------------------------
+   访客身份绑在这台浏览器上：换设备、清缓存就取不回旧记录。这个弹层负责把这件事
+   说清楚，并给两条路（绑邮箱 / 先这样）。三条硬约束：
+     · 不拦截 —— 遮罩能点掉、Esc 能关，关掉之后输入框照常可用；
+     · 不催 —— 只用品牌绿，不出现警示红（全站禁红色）；
+     · 只提一次 —— 主动选「先这样」永久不再弹（记忆逻辑见 lib/anonNotice.ts）。
+   手机上从底部升起（拇指够得着），桌面上居中成一张卡。
+   ========================================================================== */
+.anon-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 60; /* 高于登录弹层（50）：先决定要不要注册，再进登录流程 */
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: rgba(20, 54, 44, 0.3);
+  animation: anon-fade var(--t-base) both;
+}
+.anon-sheet {
+  width: min(440px, 100%);
+  max-height: 88vh;
+  overflow-y: auto;
+  padding: var(--sp-6) var(--sp-5) calc(var(--sp-5) + env(safe-area-inset-bottom, 0px));
+  background: var(--card);
+  border-radius: var(--r-lg) var(--r-lg) 0 0;
+  box-shadow: var(--sh-3);
+  outline: none;
+  animation: anon-rise var(--t-slow) both;
+}
+.anon-title {
+  margin: 0;
+  color: var(--ink);
+  font-size: var(--fs-h3);
+  line-height: var(--lh-title);
+}
+.anon-body {
+  margin: var(--sp-3) 0 var(--sp-5);
+  color: var(--ink-soft);
+  font-size: var(--fs-meta);
+  line-height: var(--lh-body);
+}
+.anon-body p {
+  margin: 0 0 var(--sp-2);
+}
+.anon-body p:last-child {
+  margin-bottom: 0;
+}
+.anon-actions {
+  display: grid;
+  gap: var(--sp-2);
+}
+/* 手机上的主按钮要铺满：一行两个按钮在 360px 上会把「先这样，继续写」压成两行 */
+.anon-actions .btn {
+  width: 100%;
+}
+.anon-foot {
+  margin: var(--sp-4) 0 0;
+  color: var(--ink-mute);
+  font-size: var(--fs-meta);
+  text-align: center;
+}
+@keyframes anon-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes anon-rise {
+  from {
+    transform: translateY(18px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+@media (min-width: 640px) {
+  .anon-mask {
+    align-items: center;
+    padding: var(--sp-5);
+  }
+  .anon-sheet {
+    border-radius: var(--r-lg);
+    padding-bottom: var(--sp-5);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .anon-mask,
+  .anon-sheet {
+    animation: none;
+  }
+}

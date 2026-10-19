@@ -15,6 +15,7 @@ import Comfort from './pages/Comfort'
 import AiView from './pages/AiView'
 import Fireflies from './components/Fireflies'
 import AuthPanel from './components/AuthPanel'
+import AnonymousNotice from './components/AnonymousNotice'
 import { getAuthState, subscribe, type AuthState } from './lib/auth'
 
 // 导航布局（2026-10-19）：
@@ -38,7 +39,10 @@ function VisitorBadge() {
           ? '未连接'
           : '连接中…'
   return (
-    <span className="visitor-badge" title="你正在以访客身份浏览，记录只存在这台设备上">
+    <span
+      className="visitor-badge"
+      title="访客身份：记录保存在云端，但只有这台浏览器能取回。换设备或清理浏览器数据之后，之前的记录就找不回来了；绑个邮箱可以跟着账号走。"
+    >
       {/* 手机上括号会把这枚徽标撑到 90px、挤掉一个导航位，所以「（匿名）」单独包一层，
           窄屏只留「访客」两个字：信息没少（title 与读屏文案仍在），只是不再抢位置 */}
       {state.mode === 'anonymous' ? (
@@ -105,6 +109,11 @@ function App() {
           <Route path="*" element={<UnderConstruction name="你要找的页面" />} />
         </Routes>
       </main>
+
+      {/* 匿名存储提示（2026-10-19）：只在「要存东西」的页面、且还是访客身份、
+          且没做过选择时浮出来一次（见 components/AnonymousNotice.tsx）。
+          挂在 main 之后，位置与 Fireflies 同级，避免被页面内的 overflow 裁掉。 */}
+      <AnonymousNotice />
 
       {/* 萤火层挂在 .app 里、.main 之后：同一个父层下的 DOM 顺序就是它的层序。
           z-index:-1 把它放进根堆叠层的负层，于是首页浮在插画与薄纱之上、
