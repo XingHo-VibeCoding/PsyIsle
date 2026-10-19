@@ -107,7 +107,7 @@ async function handleGet(event = {}, reqId = '-') {
     const picked = pickLimit(event)
     if (!picked.ok) return fail('INVALID_INPUT', 'limit 必须是 1 到 200 之间的整数，或留空不传')
     const limit = Math.min(picked.value, 200)
-    const r = await db.listNotes(limit)
+    const r = await db.listNotes(limit, event)
 
     // 库出错 = 服务端错：细节进日志，用户只看到一句人话
     if (r.error) return serverError('notes:GET', r.error, reqId)
@@ -147,7 +147,7 @@ async function handlePost(event = {}, reqId = '-') {
 
   // —— 写入 ——（progress_notes 不限一天一条，故不防重复）
   try {
-    const w = await db.insertNote({ date, text: body.text })
+    const w = await db.insertNote({ date, text: body.text }, event)
     // 写入失败是服务端的事，不是用户填错了 —— 之前误标 INVALID_INPUT 还把库错误原文
     // 拼进文案，等于把内部细节说给用户听。现在归位到服务端错。
     if (w.error) return serverError('notes:POST:insert', w.error, reqId)
@@ -157,7 +157,7 @@ async function handlePost(event = {}, reqId = '-') {
   }
 
   // —— 读回刚写的那一行（按 owner + 最新 created_at 定位）——
-  const got = await db.findLatestNoteByDate(date)
+  const got = await db.findLatestNoteByDate(date, event)
   if (got.error) return serverError('notes:POST:readback', got.error, reqId)
   console.log('[notes:POST] 完成 耗时=' + (Date.now() - t0) + 'ms id=' + (got.item && got.item.id))
   return { ok: true, data: { item: got.item } }

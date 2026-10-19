@@ -194,7 +194,7 @@ async function handleGet(event = {}, reqId = '-') {
     const picked = pickLimit(event)
     if (!picked.ok) return fail('INVALID_INPUT', 'limit 必须是 1 到 200 之间的整数，或留空不传')
     const limit = Math.min(picked.value, 200)
-    const r = await db.listMoods(limit)
+    const r = await db.listMoods(limit, event)
 
     // 库出错 = 服务端错：细节进日志，用户只看到一句人话
     if (r.error) return serverError('moods:GET', r.error, reqId)
@@ -234,7 +234,7 @@ async function handlePost(event = {}, reqId = '-') {
   // 防重复（契约 §5.2「同一天重复提交 = 覆盖」）的落点在 db.js 的 upsertMood：
   // 数据库 unique(owner_id, date) 是最终保证，先 insert、命中冲突再 update。
   try {
-    const w = await db.upsertMood({ date, emoji, level, note })
+    const w = await db.upsertMood({ date, emoji, level, note }, event)
     if (w.error) {
       // 写入失败是服务端的事，不是用户填错了 —— 之前这里误标成 INVALID_INPUT，
       // 还把库错误原文拼进了文案，等于把内部细节直接说给用户听。现在归位到服务端错。
@@ -250,7 +250,7 @@ async function handlePost(event = {}, reqId = '-') {
   }
 
   // —— 读回刚写的那一行 ——
-  const got = await db.findMoodByDate(date)
+  const got = await db.findMoodByDate(date, event)
   if (got.error) return serverError('moods:POST:readback', got.error, reqId)
   console.log('[moods:POST] 完成 耗时=' + (Date.now() - t0) + 'ms id=' + (got.item && got.item.id))
   return { ok: true, data: { item: got.item } }
@@ -287,7 +287,7 @@ async function handlePatch(event = {}, reqId = '-') {
   }
 
   try {
-    const r = await db.patchMood(id, fields)
+    const r = await db.patchMood(id, fields, event)
     if (r.error) return serverError('moods:PATCH', r.error, reqId)
     if (r.notFound) {
       return fail('NOT_FOUND', '找不到这条打卡记录：id 不存在，或它已经被删除')
@@ -308,7 +308,7 @@ async function handleDelete(event = {}, reqId = '-') {
   }
 
   try {
-    const r = await db.softDeleteMood(id)
+    const r = await db.softDeleteMood(id, event)
     if (r.error) return serverError('moods:DELETE', r.error, reqId)
     if (r.notFound) {
       return fail('NOT_FOUND', '找不到这条打卡记录：id 不存在，或它已经被删除')

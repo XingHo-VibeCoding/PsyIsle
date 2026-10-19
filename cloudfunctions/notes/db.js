@@ -14,7 +14,9 @@ const { init } = require('@cloudbase/node-sdk')
 // 真密钥一律不进代码：本仓库没有任何密钥，变量名见仓库根 .env.example。
 const app = init({ env: process.env.TCB_ENV || 'psyisle-prod-d9g109suw53257aed' })
 
-function currentOwner() {
+// 当前 owner：网关注入的登录用户 uid，取不到回退演示身份（口径同 moods/db.js）。
+function currentOwner(event) {
+  void event
   try {
     const info = app.auth().getUserInfo()
     if (info && info.uid) return info.uid
@@ -51,11 +53,22 @@ function rowToItem(r) {
   }
 }
 
+// 确保该 owner 在 public.profiles 里有一行（外键 REFERENCES profiles(owner_id)，
+// 新用户首次写入必须有落点，否则撞 23503；口径同 moods/db.js）。
+async function ensureProfile(owner) {
+  const r = await withPublicSchema(app.rdb().from('profiles').insert({ owner_id: owner }))
+  if (!r.error) return { ok: true }
+  const msg = JSON.stringify(r.error)
+  if (/duplicate|unique|23505|profiles_pkey/i.test(msg)) return { ok: true }
+  console.warn('[ensureProfile] ' + msg)
+  return { ok: false, error: r.error }
+}
+
 // 读列表：按 date 倒序，同日多行再用 created_at 倒序做次级排序键，避免同日 tie 顺序在多次调用间跳变
 // （Day 21 周验收登记的遗留：progress_notes 不限一天一条，只按 date 倒序时同日多行的先后不稳定）。
 // 只返回「当前登录用户」的行。成功回 { items }，失败回 { error }（原始库错误）。
-async function listNotes(limit) {
-  const owner = currentOwner()
+async function listNotes(limit, event) {
+  const owner = currentOwner(event)
   const q = withPublicSchema(
     app
       .rdb()
@@ -73,8 +86,9 @@ async function listNotes(limit) {
 
 // 记一件小事。progress_notes 不限一天一条（契约 §5.2），直接 insert，不防重复。
 // 成功回 { ok: true }，失败回 { ok: false, error }。
-async function insertNote({ date, text }) {
-  const owner = currentOwner()
+async function insertNote({ date, text }, event) {
+  const owner = currentOwner(event)
+  await ensureProfile(owner) // 先保证外键有落点（新用户首次写入必须）
   const ins = await withPublicSchema(
     app.rdb().from('progress_notes').insert({ owner_id: owner, date, text })
   )
@@ -84,8 +98,8 @@ async function insertNote({ date, text }) {
 
 // 读回刚写的那一行：表不限一天一条，故按 owner + date 取 created_at 最新的一条。
 // 成功回 { item }，失败回 { error }。
-async function findLatestNoteByDate(date) {
-  const owner = currentOwner()
+async function findLatestNoteByDate(date, event) {
+  const owner = currentOwner(event)
   const q = withPublicSchema(
     app
       .rdb()
@@ -101,4 +115,4 @@ async function findLatestNoteByDate(date) {
   return { item: rowToItem((data || [])[0]) }
 }
 
-module.exports = { listNotes, insertNote, findLatestNoteByDate, rowToItem }
+module.exports = { listNotes, insertNote, findLatestNoteByDate, rowToItem, currentOwner }

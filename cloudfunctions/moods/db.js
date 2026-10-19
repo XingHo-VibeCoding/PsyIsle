@@ -27,7 +27,15 @@ const { init } = require('@cloudbase/node-sdk')
 // 真密钥一律不进代码：本仓库没有任何密钥，变量名见仓库根 .env.example。
 const app = init({ env: process.env.TCB_ENV || 'psyisle-prod-d9g109suw53257aed' })
 
-function currentOwner() {
+// 当前 owner：网关注入的登录用户 uid，取不到回退演示身份。
+function currentOwner(event) {
+  // 网关（enableAuth）校验通过后会把登录用户身份注入函数运行时，
+  // app.auth().getUserInfo() 即可读到真实 uid（匿名用户得到稳定的匿名 uid）。
+  // 实测（Day 26）：HTTP 访问服务路径下 getUserInfo() 可用；而网关注入的
+  // x-cloudbase-context 头是 gzip+base64 的 accessToken，不是 {uid} JSON，无法直接解析 uid，
+  // 故不作为取 uid 的来源（曾按 base64 JSON 解析，永远为 null，是死代码）。
+  // 取不到（极端异常）才回退到固定演示身份，保证过渡期不会因身份缺失而整页崩溃。
+  void event
   try {
     const info = app.auth().getUserInfo()
     if (info && info.uid) return info.uid
@@ -66,11 +74,25 @@ function rowToItem(r) {
   }
 }
 
+// 确保该 owner 在 public.profiles 里有一行。
+// moods.owner_id / progress_notes.owner_id 上有外键 REFERENCES profiles(owner_id)，
+// 匿名用户首次写入时 profiles 里还没有他的 uid，会撞 23503 外键错误（Day 26 实测）。
+// 所以任何写入前先补一行：除 owner_id 外其余列全走数据库默认值，重复调用靠唯一键冲突忽略。
+async function ensureProfile(owner) {
+  const r = await withPublicSchema(app.rdb().from('profiles').insert({ owner_id: owner }))
+  if (!r.error) return { ok: true }
+  // 已存在（唯一键冲突）就是我们要的结果，不算失败
+  const msg = JSON.stringify(r.error)
+  if (/duplicate|unique|23505|profiles_pkey/i.test(msg)) return { ok: true }
+  console.warn('[ensureProfile] ' + msg)
+  return { ok: false, error: r.error }
+}
+
 // 读列表：按 date 倒序，最多 limit 条。只返回「当前登录用户」且「没被软删」的行。
 // 成功回 { items }，失败回 { error }（原始库错误）。
 // Day 22：排除已软删（is_deleted = false）。Day 26：加 owner_id 过滤，每人只看自己的。
-async function listMoods(limit) {
-  const owner = currentOwner()
+async function listMoods(limit, event) {
+  const owner = currentOwner(event)
   const q = withPublicSchema(
     app
       .rdb()
@@ -90,8 +112,9 @@ async function listMoods(limit) {
 // 所以先 insert；命中唯一约束冲突再 update 覆盖——不写成「先查有没有、没有就插」，
 // 两个请求同时进来会同时认为「还没有」。
 // 成功回 { ok: true, overwritten }，失败回 { ok: false, step: 'insert' | 'update', error }。
-async function upsertMood({ date, emoji, level, note }) {
-  const owner = currentOwner()
+async function upsertMood({ date, emoji, level, note }, event) {
+  const owner = currentOwner(event)
+  await ensureProfile(owner) // 先保证外键有落点（新用户首次写入必须）
   const ins = await withPublicSchema(
     app.rdb().from('moods').insert({ owner_id: owner, date, emoji, level, note })
   )
@@ -117,8 +140,8 @@ async function upsertMood({ date, emoji, level, note }) {
 
 // 读回刚写的那一行：按 owner_id + date 用唯一键定位，不依赖 insert 的返回结构。
 // 成功回 { item }，失败回 { error }。
-async function findMoodByDate(date) {
-  const owner = currentOwner()
+async function findMoodByDate(date, event) {
+  const owner = currentOwner(event)
   const q = withPublicSchema(
     app
       .rdb()
@@ -139,8 +162,8 @@ async function findMoodByDate(date) {
 //   两者必须分开：若 PATCH 也排除软删行，patchMood 里那句 is_deleted:false 永远执行不到，成了死代码
 //   （Day 22 完成后检查发现：契约 §4.7 写着重编辑即找回，代码却把它堵死了）。
 // 成功回 { item }；查不到回 { item: null }；失败回 { error }。
-async function findMoodById(id, { includeDeleted = false } = {}) {
-  const owner = currentOwner()
+async function findMoodById(id, { includeDeleted = false } = {}, event) {
+  const owner = currentOwner(event)
   const q = withPublicSchema(
     app
       .rdb()
@@ -159,9 +182,9 @@ async function findMoodById(id, { includeDeleted = false } = {}) {
 // PATCH：只改调用方传入的字段（emoji / level / note），其余不动（契约 §5.2 可改字段）。
 // 同时复位 is_deleted=false（被软删的某天若重新编辑，等于找回）。
 // 成功回 { item }（改后那行）；行不存在回 { notFound: true }；失败回 { error }。
-async function patchMood(id, { emoji, level, note }) {
+async function patchMood(id, { emoji, level, note }, event) {
   // 必须 includeDeleted：软删的行也要能被编辑到，否则「删错了找回」走不通（契约 §4.7 / §4.8.1）。
-  const before = await findMoodById(id, { includeDeleted: true })
+  const before = await findMoodById(id, { includeDeleted: true }, event)
   if (before.error) return { error: before.error }
   if (before.item === null) return { notFound: true }
 
@@ -170,7 +193,7 @@ async function patchMood(id, { emoji, level, note }) {
   if (level !== undefined) patch.level = level
   if (note !== undefined) patch.note = note
 
-  const owner = currentOwner()
+  const owner = currentOwner(event)
   const upd = await withPublicSchema(
     app
       .rdb()
@@ -188,12 +211,12 @@ async function patchMood(id, { emoji, level, note }) {
 
 // 软删除（Day 22）：不真删数据，只把 is_deleted 置 true，列表查询会跳过它，删错了还能找回。
 // 成功回 { ok: true }；行不存在回 { ok: false, notFound: true }；失败回 { ok: false, error }。
-async function softDeleteMood(id) {
-  const before = await findMoodById(id)
+async function softDeleteMood(id, event) {
+  const before = await findMoodById(id, { includeDeleted: false }, event)
   if (before.error) return { ok: false, error: before.error }
   if (before.item === null) return { ok: false, notFound: true }
 
-  const owner = currentOwner()
+  const owner = currentOwner(event)
   const upd = await withPublicSchema(
     app
       .rdb()
@@ -206,4 +229,4 @@ async function softDeleteMood(id) {
   return { ok: true }
 }
 
-module.exports = { listMoods, upsertMood, findMoodByDate, findMoodById, patchMood, softDeleteMood, rowToItem }
+module.exports = { listMoods, upsertMood, findMoodByDate, findMoodById, patchMood, softDeleteMood, rowToItem, currentOwner }

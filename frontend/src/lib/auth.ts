@@ -107,3 +107,22 @@ export async function signOut(): Promise<void> {
   // 退出后回到匿名会话，保持「人人有隔离空间」
   await ensureSession()
 }
+
+// 取当前登录态的 accessToken（匿名登录即有）。网关开启 enableAuth 后，
+// 前端把它放进 Authorization: Bearer <token>，网关校验通过即把用户身份注入云函数。
+// 拿不到（极端异常 / 尚未登录）返回 null，调用方据此决定回退。
+export async function getAccessToken(): Promise<string | null> {
+  try {
+    const anyAuth = auth as any
+    if (typeof anyAuth.getAccessToken === 'function') {
+      const r = await anyAuth.getAccessToken()
+      const t = r?.accessToken ?? (typeof r === 'string' ? r : null)
+      if (t) return t
+    }
+    const { data } = await auth.getSession()
+    const t = (data as any)?.accessToken ?? (data as any)?.tokens?.accessToken
+    return t ?? null
+  } catch {
+    return null
+  }
+}
