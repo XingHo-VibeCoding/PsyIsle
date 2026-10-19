@@ -168,7 +168,7 @@ export default function AuthPanel() {
           <div style={card} onClick={(e) => e.stopPropagation()}>
             <h3 style={{ margin: '0 0 4px' }}>登录 / 注册</h3>
             <p style={{ margin: '0 0 12px', color: 'var(--ink-mute)', fontSize: 13 }}>
-              你是这里唯一能看见自己记录的人。匿名也能用；想长期保存就绑个邮箱。
+              你是这里唯一能看见自己记录的人。匿名也能用；想换设备也能看，就注册个邮箱账号。
             </p>
 
             <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>

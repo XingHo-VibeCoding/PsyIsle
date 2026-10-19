@@ -26,23 +26,46 @@ function useAuth(): AuthState {
   return useSyncExternalStore(subscribe, getAuthState)
 }
 
+// 徽标的字与说明（2026-10-19 修）：
+// 原先四个状态共用一句「访客身份：……绑个邮箱可以跟着账号走」，两处都不准：
+//   1. 已登录 / 未连接 / 连接中的人，鼠标停上去看到的还是「访客身份」，说的不是他自己；
+//   2. 「绑个邮箱可以跟着账号走」眼下兑现不了 —— 邮箱走的是 signUp，是另一个 uid，
+//      匿名名下写过的记录不会自己并过去（真要转正得接 CloudBase 的账户关联 / updateEmail）。
+// 所以按状态各写一句，只写此刻确实成立的事。说明同时给 title 和读屏（sr-only）。
+interface BadgeCopy {
+  label: string
+  hint: string
+}
+
+function badgeCopy(state: AuthState): BadgeCopy {
+  if (!state.ready) {
+    return { label: '连接中…', hint: '正在连上云端，稍等一下。' }
+  }
+  if (state.mode === 'password') {
+    return {
+      label: '已登录',
+      hint: state.email
+        ? `已用邮箱 ${state.email} 登录：此后写下的记录跟着这个账号走，换设备登录同一个邮箱也能看到。`
+        : '已登录账号：此后写下的记录跟着这个账号走，换设备登录同一个账号也能看到。',
+    }
+  }
+  if (state.mode === 'anonymous') {
+    return {
+      label: '访客（匿名）',
+      hint: '匿名身份：记录存在云端，但这个身份只认这台浏览器里的登录状态。换设备，或者清理浏览器数据，之前写的就找不回来了。',
+    }
+  }
+  return {
+    label: '未连接',
+    hint: '没有连上云端：现在读不到、也存不了记录。刷新一下页面试试。',
+  }
+}
+
 function VisitorBadge() {
   const state = useAuth()
-  const text =
-    state.mode === 'anonymous'
-      ? '访客（匿名）'
-      : state.mode === 'password'
-        ? state.email
-          ? '已登录'
-          : '已登录'
-        : state.ready
-          ? '未连接'
-          : '连接中…'
+  const { label, hint } = badgeCopy(state)
   return (
-    <span
-      className="visitor-badge"
-      title="访客身份：记录保存在云端，但只有这台浏览器能取回。换设备或清理浏览器数据之后，之前的记录就找不回来了；绑个邮箱可以跟着账号走。"
-    >
+    <span className="visitor-badge" title={hint}>
       {/* 手机上括号会把这枚徽标撑到 90px、挤掉一个导航位，所以「（匿名）」单独包一层，
           窄屏只留「访客」两个字：信息没少（title 与读屏文案仍在），只是不再抢位置 */}
       {state.mode === 'anonymous' ? (
@@ -50,8 +73,10 @@ function VisitorBadge() {
           访客<span className="visitor-badge-tail">（匿名）</span>
         </>
       ) : (
-        text
+        label
       )}
+      {/* span + title 在多数读屏里不朗读，补一份只给读屏的完整说明 */}
+      <span className="sr-only">：{hint}</span>
     </span>
   )
 }
