@@ -16,33 +16,76 @@
 //
 // 身份（Day 26 接登录）：前端经 Web SDK callFunction 调用时，网关会把当前登录用户的身份注入，
 // app.auth().getUserInfo().uid 即可读到真实 uid（匿名用户拿到稳定的匿名 uid）。
-// 取不到（极端异常）才回退到固定演示身份，保证过渡期不会因身份缺失而整页崩溃。
-// 数据隔离的最终保证：所有查询都 eq('owner_id', owner)，写入也都带 owner_id。
-const DEMO_OWNER_ID = '00000000-0000-4000-8000-000000000099'
+//
+// 取不到身份怎么办：**拒绝，不猜**（Day 27 修）。
+// 改之前这里是 `return DEMO_OWNER_ID`（固定的 000…099）。它当时被写成「过渡期兜底，别整页崩」，
+// 实际效果是把「没有身份」翻译成「所有人都是同一个人」：网关鉴权一旦失效、被关掉，或者换了
+// 触发器导致 getUserInfo() 读不到上下文，**所有访客就落进同一个 owner_id 空间，彼此看得见
+// 对方写的东西**。这是隐私事故，不是可用性问题——所以这个默认值必须消失。
+// 现在 fail closed：取不到 uid 就抛 AuthMissingError，由入口层换成一句人话的 UNAUTHORIZED。
+// 数据隔离的最终保证没变，仍是「所有查询都 eq('owner_id', owner)，写入也都带 owner_id」，
+// 只是 owner 现在只能是真实身份，不再存在一个会被所有人共享的兜底值。
+class AuthMissingError extends Error {
+  constructor() {
+    super('no authenticated owner')
+    this.name = 'AuthMissingError'
+    this.code = 'UNAUTHORIZED'
+  }
+}
+
+// 只探测、不抛：入口层在每个请求开头用一次，失败就提前返回，
+// 省掉后面那串注定要失败的数据库往返。
+function hasOwner() {
+  try {
+    const info = app.auth().getUserInfo()
+    return !!(info && info.uid)
+  } catch (_) {
+    return false
+  }
+}
 
 const { init } = require('@cloudbase/node-sdk')
 
 // Day 23：环境 ID 优先从环境变量来（本地 .env / 云端平台注入）。
 // 兜底值不是密钥——它就写在公网域名里，也写在 api-contract.md §2，属于公开配置。
 // 真密钥一律不进代码：本仓库没有任何密钥，变量名见仓库根 .env.example。
-const app = init({ env: process.env.TCB_ENV || 'psyisle-prod-d9g109suw53257aed' })
+const sdkApp = init({ env: process.env.TCB_ENV || 'psyisle-prod-d9g109suw53257aed' })
 
-// 当前 owner：网关注入的登录用户 uid，取不到回退演示身份。
-function currentOwner(event) {
+// Day 27 省资源点：查询器与 auth 客户端做成模块级单例。
+// 原先每个请求都调一次 app.rdb()，一次 POST /api/moods 里会出现 4 次（ensureProfile / insert /
+// update / 读回），每次都重新初始化一次客户端。PG 环境按计算量计费，这部分是纯浪费。
+// 用薄封装保持 app.rdb() / app.auth() 的调用点完全不变，改动面最小。
+const rdb = sdkApp.rdb()
+// 注意：auth() 刻意**不做**单例 —— getUserInfo() 依赖单次调用上下文，缓存客户端有取错 uid
+// 的风险（那是数据隔离事故）。宁可每个请求取一次，也不在这里省点。
+const app = {
+  rdb: () => rdb,
+  auth: () => sdkApp.auth(),
+}
+
+// 从 getUserInfo() 的结果里取 uid；取不到就抛，**绝不返回默认值**。
+// 单独抽出来只为能测——这段是「这些数据是谁的」唯一判定点，不容靠人工记忆保证。
+function ownerFromInfo(info) {
+  if (info && info.uid) return info.uid
+  throw new AuthMissingError()
+}
+
+// 当前 owner：只接受网关注入的真实登录 uid。**取不到就抛，没有默认值。**
+// 这是全库唯一决定「这些数据是谁的」的地方，所以宁可报错，也不许猜。
+function requireOwner(event) {
   // 网关（enableAuth）校验通过后会把登录用户身份注入函数运行时，
   // app.auth().getUserInfo() 即可读到真实 uid（匿名用户得到稳定的匿名 uid）。
   // 实测（Day 26）：HTTP 访问服务路径下 getUserInfo() 可用；而网关注入的
   // x-cloudbase-context 头是 gzip+base64 的 accessToken，不是 {uid} JSON，无法直接解析 uid，
   // 故不作为取 uid 的来源（曾按 base64 JSON 解析，永远为 null，是死代码）。
-  // 取不到（极端异常）才回退到固定演示身份，保证过渡期不会因身份缺失而整页崩溃。
   void event
+  let info = null
   try {
-    const info = app.auth().getUserInfo()
-    if (info && info.uid) return info.uid
+    info = app.auth().getUserInfo()
   } catch (_) {
-    /* 忽略，回退演示身份 */
+    info = null
   }
-  return DEMO_OWNER_ID
+  return ownerFromInfo(info)
 }
 
 // 旧版 SDK 没有 setHeader：包裹 fetch，给每一次请求注入 public schema
@@ -78,12 +121,25 @@ function rowToItem(r) {
 // moods.owner_id / progress_notes.owner_id 上有外键 REFERENCES profiles(owner_id)，
 // 匿名用户首次写入时 profiles 里还没有他的 uid，会撞 23503 外键错误（Day 26 实测）。
 // 所以任何写入前先补一行：除 owner_id 外其余列全走数据库默认值，重复调用靠唯一键冲突忽略。
+// Day 27 省资源点：同一函数实例内，一个 owner 的 profiles 行只需保证一次。
+// 原先每次写入都发一条**注定唯一冲突**的 INSERT（已存在就报 23505 再被忽略），
+// 等于每次打卡白烧一次数据库往返。缓存后同一实例内只付一次。
+// 缓存未命中（冷启动）时多付一次是可接受的，语义仍然正确。
+const profileReady = new Set()
+
 async function ensureProfile(owner) {
+  if (profileReady.has(owner)) return { ok: true }
   const r = await withPublicSchema(app.rdb().from('profiles').insert({ owner_id: owner }))
-  if (!r.error) return { ok: true }
+  if (!r.error) {
+    profileReady.add(owner)
+    return { ok: true }
+  }
   // 已存在（唯一键冲突）就是我们要的结果，不算失败
   const msg = JSON.stringify(r.error)
-  if (/duplicate|unique|23505|profiles_pkey/i.test(msg)) return { ok: true }
+  if (/duplicate|unique|23505|profiles_pkey/i.test(msg)) {
+    profileReady.add(owner)
+    return { ok: true }
+  }
   console.warn('[ensureProfile] ' + msg)
   return { ok: false, error: r.error }
 }
@@ -92,7 +148,7 @@ async function ensureProfile(owner) {
 // 成功回 { items }，失败回 { error }（原始库错误）。
 // Day 22：排除已软删（is_deleted = false）。Day 26：加 owner_id 过滤，每人只看自己的。
 async function listMoods(limit, event) {
-  const owner = currentOwner(event)
+  const owner = requireOwner(event)
   const q = withPublicSchema(
     app
       .rdb()
@@ -113,7 +169,7 @@ async function listMoods(limit, event) {
 // 两个请求同时进来会同时认为「还没有」。
 // 成功回 { ok: true, overwritten }，失败回 { ok: false, step: 'insert' | 'update', error }。
 async function upsertMood({ date, emoji, level, note }, event) {
-  const owner = currentOwner(event)
+  const owner = requireOwner(event)
   await ensureProfile(owner) // 先保证外键有落点（新用户首次写入必须）
   const ins = await withPublicSchema(
     app.rdb().from('moods').insert({ owner_id: owner, date, emoji, level, note })
@@ -141,7 +197,7 @@ async function upsertMood({ date, emoji, level, note }, event) {
 // 读回刚写的那一行：按 owner_id + date 用唯一键定位，不依赖 insert 的返回结构。
 // 成功回 { item }，失败回 { error }。
 async function findMoodByDate(date, event) {
-  const owner = currentOwner(event)
+  const owner = requireOwner(event)
   const q = withPublicSchema(
     app
       .rdb()
@@ -163,7 +219,7 @@ async function findMoodByDate(date, event) {
 //   （Day 22 完成后检查发现：契约 §4.7 写着重编辑即找回，代码却把它堵死了）。
 // 成功回 { item }；查不到回 { item: null }；失败回 { error }。
 async function findMoodById(id, { includeDeleted = false } = {}, event) {
-  const owner = currentOwner(event)
+  const owner = requireOwner(event)
   const q = withPublicSchema(
     app
       .rdb()
@@ -193,7 +249,7 @@ async function patchMood(id, { emoji, level, note }, event) {
   if (level !== undefined) patch.level = level
   if (note !== undefined) patch.note = note
 
-  const owner = currentOwner(event)
+  const owner = requireOwner(event)
   const upd = await withPublicSchema(
     app
       .rdb()
@@ -216,7 +272,7 @@ async function softDeleteMood(id, event) {
   if (before.error) return { ok: false, error: before.error }
   if (before.item === null) return { ok: false, notFound: true }
 
-  const owner = currentOwner(event)
+  const owner = requireOwner(event)
   const upd = await withPublicSchema(
     app
       .rdb()
@@ -229,4 +285,16 @@ async function softDeleteMood(id, event) {
   return { ok: true }
 }
 
-module.exports = { listMoods, upsertMood, findMoodByDate, findMoodById, patchMood, softDeleteMood, rowToItem, currentOwner }
+module.exports = {
+  listMoods,
+  upsertMood,
+  findMoodByDate,
+  findMoodById,
+  patchMood,
+  softDeleteMood,
+  rowToItem,
+  ownerFromInfo,
+  requireOwner,
+  hasOwner,
+  AuthMissingError,
+}

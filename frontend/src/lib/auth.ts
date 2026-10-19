@@ -20,6 +20,8 @@ function emit() {
 }
 function set(p: Partial<AuthState>) {
   state = { ...state, ...p }
+  // 任何登录态变化都作废 token 缓存：避免切换身份后仍带着上一个身份的 token 发请求。
+  clearTokenCache()
   emit()
 }
 
@@ -103,6 +105,7 @@ export async function signInWithEmailOtp(
 }
 
 export async function signOut(): Promise<void> {
+  clearTokenCache()
   await auth.signOut()
   // 退出后回到匿名会话，保持「人人有隔离空间」
   await ensureSession()
@@ -111,16 +114,35 @@ export async function signOut(): Promise<void> {
 // 取当前登录态的 accessToken（匿名登录即有）。网关开启 enableAuth 后，
 // 前端把它放进 Authorization: Bearer <token>，网关校验通过即把用户身份注入云函数。
 // 拿不到（极端异常 / 尚未登录）返回 null，调用方据此决定回退。
+//
+// Day 27 省资源点：加内存缓存。原先 api.ts 每次请求都来这里取一次 token，
+// 而 getAccessToken() 在 SDK 里要读 session / 校验过期，属于「云开发 API 调用」计费项
+// （账单里 2103 次的主要来源）。缓存后同一页面生命周期内只真取几次。
+// TTL 取 4 分钟：远短于 token 有效期（小时级），即使 token 被提前作废，
+// 最坏也只多打 4 分钟旧 token —— 那时请求会 401，用户刷新即可恢复。
+const TOKEN_TTL_MS = 4 * 60 * 1000
+let tokenCache: { value: string; exp: number } | null = null
+
+// 登录态变化（登录 / 退出 / 切换账号）必须清缓存，否则会继续用上一个身份或旧 token。
+export function clearTokenCache() {
+  tokenCache = null
+}
+
 export async function getAccessToken(): Promise<string | null> {
+  const now = Date.now()
+  if (tokenCache && tokenCache.exp > now) return tokenCache.value
   try {
     const anyAuth = auth as any
+    let t: string | null = null
     if (typeof anyAuth.getAccessToken === 'function') {
       const r = await anyAuth.getAccessToken()
-      const t = r?.accessToken ?? (typeof r === 'string' ? r : null)
-      if (t) return t
+      t = r?.accessToken ?? (typeof r === 'string' ? r : null)
     }
-    const { data } = await auth.getSession()
-    const t = (data as any)?.accessToken ?? (data as any)?.tokens?.accessToken
+    if (!t) {
+      const { data } = await auth.getSession()
+      t = (data as any)?.accessToken ?? (data as any)?.tokens?.accessToken ?? null
+    }
+    if (t) tokenCache = { value: t, exp: now + TOKEN_TTL_MS }
     return t ?? null
   } catch {
     return null
