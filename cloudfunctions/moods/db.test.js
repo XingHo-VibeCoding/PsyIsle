@@ -57,3 +57,22 @@ test('updated_at 不透出，created_at 也不留原名', () => {
   assert.equal('updated_at' in item, false)
   assert.equal('created_at' in item, false)
 })
+
+// ---- Day 27：身份缺失必须拒绝，绝不回退到共享身份 ----
+// 改之前 owner 的取法是「取不到就返回固定的 000…099」。那句兜底把「谁都没身份」
+// 翻译成了「大家都是同一个人」——网关鉴权一旦失效，所有访客读写同一个 owner_id 空间。
+// 这里把「只能返回真实 uid，否则抛」钉死，防止哪天有人为了「别整页崩」再加回默认值。
+const { ownerFromInfo } = require('./db.js')
+
+test('拿到 uid 就用它', () => {
+  assert.equal(ownerFromInfo({ uid: 'u_123' }), 'u_123')
+})
+
+test('取不到 uid 一律抛 UNAUTHORIZED，不返回任何默认值', () => {
+  for (const bad of [null, undefined, {}, { uid: '' }, { uid: null }]) {
+    assert.throws(
+      () => ownerFromInfo(bad),
+      (e) => e.code === 'UNAUTHORIZED' && e.name === 'AuthMissingError'
+    )
+  }
+})

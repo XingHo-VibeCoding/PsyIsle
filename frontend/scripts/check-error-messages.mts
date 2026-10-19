@@ -1,4 +1,4 @@
-// Day 23 自检脚本（前端）：验证三类错误（输入错 / 网络错 / 服务端错）都会出中文，
+// Day 23 自检脚本（前端）：验证四类错误（输入错 / 网络错 / 服务端错 / 身份缺失）都会出中文，
 // 且英文原文不会被漏到界面上。
 //
 // 怎么跑（frontend 目录）：
@@ -80,7 +80,15 @@ if (kindOfStatus(404) !== 'input') problems.push('kindOfStatus(404) 期望 input
 if (kindOfStatus(408) !== 'server') problems.push('kindOfStatus(408) 期望 server')
 if (kindOfStatus(500) !== 'server') problems.push('kindOfStatus(500) 期望 server')
 
-console.log('\n前端错误提示自检（' + rows.length + ' 例 + 4 条类别边界）')
+// Day 27：401/403 不能算「输入错」。
+// 常见的后果是用户以为文案有问题、反复改字，其实是从头到尾都没发出去。
+if (kindOfStatus(401) !== 'auth') problems.push('kindOfStatus(401) 期望 auth（不是 input）')
+if (kindOfStatus(403) !== 'auth') problems.push('kindOfStatus(403) 期望 auth')
+if (kindOfCode('UNAUTHORIZED') !== 'auth') problems.push("kindOfCode('UNAUTHORIZED') 期望 auth")
+check('身份缺失 · 网关 401', messageForStatus(401), ERROR_MESSAGES.auth)
+check('身份缺失 · 信封 UNAUTHORIZED', new AppError(kindOfCode('UNAUTHORIZED')).message, ERROR_MESSAGES.auth)
+
+console.log('\n前端错误提示自检（' + rows.length + ' 例 + 7 条类别边界）')
 rows.forEach((r) => console.log(r))
 
 if (problems.length) {
@@ -88,4 +96,4 @@ if (problems.length) {
   problems.forEach((p) => console.log('  - ' + p))
   process.exit(1)
 }
-console.log('\n✓ 全部通过：三类错误都是中文，英文原文与状态码都没有上屏\n')
+console.log('\n✓ 全部通过：四类错误都是中文，英文原文与状态码都没有上屏\n')

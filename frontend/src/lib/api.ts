@@ -63,7 +63,7 @@ const API_BASE = (import.meta.env.VITE_API_BASE ?? '').replace(/\/$/, '')
 // 前端把登录态 accessToken 放进 Authorization: Bearer <token>；网关校验通过后会把已验证的
 // 用户身份注入云函数（见 cloudfunctions/*/db.js 从请求头取 uid 做隔离）。
 // 健康检查是公开探活，无需身份，单独走 HTTP 且不带鉴权。
-import { getAccessToken } from './auth'
+import { clearTokenCache, ensureSession, getAccessToken } from './auth'
 
 async function callApiHttp<T>(path: string, init?: RequestInit): Promise<T> {
   let res: Response
@@ -83,12 +83,11 @@ async function callApiHttp<T>(path: string, init?: RequestInit): Promise<T> {
   }
 }
 
-async function callApi<T>(path: string, init?: RequestInit): Promise<T> {
+async function callApi<T>(path: string, init?: RequestInit, retried = false): Promise<T> {
   // 健康检查：公开探活，走 HTTP 公网接口（不带鉴权）
   if (path === '/api/health') return callApiHttp<T>(path, init)
 
   // moods / notes：带登录态 token 走 HTTP 访问服务；网关 enableAuth 校验后注入用户身份。
-  // 拿不到 token 时退化成不带鉴权的请求（过渡期路由尚未开鉴权时仍可访问演示数据）。
   const method = (init?.method || 'GET').toUpperCase()
   const headers: Record<string, string> = { Accept: 'application/json' }
   const token = await getAccessToken()
@@ -105,6 +104,18 @@ async function callApi<T>(path: string, init?: RequestInit): Promise<T> {
     // fetch 抛错（断网 / DNS / 被拦截）= 网络错，原文英文不显示
     throw new AppError('network')
   }
+
+  // 网关说「没认出这个身份」（401）：先自己救一次，再决定要不要告诉用户。
+  // 最常见的成因是本地缓存的 token 提前作废了（换设备登录 / 后台踢下线 / 缓存过期）。
+  // 这种情况下清掉缓存、重建会话，重试往往一次就过，用户完全不必知道刚才失败过。
+  // 只重试一次：第二次仍是 401 就说明不是「旧 token」的问题（多半是会话真的没了），
+  // 再重试只是原地打转，白白多打两次接口。
+  if (res.status === 401 && !retried) {
+    clearTokenCache()
+    await ensureSession()
+    return callApi<T>(path, init, true)
+  }
+
   if (!res.ok) throw new AppError(kindOfStatus(res.status), messageForStatus(res.status))
   try {
     return (await res.json()) as T

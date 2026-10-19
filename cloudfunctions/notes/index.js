@@ -33,6 +33,19 @@ function fail(code, message) {
   return { ok: false, error: { code, message } }
 }
 
+// ---- Day 27：第四类错——身份缺失（口径与 moods/index.js 完全相同）----
+// 数据层不再回退到共享的演示身份，取不到 uid 就抛；这里把它换成一句用户能行动的话。
+const AUTH_MISSING_MESSAGE = '登录状态没取到，刷新一下页面再试。'
+
+function authMissing(tag, reqId) {
+  console.warn('[auth] 取不到登录身份，拒绝本次请求 tag=' + tag + ' reqId=' + reqId)
+  return fail('UNAUTHORIZED', AUTH_MISSING_MESSAGE)
+}
+
+function isAuthMissing(e) {
+  return !!(e && e.code === 'UNAUTHORIZED')
+}
+
 // ---- Day 23：三类错误，各有一句人话 ----
 // 改之前这里是裸报错：'RDB_ERR:' + JSON.stringify(r.error)、'THROW:' + e.message、
 // '写入失败：' + JSON.stringify(w.error)（还被误标成 INVALID_INPUT）。
@@ -114,6 +127,7 @@ async function handleGet(event = {}, reqId = '-') {
 
     return { ok: true, data: { items: r.items, nextCursor: null } }
   } catch (e) {
+    if (isAuthMissing(e)) return authMissing('notes:GET', reqId)
     return serverError('notes:GET', e, reqId)
   }
 }
@@ -153,11 +167,19 @@ async function handlePost(event = {}, reqId = '-') {
     if (w.error) return serverError('notes:POST:insert', w.error, reqId)
     console.log('[notes:POST] 新增成功 date=' + date)
   } catch (e) {
+    if (isAuthMissing(e)) return authMissing('notes:POST', reqId)
     return serverError('notes:POST', e, reqId)
   }
 
   // —— 读回刚写的那一行（按 owner + 最新 created_at 定位）——
-  const got = await db.findLatestNoteByDate(date, event)
+  // 单独包 try：写入已经成功，这一步抛出去就是裸异常（没有信封，HTTP 层回 500 HTML）。
+  let got
+  try {
+    got = await db.findLatestNoteByDate(date, event)
+  } catch (e) {
+    if (isAuthMissing(e)) return authMissing('notes:POST:readback', reqId)
+    return serverError('notes:POST:readback', e, reqId)
+  }
   if (got.error) return serverError('notes:POST:readback', got.error, reqId)
   console.log('[notes:POST] 完成 耗时=' + (Date.now() - t0) + 'ms id=' + (got.item && got.item.id))
   return { ok: true, data: { item: got.item } }
@@ -167,6 +189,13 @@ exports.main = async (event = {}) => {
   const t0 = Date.now()
   const reqId = newRequestId()
   const method = ((event && event.httpMethod) || (event && event.method) || 'GET').toUpperCase()
+
+  // 身份前置检查（Day 27，口径同 moods/index.js）：没有登录身份，一次数据库查询都不发。
+  if (!db.hasOwner()) {
+    const res = authMissing(method + ' ' + (event.path || '/api/notes'), reqId)
+    logRequest(event, method, reqId, t0, res.error.code)
+    return res
+  }
 
   let res
   if (method === 'POST') res = await handlePost(event, reqId)

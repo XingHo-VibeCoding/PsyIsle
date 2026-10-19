@@ -10,12 +10,16 @@
 //
 // 与后端同一套口径：cloudfunctions/*/index.js 里也只分这三类（后端没有「网络错」）。
 
-export type ErrorKind = 'input' | 'network' | 'server' | 'unknown'
+export type ErrorKind = 'input' | 'network' | 'server' | 'auth' | 'unknown'
 
 export const ERROR_MESSAGES: Record<ErrorKind, string> = {
   input: '提交的内容没通过检查，请看一下再改。',
   network: '网络连接失败，请检查网络后重试。',
   server: '服务出了点小状况，请稍后再试。',
+  // Day 27：登录态没取到（网关 401 / 信封 UNAUTHORIZED）。
+  // 原来这类被归进 input，用户写了一半点提交，看到的是「提交的内容没通过检查」--
+  // 他会去改文案，但无论怎么改都发不出去。这句才是他真正该做的事。
+  auth: '登录状态没取到，刷新一下页面再试。',
   unknown: '出了点问题，请稍后再试。',
 }
 
@@ -47,7 +51,10 @@ function isNetworkError(e: Error): boolean {
 }
 
 // HTTP 状态码 → 错误类别。状态码本身不上屏，只用来选哪句话。
+// 401 / 403 必须在 >=400 那一支**之前**判掉：它不是「提交的内容有问题」，
+// 而是「这次请求没被认出来是谁发的」。归到 input 会让人去改文案（而且改不对）。
 export function kindOfStatus(status: number): ErrorKind {
+  if (status === 401 || status === 403) return 'auth'
   if (status >= 500 || status === 408 || status === 429) return 'server'
   if (status >= 400) return 'input'
   return 'unknown'
@@ -58,9 +65,11 @@ export function messageForStatus(status: number): string {
 }
 
 // 后端信封里的错误码 → 类别。INVALID_INPUT / NOT_FOUND 是「输入方对不上」，
-// 其余（INTERNAL 等）一律当服务端错——具体原因不该由用户判断。
+// UNAUTHORIZED 是「没认出你是谁」，其余（INTERNAL 等）一律当服务端错
+// ——具体原因不该由用户判断。
 export function kindOfCode(code?: string): ErrorKind {
   if (code === 'INVALID_INPUT' || code === 'NOT_FOUND') return 'input'
+  if (code === 'UNAUTHORIZED' || code === 'FORBIDDEN') return 'auth'
   if (code === 'INTERNAL') return 'server'
   return 'unknown'
 }

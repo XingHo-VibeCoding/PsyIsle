@@ -1,6 +1,6 @@
 'use strict'
 
-// Day 23 自检脚本（后端）：验证两类错误（输入错 / 服务端错）都只回中文、且不回内部细节。
+// Day 23 自检脚本（后端）：验证三类错误（输入错 / 服务端错 / 身份缺失）都只回中文、且不回内部细节。
 //
 // 怎么跑（仓库根目录）：
 //   node scripts/check-error-messages.cjs
@@ -13,7 +13,12 @@
 const Module = require('module')
 const base = require('path').join(__dirname, '..', 'cloudfunctions') + require('path').sep
 
+// 身份开关：默认 true（假装网关认出了调用方），要验「取不到身份」那条路径时临时置 false。
+// Day 27 加：数据层不再回退共享演示身份，取不到 uid 一律 UNAUTHORIZED。
+let identityOk = true
+
 const fakeDb = {
+  hasOwner: () => identityOk,
   listMoods: async () => ({
     error: { message: 'relation "public.moods" does not exist', code: '42P01' },
   }),
@@ -60,6 +65,10 @@ const CASES = [
   ['服务端错 · PATCH /api/moods 数据库报错', 'INTERNAL', () => moods.main({ httpMethod: 'PATCH', path: '/api/moods', queryStringParameters: { id: 'm_1' }, body: JSON.stringify({ emoji: 'calm' }) })],
   ['服务端错 · GET /api/notes 数据库报错', 'INTERNAL', () => notes.main({ httpMethod: 'GET', path: '/api/notes' })],
   ['服务端错 · POST /api/notes 数据库报错', 'INTERNAL', () => notes.main({ httpMethod: 'POST', path: '/api/notes', body: JSON.stringify({ text: '今天走了一步' }) })],
+  // Day 27：取不到登录身份必须明确拒绝，且给一句用户能行动的话。
+  // 这条防的是「为了别整页崩，又悄悄回退到某个默认身份」——那会让所有访客共用一份数据。
+  ['身份缺失 · GET /api/moods 取不到登录身份', 'UNAUTHORIZED', () => { identityOk = false; return moods.main({ httpMethod: 'GET', path: '/api/moods' }) }],
+  ['身份缺失 · POST /api/notes 取不到登录身份', 'UNAUTHORIZED', () => { identityOk = false; return notes.main({ httpMethod: 'POST', path: '/api/notes', body: JSON.stringify({ text: '今天走了一步' }) }) }],
 ]
 
 ;(async () => {
@@ -68,6 +77,7 @@ const CASES = [
 
   for (const [label, wantCode, fn] of CASES) {
     const res = await fn()
+    identityOk = true // 每条用例独立：身份开关不许漏到下一例
     const raw = JSON.stringify(res)
     const msg = (res && res.error && res.error.message) || ''
     const code = (res && res.error && res.error.code) || ''
@@ -98,5 +108,5 @@ const CASES = [
     problems.forEach((p) => process.stdout.write('  - ' + p + '\n'))
     process.exit(1)
   }
-  process.stdout.write('\n✓ 全部通过：两类错误都只回中文，响应体无表名/字段/SQL/英文堆栈\n\n')
+  process.stdout.write('\n✓ 全部通过：三类错误都只回中文，响应体无表名/字段/SQL/英文堆栈\n\n')
 })()

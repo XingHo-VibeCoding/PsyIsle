@@ -41,6 +41,23 @@ function fail(code, message) {
   return { ok: false, error: { code, message } }
 }
 
+// ---- Day 27：第四类错——身份缺失 ----
+// 起因：数据层的 currentOwner() 以前取不到 uid 就返回固定的演示身份 000…099，
+// 于是「谁都没身份」被当成「大家都是同一个人」。网关鉴权一旦失效，所有访客会读写同一个
+// owner_id 空间，互相看得见。那是隐私事故，所以数据层改成取不到就抛，这里给它一句话。
+// 为什么单独一类、不并进 INTERNAL：用户能行动的事（刷新页面 / 重新登录）不该说成
+// 「服务出了点小状况」——那句话会让人一直等，而实际上等一百年也不会好。
+const AUTH_MISSING_MESSAGE = '登录状态没取到，刷新一下页面再试。'
+
+function authMissing(tag, reqId) {
+  console.warn('[auth] 取不到登录身份，拒绝本次请求 tag=' + tag + ' reqId=' + reqId)
+  return fail('UNAUTHORIZED', AUTH_MISSING_MESSAGE)
+}
+
+function isAuthMissing(e) {
+  return !!(e && e.code === 'UNAUTHORIZED')
+}
+
 // ---- Day 23：三类错误，各有一句人话 ----
 // 改之前，这个文件的错误提示是裸的：'RDB_ERR:' + JSON.stringify(r.error)、
 // 'THROW:' + e.message、'数据库写入异常：' + JSON.stringify(...)。
@@ -201,6 +218,7 @@ async function handleGet(event = {}, reqId = '-') {
 
     return { ok: true, data: { items: r.items, nextCursor: null } }
   } catch (e) {
+    if (isAuthMissing(e)) return authMissing('moods:GET', reqId)
     return serverError('moods:GET', e, reqId)
   }
 }
@@ -246,11 +264,19 @@ async function handlePost(event = {}, reqId = '-') {
       console.log('[moods:POST] 新增成功 date=' + date + ' emoji=' + body.emoji)
     }
   } catch (e) {
+    if (isAuthMissing(e)) return authMissing('moods:POST', reqId)
     return serverError('moods:POST', e, reqId)
   }
 
   // —— 读回刚写的那一行 ——
-  const got = await db.findMoodByDate(date, event)
+  // 单独包 try：这一步在写入成功之后，一旦抛出去就是裸异常（没有信封，HTTP 层给的是 500 HTML）。
+  let got
+  try {
+    got = await db.findMoodByDate(date, event)
+  } catch (e) {
+    if (isAuthMissing(e)) return authMissing('moods:POST:readback', reqId)
+    return serverError('moods:POST:readback', e, reqId)
+  }
   if (got.error) return serverError('moods:POST:readback', got.error, reqId)
   console.log('[moods:POST] 完成 耗时=' + (Date.now() - t0) + 'ms id=' + (got.item && got.item.id))
   return { ok: true, data: { item: got.item } }
@@ -295,6 +321,7 @@ async function handlePatch(event = {}, reqId = '-') {
     console.log('[moods:PATCH] 完成 id=' + id)
     return { ok: true, data: { item: r.item } }
   } catch (e) {
+    if (isAuthMissing(e)) return authMissing('moods:PATCH', reqId)
     return serverError('moods:PATCH', e, reqId)
   }
 }
@@ -316,6 +343,7 @@ async function handleDelete(event = {}, reqId = '-') {
     console.log('[moods:DELETE] 完成（软删） id=' + id)
     return { ok: true, data: { id, deleted: true } }
   } catch (e) {
+    if (isAuthMissing(e)) return authMissing('moods:DELETE', reqId)
     return serverError('moods:DELETE', e, reqId)
   }
 }
@@ -324,6 +352,18 @@ exports.main = async (event = {}) => {
   const t0 = Date.now()
   const reqId = newRequestId()
   const method = ((event && event.httpMethod) || (event && event.method) || 'GET').toUpperCase()
+
+  // 身份前置检查（Day 27）：没有登录身份，一次数据库查询都不发。
+  // 放在这里而不是只靠各 handler 的 try，两个原因：
+  //   ① 省掉后面那串注定失败的数据库往返（PG 按计算量计费）；
+  //   ② 让「身份缺失」永远以信封形式出门，不会在某个没包 try 的调用点上变成裸异常。
+  // 注意这里返回的是 UNAUTHORIZED 而不是 INTERNAL：这是用户能自己处理的事（刷新 / 重新登录），
+  // 说成「服务出了点小状况」会让人干等。
+  if (!db.hasOwner()) {
+    const res = authMissing(method + ' ' + (event.path || '/api/moods'), reqId)
+    logRequest(event, method, reqId, t0, res.error.code)
+    return res
+  }
 
   let res
   if (method === 'POST') res = await handlePost(event, reqId)
