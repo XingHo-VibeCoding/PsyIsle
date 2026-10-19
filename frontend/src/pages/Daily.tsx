@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Trash2 } from 'lucide-react'
 import { usePageTitle } from '../lib/usePageTitle'
 import { useListData } from '../lib/useListData'
@@ -15,10 +15,16 @@ import {
 } from '../lib/api'
 import { toUserMessage } from '../lib/errors'
 
-// 写一写 · 心情打卡 + 小进步。
-// Day 17 正式接入云端真实读接口；Day 21 补 #8 把写入 UI 也接上 —— 之前这页只展示、写不了。
-// 两张表各是一个独立列表，各自走 loading/error/empty/ready 四态；写入与读取解耦，
-// 一块取不回来不影响另一块，写失败也只影响自己那一格的提示、不拖累列表。
+// 写一写 · 心情 + 小进步
+//
+// 2026-10-19 改版：从「两张并排的大表单」收敛成一个主表单 + 一条轻量入口。
+// 改前三屏里有两个几乎等重的写入口（心情 / 小进步），各带标题、说明、输入框和
+// 同一个「记一笔」按钮 —— 用户第一眼要先做一次「我该用哪个」的判断，而这件事
+// 本来不该由他判断。现在：
+//   · 心情是主表单（一屏只留一个 textarea、一个提交按钮）；
+//   · 小进步是一条单行入口（回车即记），视觉重量降到「顺带」；
+//   · 两段列表合成一条时间流，按「今天 / 昨天 / 日期」分组，用筛选切心情或小进步。
+// 数据的读写语义一律没动：仍是 moods / notes 两张表，moods 同日覆盖、notes 一天可多件。
 
 // 写入提交态：idle / posting / done / error。
 // 业务错误走统一信封（契约 §3），这里只接 message 给用户看；提示不靠红色（产品红线），
@@ -29,23 +35,28 @@ type WriteState =
   | { phase: 'done'; text: string }
   | { phase: 'error'; text: string }
 
-// ---- 心情写入：先选一个情绪（必选），强度与附言都可选 ----
-function MoodForm({ onSaved }: { onSaved: () => void }) {
+// ---- 主表单：今天的心情（emoji 必选，强度与附言可选）----
+function MoodCompose({ onSaved }: { onSaved: () => void }) {
   const [emoji, setEmoji] = useState<string | null>(null)
   const [level, setLevel] = useState<number | null>(null)
   const [note, setNote] = useState('')
+  // 强度是可选信息，默认不占位：「加个强度」点开才出现 1–5。
+  // 大学生一天里绝大多数时候只想点个表情就完事，不该先被五个数字拦住。
+  const [showLevel, setShowLevel] = useState(false)
   const [state, setState] = useState<WriteState>({ phase: 'idle' })
 
   const posting = state.phase === 'posting'
   const canSubmit = emoji !== null && !posting
+  const picked = emoji ? moodMeta(emoji) : null
 
   async function submit() {
     if (!emoji || posting) return
     setState({ phase: 'posting' })
     try {
-      // 同一天重复提交是覆盖（契约 §4.4 幂等）：保留上次选中的 emoji 更顺手，不强制清空。
+      // 同一天重复提交是覆盖（契约 §4.4 幂等）：emoji 保留不清空，
+      // 想改就再点一次 —— 提示语把这层语义直接说给用户听，不用「幂等」这种词。
       await postMood({ emoji, level: level ?? undefined, note: note.trim() || undefined })
-      setState({ phase: 'done', text: '今天的心情记下了。' })
+      setState({ phase: 'done', text: '记下了。想改，再点一次就行。' })
       setNote('')
       setLevel(null)
       onSaved()
@@ -59,61 +70,99 @@ function MoodForm({ onSaved }: { onSaved: () => void }) {
   }
 
   return (
-    <form className="write-card" onSubmit={(e) => { e.preventDefault(); submit() }}>
-      <p className="write-label">今天感觉怎么样？</p>
-      <div className="chips" role="group" aria-label="选择一个心情">
+    <form
+      className="compose"
+      onSubmit={(e) => {
+        e.preventDefault()
+        submit()
+      }}
+    >
+      <h2 className="compose-title">今天感觉怎么样？</h2>
+
+      {/* 七个情绪一行排开：点一下就是一次完整的记录，不用再读一遍说明 */}
+      <div className="mood-row" role="group" aria-label="选一个最接近的心情">
         {MOODS.map((m) => (
           <button
             type="button"
             key={m.id}
-            className={`chip${emoji === m.id ? ' chip-on' : ''}`}
+            className={`mood-dot${emoji === m.id ? ' mood-dot-on' : ''}`}
             aria-pressed={emoji === m.id}
+            aria-label={m.label}
             onClick={() => setEmoji(m.id)}
           >
-            <span aria-hidden="true">{m.glyph}</span> {m.label}
+            <span aria-hidden="true">{m.glyph}</span>
           </button>
         ))}
       </div>
 
-      <label className="write-strength">
-        这股感觉有多强？（可选）
-        <span className="strength-row" role="group" aria-label="强度 1 到 5">
-          {[1, 2, 3, 4, 5].map((n) => (
-            <button
-              type="button"
-              key={n}
-              className={`pip${level === n ? ' pip-on' : ''}`}
-              aria-pressed={level === n}
-              aria-label={`强度 ${n}`}
-              onClick={() => setLevel(n)}
-            >
-              {n}
-            </button>
-          ))}
-        </span>
-      </label>
+      {/* 选完才出文字：没选时这里是一句很轻的提示，不逼人先做决定 */}
+      <p className={`compose-sub${picked ? ' compose-sub-on' : ''}`} aria-live="polite">
+        {picked ? (
+          <>
+            今天：<b>{picked.label}</b>
+            {typeof level === 'number' && ` · 强度 ${level}/5`}
+          </>
+        ) : (
+          '点一个最接近的就行，不用想太久。'
+        )}
+      </p>
 
       <textarea
         className="write-area"
         value={note}
         onChange={(e) => setNote(e.target.value)}
-        placeholder="还想说点什么，随便写几句，不写也行。"
-        rows={3}
+        placeholder="想说点什么？一句话就够了，不写也行。"
+        rows={2}
+        maxLength={280}
       />
 
-      <div className="write-actions">
-        <button type="submit" className="btn btn-primary" disabled={!canSubmit}>
-          {posting ? '记下…' : '记一笔'}
+      <div className="compose-foot">
+        {typeof level === 'number' || showLevel ? (
+          <div className="strength-row" role="group" aria-label="强度 1 到 5">
+            {[1, 2, 3, 4, 5].map((n) => (
+              <button
+                type="button"
+                key={n}
+                className={`pip${level === n ? ' pip-on' : ''}`}
+                aria-pressed={level === n}
+                aria-label={`强度 ${n}`}
+                onClick={() => setLevel(level === n ? null : n)}
+              >
+                {n}
+              </button>
+            ))}
+          </div>
+        ) : (
+          <button type="button" className="compose-link" onClick={() => setShowLevel(true)}>
+            加个强度（可选）
+          </button>
+        )}
+
+        <button type="submit" className="btn btn-primary compose-submit" disabled={!canSubmit}>
+          {posting ? '记下…' : '记下今天'}
         </button>
-        {state.phase === 'done' && <span className="write-hint write-hint-ok">{state.text}</span>}
-        {state.phase === 'error' && <span className="write-hint">{state.text}</span>}
       </div>
+
+      {/* 写了字但还没点心情：把「为什么按不动」说清楚，不做成点了没反应 */}
+      {!emoji && note.trim().length > 0 && (
+        <p className="compose-nudge">再点一个心情，就能记下来了。</p>
+      )}
+      {state.phase === 'done' && (
+        <p className="write-hint write-hint-ok" role="status">
+          {state.text}
+        </p>
+      )}
+      {state.phase === 'error' && (
+        <p className="write-hint" role="alert">
+          {state.text}
+        </p>
+      )}
     </form>
   )
 }
 
-// ---- 小进步写入：一句话就行，一天可记多件（契约 §4.5）----
-function NoteForm({ onSaved }: { onSaved: () => void }) {
+// ---- 轻量入口：一句话小进步（回车即记，占一行）----
+function NoteQuick({ onSaved }: { onSaved: () => void }) {
   const [text, setText] = useState('')
   const [state, setState] = useState<WriteState>({ phase: 'idle' })
 
@@ -126,7 +175,7 @@ function NoteForm({ onSaved }: { onSaved: () => void }) {
     setState({ phase: 'posting' })
     try {
       await postNote({ text: t })
-      setState({ phase: 'done', text: '小进步记下了。' })
+      setState({ phase: 'done', text: '记下了。' })
       setText('')
       onSaved()
     } catch (e) {
@@ -139,42 +188,105 @@ function NoteForm({ onSaved }: { onSaved: () => void }) {
   }
 
   return (
-    <form className="write-card" onSubmit={(e) => { e.preventDefault(); submit() }}>
-      <label className="write-label" htmlFor="note-input">
-        今天往前走了一小步？
-      </label>
-      <textarea
-        id="note-input"
-        className="write-area"
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        placeholder="再小的事也是往前走，写一句。"
-        rows={3}
-      />
-      <div className="write-actions">
-        <button type="submit" className="btn btn-primary" disabled={!canSubmit}>
-          {posting ? '记下…' : '记一笔'}
+    <form
+      className="note-quick"
+      onSubmit={(e) => {
+        e.preventDefault()
+        submit()
+      }}
+    >
+      <div className="note-quick-row">
+        {/* 星点符号和下方时间流里「小进步」那一条同源，一眼就知道这条输入进哪一栏 */}
+        <span className="note-quick-mark" aria-hidden="true">
+          ✶
+        </span>
+        <label className="sr-only" htmlFor="note-quick-input">
+          今天做成的一件小事
+        </label>
+        <input
+          id="note-quick-input"
+          className="note-quick-input"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          placeholder="今天做成的一件小事？"
+          maxLength={200}
+          enterKeyHint="done"
+        />
+        <button type="submit" className="btn btn-quiet note-quick-btn" disabled={!canSubmit}>
+          {posting ? '记下…' : '记下'}
         </button>
-        {state.phase === 'done' && <span className="write-hint write-hint-ok">{state.text}</span>}
-        {state.phase === 'error' && <span className="write-hint">{state.text}</span>}
       </div>
+      {state.phase === 'done' && (
+        <p className="write-hint write-hint-ok note-quick-hint" role="status">
+          {state.text}
+        </p>
+      )}
+      {state.phase === 'error' && (
+        <p className="write-hint note-quick-hint" role="alert">
+          {state.text}
+        </p>
+      )}
     </form>
   )
 }
 
-// 删除态：idle / deleting / error。删完由父组件刷新列表，这里只管按钮与提示。
+// ---- 时间流：两张表合并成一条，按日期分组 ----
+type Entry = { kind: 'mood'; row: MoodRow } | { kind: 'note'; row: NoteRow }
+type FeedFilter = 'all' | 'mood' | 'note'
+
+const FILTERS: { id: FeedFilter; label: string }[] = [
+  { id: 'all', label: '全部' },
+  { id: 'mood', label: '心情' },
+  { id: 'note', label: '小进步' },
+]
+
+function pad(n: number): string {
+  return `${n}`.padStart(2, '0')
+}
+
+function toYmd(d: Date): string {
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+}
+
+// 日期说人话：今天 / 昨天 / 10月17日。
+// 后端 date 是 +08:00 的日历日（契约 §4.2），这里只做展示换算，不参与任何统计。
+function dayLabel(date: string): string {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return date
+  const now = new Date()
+  if (date === toYmd(now)) return '今天'
+  if (date === toYmd(new Date(now.getTime() - 86400000))) return '昨天'
+  const [y, m, d] = date.split('-')
+  const md = `${Number(m)}月${Number(d)}日`
+  return Number(y) === now.getFullYear() ? md : `${y}年${md}`
+}
+
 type DeleteState = { phase: 'idle' } | { phase: 'deleting'; id: string } | { phase: 'error'; text: string }
 
-function MoodCard({
-  m,
+function FeedRow({
+  entry,
   disabled,
   onDelete,
 }: {
-  m: MoodRow
+  entry: Entry
   disabled: boolean
   onDelete: (id: string) => void
 }) {
-  const meta = moodMeta(m.emoji)
+  if (entry.kind === 'note') {
+    return (
+      <li className="feed-item">
+        <span className="feed-emoji feed-emoji-note" aria-hidden="true">
+          ✶
+        </span>
+        <div className="feed-body">
+          {entry.row.text && <p className="feed-note">{entry.row.text}</p>}
+        </div>
+        {/* 小进步还没有删除接口（契约里只有 DELETE /api/moods），这一列留空只为对齐栅格 */}
+        <span aria-hidden="true" />
+      </li>
+    )
+  }
+
+  const meta = moodMeta(entry.row.emoji)
   return (
     <li className="feed-item">
       <span className="feed-emoji" aria-hidden="true">
@@ -182,45 +294,25 @@ function MoodCard({
       </span>
       <div className="feed-body">
         <div className="feed-head">
-          <span className="feed-date">{m.date}</span>
           {/* emoji 是契约白名单 id，界面文字在这里才映射出来（data/moods.ts，全站唯一一处） */}
           <span className="feed-mood">{meta.label}</span>
-          {/* level 可空：没打分的人就不展示这一格，不为空数据硬占位。
-              文案是「强度」不是「得分」——契约 §5.2：1 和 5 只是强度两端，没有哪端更好 */}
-          {typeof m.level === 'number' && <span className="feed-tag">强度 {m.level}/5</span>}
+          {/* 强度可空：没打分的人就不展示这一格，不为空数据硬占位 */}
+          {typeof entry.row.level === 'number' && (
+            <span className="feed-tag">强度 {entry.row.level}/5</span>
+          )}
         </div>
-        {m.note && <p className="feed-note">{m.note}</p>}
+        {entry.row.note && <p className="feed-note">{entry.row.note}</p>}
       </div>
-      {/* Day 22：删除按钮。真正的「二次确认」在父组件的 onDelete 里用 window.confirm 实现——
-          一次点击表达意图，一次确认才真正发请求，避免手滑删掉一条记录。
-          按钮本身走全站统一的 .icon-btn（44×44 圆形图标），外层的 .feed-act 把它
-          锚在内容首行——note 写多长它都不往下漂。 */}
       <div className="feed-act">
         <button
           type="button"
           className="icon-btn"
           disabled={disabled}
           aria-label="删除这条心情记录"
-          onClick={() => onDelete(m.id)}
+          onClick={() => onDelete(entry.row.id)}
         >
           <Trash2 size={18} strokeWidth={1.75} aria-hidden="true" />
         </button>
-      </div>
-    </li>
-  )
-}
-
-function NoteCard({ n }: { n: NoteRow }) {
-  return (
-    <li className="feed-item">
-      <span className="feed-emoji" aria-hidden="true">
-        ✶
-      </span>
-      <div className="feed-body">
-        <div className="feed-head">
-          <span className="feed-date">{n.date}</span>
-        </div>
-        {n.text && <p className="feed-note">{n.text}</p>}
       </div>
     </li>
   )
@@ -230,7 +322,15 @@ function Daily() {
   usePageTitle('写一写')
   const moods = useListData(fetchMoods)
   const notes = useListData(fetchNotes)
+  const [filter, setFilter] = useState<FeedFilter>('all')
   const [del, setDel] = useState<DeleteState>({ phase: 'idle' })
+
+  // 记完回到「全部」，否则用户刚记的那条可能被当前筛选挡住 —— 会以为没记上。
+  function refreshAll() {
+    moods.retry()
+    notes.retry()
+    setFilter('all')
+  }
 
   // 删除一条心情：先 window.confirm 二次确认（Day 22），确认后才发请求，
   // 成功后刷新列表——软删除后这条就不会再出现在 GET 结果里。
@@ -243,7 +343,7 @@ function Daily() {
     try {
       await deleteMood(id)
       setDel({ phase: 'idle' })
-      moods.retry() // 重新拉列表，删掉的不再出现
+      moods.retry()
     } catch (e) {
       setDel({ phase: 'error', text: toUserMessage(e) })
     }
@@ -251,53 +351,111 @@ function Daily() {
 
   const deletingId = del.phase === 'deleting' ? del.id : null
 
+  // 合并 + 排序：date 倒序，同一天内按 created_at 倒序（契约只要求 date，这里是展示层的第二序）
+  const entries = useMemo<Entry[]>(() => {
+    const all: Entry[] = [
+      ...moods.data.map((row) => ({ kind: 'mood' as const, row })),
+      ...notes.data.map((row) => ({ kind: 'note' as const, row })),
+    ]
+    return all.sort(
+      (a, b) =>
+        b.row.date.localeCompare(a.row.date) ||
+        (b.row.createdAt ?? '').localeCompare(a.row.createdAt ?? ''),
+    )
+  }, [moods.data, notes.data])
+
+  const shown = filter === 'all' ? entries : entries.filter((e) => e.kind === filter)
+
+  // Map 的插入顺序就是日期倒序，分组不用再排一次
+  const groups = useMemo(() => {
+    const map = new Map<string, Entry[]>()
+    for (const e of shown) {
+      const list = map.get(e.row.date)
+      if (list) list.push(e)
+      else map.set(e.row.date, [e])
+    }
+    return [...map.entries()]
+  }, [shown])
+
+  const bothLoading = moods.status === 'loading' && notes.status === 'loading'
+  const bothError = moods.status === 'error' && notes.status === 'error'
+  const partlyError = moods.status === 'error' || notes.status === 'error'
+
   return (
-    <div className="page">
-      {/* 页面主标题：改前这页直接从 h2 区块开始，全站只有它没有 h1，
-          读屏用户进页后不知道自己在哪一层。文案仍是「想写就写，不写也行」。 */}
+    <div className="page page-write">
       <header className="page-head">
         <h1>写一写</h1>
-        <p className="page-sub">今天的心情和小进步，想记就记，不记也没关系。</p>
+        <p className="page-sub">记一笔今天。三十秒，不写也行。</p>
       </header>
 
-      <section className="zone zone-flat">
-        <h2>今天的心情</h2>
-        <p className="zone-tip">记一笔今天的状态，想写就写，不写也行。</p>
+      <MoodCompose onSaved={refreshAll} />
+      <NoteQuick onSaved={refreshAll} />
 
-        <MoodForm onSaved={moods.retry} />
-
-        {moods.status === 'loading' && <ListLoading label="正在取回心情记录" />}
-        {moods.status === 'error' && <ListError onRetry={moods.retry} />}
-        {moods.status === 'ready' && moods.data.length === 0 && (
-          <ListEmpty>还没有心情记录，今天可以记一笔。</ListEmpty>
-        )}
-        {moods.status === 'ready' && moods.data.length > 0 && (
-          <ul className="feed-list">
-            {moods.data.map((m) => (
-              <MoodCard key={m.id} m={m} disabled={deletingId !== null} onDelete={handleDeleteMood} />
+      <section className="feed">
+        <div className="feed-toolbar">
+          <h2>记过的</h2>
+          <div className="feed-filter" role="group" aria-label="筛选记录">
+            {FILTERS.map((f) => (
+              <button
+                type="button"
+                key={f.id}
+                className={`chip${filter === f.id ? ' chip-on' : ''}`}
+                aria-pressed={filter === f.id}
+                onClick={() => setFilter(f.id)}
+              >
+                {f.label}
+              </button>
             ))}
-          </ul>
+          </div>
+        </div>
+
+        {/* 骨架只在「一条都还没有」时出现：记完一笔会重拉两张表，
+            若每次刷新都把已有列表清掉再填回来，屏幕会闪一下，像没记上 */}
+        {bothLoading && entries.length === 0 && <ListLoading label="正在取回记录" />}
+        {bothError && entries.length === 0 && <ListError onRetry={refreshAll} />}
+
+        {!bothLoading && !bothError && shown.length === 0 && (
+          <ListEmpty>
+            {filter === 'all'
+              ? '还没有记录。今天随手点个心情，这里就有了。'
+              : filter === 'mood'
+                ? '还没记过心情。上面点一个就行。'
+                : '还没记过小进步。再小的事也算。'}
+          </ListEmpty>
         )}
-        {del.phase === 'error' && <p className="write-hint">{del.text}</p>}
-      </section>
 
-      <section className="zone zone-flat">
-        <h2>小进步</h2>
-        <p className="zone-tip">再小的事也是往前走。</p>
+        {shown.length > 0 &&
+          groups.map(([date, items]) => (
+            <section className="feed-day" key={date}>
+              <h3 className="feed-day-label">{dayLabel(date)}</h3>
+              <ul className="feed-list">
+                {items.map((e) => (
+                  <FeedRow
+                    key={`${e.kind}-${e.row.id}`}
+                    entry={e}
+                    disabled={deletingId !== null}
+                    onDelete={handleDeleteMood}
+                  />
+                ))}
+              </ul>
+            </section>
+          ))}
 
-        <NoteForm onSaved={notes.retry} />
-
-        {notes.status === 'loading' && <ListLoading label="正在取回小进步" />}
-        {notes.status === 'error' && <ListError onRetry={notes.retry} />}
-        {notes.status === 'ready' && notes.data.length === 0 && (
-          <ListEmpty>还没有记下小进步。</ListEmpty>
+        {/* 一半取回来了：先显示有的，别让一条链路挂了把整页清空 */}
+        {partlyError && entries.length > 0 && (
+          <p className="write-hint feed-partial">
+            有一部分记录没取回来，过一会儿可以
+            <button type="button" className="compose-link" onClick={refreshAll}>
+              再试一次
+            </button>
+            。
+          </p>
         )}
-        {notes.status === 'ready' && notes.data.length > 0 && (
-          <ul className="feed-list">
-            {notes.data.map((n) => (
-              <NoteCard key={n.id} n={n} />
-            ))}
-          </ul>
+
+        {del.phase === 'error' && (
+          <p className="write-hint" role="alert">
+            {del.text}
+          </p>
         )}
       </section>
     </div>

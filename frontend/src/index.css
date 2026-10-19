@@ -952,6 +952,41 @@ a.door:focus-visible .door-icon {
   -webkit-backdrop-filter: none;
   border-bottom-color: transparent;
 }
+/* 导航条目一律不换行、不收缩到字宽以下（2026-10-19 实测踩到）：
+   中文的最小内容宽是「一个字」，flex 空间不够时每个入口会被压成一列竖排的字
+   —— 页面看起来像全站塌了，而不是「窄了一点」。
+   nowrap 之后 min-width:auto 就等于整串文字的宽度，挤压只会变成横向溢出，不会竖排。 */
+.nav a,
+.nav .logo,
+.nav .visitor-badge,
+.nav .nav-auth {
+  flex: none;
+  white-space: nowrap;
+}
+/* 登录入口（Day 26 的 AuthPanel 自带内联样式，这里只覆盖外观，不动它的逻辑）。
+   内联样式优先级高于类，所以必须 !important；等那个组件改用类样式后，这一节可以删。 */
+.nav .nav-auth {
+  width: auto !important;
+  max-width: 11rem;
+  margin: 0 !important;
+  padding: 0 var(--sp-4) !important;
+  min-height: var(--tap);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  background: transparent !important;
+  border: 1px solid var(--line-strong) !important;
+  border-radius: var(--r-pill) !important;
+  color: var(--forest-700) !important;
+  font-family: inherit !important;
+  font-size: var(--fs-meta) !important;
+  cursor: pointer;
+  transition: border-color var(--t-fast), background-color var(--t-fast);
+}
+.nav .nav-auth:hover {
+  background: var(--forest-50) !important;
+  border-color: var(--forest-300) !important;
+}
+
 /* 五个入口全部按 --tap 撑开：logo 40×36、求助 30×44 曾都点不中 */
 .logo {
   display: inline-flex;
@@ -2134,19 +2169,15 @@ a.door:active {
     --fs-h1: 1.375rem;
   }
 
-  /* 导航不再换行：一换行，「求助」的 margin-left:auto 就失效、掉到第二行左边，
-     而它恰恰是全站唯一必须「永远在同一处」的入口。
-     一行放得下（实测 320px 宽屏仍有余量）；万一放不下，宁可让它横向滚动，
-     也不让危机入口换位置。 */
+  /* 导航换行（2026-10-19 修正）：条目从 5 个涨到 8 个（AI / 提建议 / 登录），
+     一行在 390px 上放不下了。原先靠「压窄每个入口」硬塞，结果是中文被压成一列竖字；
+     改成横向滚动又会把「求助」滚出屏幕——那是全站唯一必须 1 次点击可达的入口，不能靠滑。
+     换行是唯一三样都保住的做法：入口不竖排、不隐藏、求助仍在右端（margin-left:auto
+     在 flex 每一行里各自生效，所以它永远贴着自己那一行的右缘）。 */
   .nav {
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
     gap: var(--sp-2);
     padding: var(--sp-3) var(--sp-4);
-    overflow-x: auto;
-    scrollbar-width: none;
-  }
-  .nav::-webkit-scrollbar {
-    display: none;
   }
   .logo {
     font-size: var(--fs-h3);
@@ -2227,7 +2258,10 @@ a.door:active {
   a.card:hover,
   a.door:hover,
   .emergency-btn:active,
-  .btn-primary:hover {
+  .btn-primary:hover,
+  .mood-dot:hover,
+  .mood-dot:active,
+  .mood-dot-on {
     transform: none;
   }
   /* 萤火层整层撤掉，而不是「让它静止」：静止的光点在页面上等于一堆斑点，
@@ -2295,4 +2329,627 @@ a.door:active {
   align-self: start;
   margin-top: -11px;
   margin-right: -8px; /* 右侧贴边一点：动作本来就该在边缘，不必和正文抢内边距 */
+}
+
+/* ==========================================================================
+   13. 新增板块（2026-10-19）
+   --------------------------------------------------------------------------
+   本轮改动：
+    · 左上角「访客（匿名）」小徽标（.visitor-badge），右上角归一组「求助 / 提建议」；
+    · 书影音封面卡片（.lib-grid / .lib-card / .lib-cover）：有图用图，无图或图挂了
+      退回同族渐变占位 —— 永不破图；
+    · 全部小事折叠（.tasks-toggle）+ 用户增删改（.task-form / .task-edit-row）；
+    · emo 安慰抽屉（.comfort-drawer / .comfort-card-slide）：左右拖动换下一句；
+    · 小测评（.assess-*）：只做自我觉察，不出总分；
+    · AI 整理（.ai-*）：本地聚类，只整理不给建议。
+   ========================================================================== */
+
+/* ---- 13.1 左上角访客徽标 ----
+   只要「不占太多空间」：单行、省略号截断、不换行、不可选中。
+   它是状态提示，不是按钮 —— 登录动作仍在右上角 AuthPanel。 */
+.visitor-badge {
+  flex: none;
+  max-width: 7.5rem;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  padding: 3px var(--sp-2);
+  border-radius: var(--r-pill);
+  background: var(--forest-50);
+  color: var(--forest-700);
+  font-size: var(--fs-meta);
+  cursor: default;
+  user-select: none;
+}
+
+/* ---- 13.2 书影音封面卡片 ----
+   封面统一 3:4（书 / 电影海报的通用比例），图片 object-fit:cover 裁切居中，
+   不同长度的原图也不会把卡片撑成不同高度。 */
+.lib-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--sp-4);
+}
+.lib-card-wrap {
+  min-width: 0;
+}
+.lib-card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  box-shadow: var(--sh-1), var(--sheen);
+  overflow: hidden;
+  color: inherit;
+  text-decoration: none;
+  transition: border-color var(--t-base), box-shadow var(--t-base), transform var(--t-base);
+}
+.lib-card:hover {
+  border-color: var(--forest-300);
+  box-shadow: var(--sh-2), var(--sheen);
+  transform: translateY(-2px);
+}
+.lib-cover {
+  position: relative;
+  aspect-ratio: 3 / 4;
+  background: var(--forest-100);
+  overflow: hidden;
+}
+.lib-cover img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+/* 无图 / 图挂了时的占位：同族渐变 + 类型字，视觉上仍是一张「封面」 */
+.lib-cover-ph {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  color: var(--forest-700);
+  font-size: var(--fs-h3);
+  font-weight: var(--fw-bold);
+  background: linear-gradient(160deg, var(--forest-100), var(--forest-500));
+}
+.lib-cover-movie .lib-cover-ph {
+  background: linear-gradient(160deg, var(--forest-700), var(--forest-500));
+  color: var(--forest-50);
+}
+.lib-cover-music .lib-cover-ph {
+  background: linear-gradient(140deg, var(--forest-500), var(--forest-300));
+}
+.lib-cover-podcast .lib-cover-ph {
+  background: linear-gradient(140deg, var(--forest-100), var(--forest-300));
+}
+.lib-cover-bilibili .lib-cover-ph {
+  background: linear-gradient(140deg, var(--forest-300), var(--forest-700));
+  color: var(--forest-50);
+}
+.lib-body {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  padding: var(--sp-3) var(--sp-4) var(--sp-4);
+}
+.lib-go {
+  margin-top: auto;
+  color: var(--forest-700);
+  font-size: var(--fs-meta);
+}
+
+/* ---- 13.3 全部小事：折叠 + 增删改 ---- */
+.tasks-toggle {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+}
+.tasks-toggle h2 {
+  margin: 0;
+}
+.tasks-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  margin-top: var(--sp-3);
+}
+.tasks-toolbar .zone-tip {
+  margin: 0;
+}
+.tasks-add {
+  flex: none;
+}
+.task-form {
+  display: flex;
+  flex-direction: column;
+  margin-top: var(--sp-4);
+}
+.task-min-input {
+  max-width: 6rem;
+  margin-top: 0;
+}
+.task-edit-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  margin-top: var(--sp-2);
+}
+.task-confirm {
+  min-height: 36px;
+  padding: 6px var(--sp-3);
+}
+/* 安慰卡入口（已移至独立页 /comfort） */
+.comfort-entry {
+  display: block;
+}
+.comfort-entry:hover {
+  border-color: var(--forest-300);
+  box-shadow: var(--sh-2), var(--sheen);
+}
+
+/* ---- 13.4 emo 安慰抽屉 ----
+   touch-action: pan-y —— 横向手势留给切卡，纵向照常滚页面。 */
+.comfort-drawer {
+  position: relative;
+  margin: var(--sp-5) 0;
+  padding: var(--sp-2) 0;
+  touch-action: pan-y;
+}
+.comfort-card-slide {
+  will-change: transform;
+}
+.comfort-card-anim {
+  animation: comfort-in 320ms var(--ease-soft) both;
+}
+@keyframes comfort-in {
+  from {
+    opacity: 0;
+    transform: translateX(12px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.comfort-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-4);
+}
+.comfort-progress {
+  color: var(--ink-mute);
+  font-size: var(--fs-meta);
+}
+
+/* ---- 13.5 小测评 ---- */
+.assess-group {
+  margin-top: var(--sp-5);
+}
+.assess-src {
+  color: var(--ink-mute);
+  font-size: var(--fs-meta);
+}
+.assess-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--sp-3);
+}
+.assess-item {
+  padding: var(--sp-4) var(--sp-5);
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  box-shadow: var(--sh-1), var(--sheen);
+}
+/* 结果态：题目在左、自己的选择在右，两端对齐，扫一眼就是一面镜子 */
+.assess-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-3);
+}
+.assess-q {
+  margin: 0 0 var(--sp-2);
+  color: var(--ink);
+  font-size: var(--fs-body);
+}
+.assess-item .assess-q {
+  margin: 0;
+}
+.assess-a {
+  flex: none;
+  color: var(--forest-700);
+  font-size: var(--fs-body);
+  font-weight: var(--fw-bold);
+}
+.assess-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  margin-top: var(--sp-6);
+}
+.assess-progress {
+  color: var(--ink-mute);
+  font-size: var(--fs-meta);
+}
+.assess-summary {
+  margin-top: var(--sp-3);
+}
+.assess-dist {
+  color: var(--ink-mute);
+  font-size: var(--fs-meta);
+}
+.assess-warn {
+  margin-top: var(--sp-4);
+  color: var(--ink-mute);
+  font-size: var(--fs-meta);
+}
+
+/* ---- 13.6 AI 整理 ---- */
+.ai-note {
+  margin-bottom: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--forest-50);
+  color: var(--forest-700);
+  border-radius: var(--r-md);
+  font-size: var(--fs-meta);
+}
+.ai-lead {
+  margin-bottom: var(--sp-3);
+  color: var(--ink);
+  font-size: var(--fs-body);
+}
+.ai-clusters {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: var(--sp-4);
+}
+.ai-cluster {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+.ai-count {
+  color: var(--ink-mute);
+  font-size: var(--fs-meta);
+}
+.ai-snips {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--sp-2);
+}
+.ai-snips li {
+  position: relative;
+  padding-left: var(--sp-4);
+  color: var(--ink-soft);
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
+}
+.ai-snips li::before {
+  content: '·';
+  position: absolute;
+  left: 0;
+  color: var(--forest-500);
+}
+
+/* 手机上封面卡片单列：200px 最小宽度在 360px 屏上会挤成两列，字全被压断 */
+@media (max-width: 600px) {
+  .lib-grid,
+  .ai-clusters {
+    grid-template-columns: 1fr;
+  }
+  .visitor-badge {
+    max-width: 6rem;
+  }
+}
+
+/* ==========================================================================
+   14. 写一写改版（2026-10-19）
+   --------------------------------------------------------------------------
+   改前：两张等重的表单上下堆着，各带标题、说明、输入框和「记一笔」按钮，
+   首屏要滑过两整块才看得到自己记过什么。一屏里出现两个功能相同的入口，本身
+   就是一次多余的判断。
+   改后：一个主表单（心情，点一下表情就能完成）+ 一条单行入口（小进步，回车即记），
+   两段列表合并成一条按日期分组的时间流。
+   视觉层级靠「卡片的圆角与厚度」分开：主表单 r-lg + 大内边距，小进步是一条 r-pill
+   的输入条，用户扫一眼就知道哪个是主动作。
+   ========================================================================== */
+
+/* ---- 14.0 页面宽度 ----
+   全站外框是 960，但这是一页「写字的地方」：输入框铺到 912px 时一行要读 60+ 个字，
+   读起来会漏行。只收内容、不收回外框：外框仍是 960（左缘继续和导航对齐），
+   里面每个块限到 672（= 720 阅读宽 − 左右内边距），右边留白。
+   直接改 .page 的 max-width 会让整页居中、左缘比导航右移 120px —— 那正是
+   §「全站外框不统一」记过的老错位。 */
+.page-write > * {
+  max-width: calc(var(--w-page) - var(--sp-12));
+}
+
+/* ---- 14.1 主表单：今天的心情 ---- */
+.compose {
+  padding: var(--sp-6);
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  box-shadow: var(--sh-1), var(--sheen);
+}
+.compose-title {
+  color: var(--ink);
+  font-size: var(--fs-h2);
+  line-height: var(--lh-title);
+}
+
+/* 七个情绪一行排开：7 列等分，手机上也不换行 —— 换行会让「点一下就完事」
+   变成一次浏览（还要先看清第二行有什么） */
+.mood-row {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: var(--sp-2);
+  /* 限宽：不限的话桌上每个格子会拉到 97px，七个情绪变成七条长胶囊，
+     表情孤零零浮在中间，反而不好点 */
+  max-width: 480px;
+  margin-top: var(--sp-4);
+}
+.mood-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  /* 正方形 + 居中：手机上格子约 41px、桌上封顶 56px，
+     一个尺寸公式覆盖两档，不用为断点各写一套 */
+  width: 100%;
+  max-width: 56px;
+  aspect-ratio: 1;
+  justify-self: center;
+  padding: 0;
+  /* 淡彩表情（🌫️ 🌬️）在纯白卡上几乎看不见，所以未选中态也给一圈描边：
+     它既把「这里可以点」画出来，也让浅色字形有个落点 */
+  background: var(--cream);
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: transform var(--t-fast), background-color var(--t-fast),
+    border-color var(--t-fast), box-shadow var(--t-fast);
+}
+.mood-dot:hover {
+  background: var(--forest-50);
+  transform: translateY(-2px);
+}
+.mood-dot:active {
+  transform: translateY(1px) scale(0.96);
+}
+/* 选中态四路信号：底 + 边 + 光晕 + aria-pressed；抬起 2px 是「它被拿起来了」 */
+.mood-dot-on {
+  background: var(--forest-50);
+  border-color: var(--forest-500);
+  box-shadow: var(--glow-1);
+  transform: translateY(-2px) scale(1.06);
+}
+
+/* 选完才出文字。min-height 固定，避免「空提示 → 有内容」把下面的输入框顶一下 */
+.compose-sub {
+  min-height: 1.6em;
+  margin-top: var(--sp-3);
+  color: var(--ink-mute);
+  font-size: var(--fs-meta);
+}
+.compose-sub-on {
+  color: var(--forest-700);
+}
+.compose-sub b {
+  font-weight: var(--fw-bold);
+}
+
+/* 表单里的 textarea 比通用 .write-area 收一点上边距：上面已有情绪行在做分隔 */
+.compose .write-area {
+  margin-top: var(--sp-3);
+}
+
+.compose-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  margin-top: var(--sp-4);
+}
+/* 主按钮永远靠右、永远在最后：视线从上面的输入框落下来正好接住它 */
+.compose-submit {
+  margin-left: auto;
+}
+
+/* 文字型轻按钮：强度开关、重试。不用下划线以外的装饰，重量要和「可选」相称 */
+.compose-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0;
+  background: none;
+  border: 0;
+  color: var(--forest-700);
+  font-family: inherit;
+  font-size: var(--fs-meta);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.compose-link:hover {
+  color: var(--forest-800);
+}
+.compose-foot .compose-link {
+  min-height: var(--tap);
+}
+
+.compose-nudge {
+  margin-top: var(--sp-2);
+  color: var(--forest-700);
+  font-size: var(--fs-meta);
+}
+
+/* ---- 14.2 单行入口：小进步 ----
+   做成一条输入条而不是第二张卡：它的定位就是「顺带记一句」，
+   视觉重量必须明显低于上面的主表单，否则又回到两个入口互相争的问题。 */
+.note-quick {
+  margin-top: var(--sp-4);
+}
+.note-quick-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-1) var(--sp-1) var(--sp-1) var(--sp-4);
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  box-shadow: var(--sh-1), var(--sheen);
+  transition: border-color var(--t-base);
+}
+/* 焦点框交给整条：输入框自己是无边框的，单独描它会出现一条断掉的方框 */
+.note-quick-row:focus-within {
+  border-color: var(--forest-500);
+}
+.note-quick-mark {
+  flex: none;
+  color: var(--forest-500);
+  font-size: var(--fs-meta);
+  line-height: 1;
+}
+.note-quick-input {
+  flex: 1 1 auto;
+  min-width: 0; /* 栅格/弹性里的输入框必须显式收窄，否则占位符会把这一行顶宽 */
+  height: var(--tap);
+  background: none;
+  border: 0;
+  color: var(--ink);
+  font-family: inherit;
+  font-size: var(--fs-body);
+  outline: none;
+}
+.note-quick-input::placeholder {
+  color: var(--ink-mute);
+}
+.note-quick-btn {
+  flex: none;
+  border-radius: var(--r-pill);
+}
+.note-quick-hint {
+  margin: var(--sp-1) 0 0 var(--sp-5);
+}
+
+/* ---- 14.3 时间流：两张表合成一条 ---- */
+.feed {
+  margin-top: var(--sp-8);
+}
+.feed-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-4);
+}
+.feed-toolbar h2 {
+  font-size: var(--fs-h2);
+}
+.feed-filter {
+  display: flex;
+  gap: var(--sp-2);
+}
+.feed-day + .feed-day {
+  margin-top: var(--sp-5);
+}
+/* 日期 + 一条淡线：分组靠线，不靠大字，读起来是时间轴而不是三个标题 */
+.feed-day-label {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-2);
+  color: var(--ink-mute);
+  font-size: var(--fs-meta);
+  font-weight: var(--fw-normal);
+}
+.feed-day-label::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+}
+/* 小进步的符号用 ✶（和首页门卡的星点同族），比再配一个色块更安静 */
+.feed-emoji-note {
+  color: var(--forest-500);
+  font-size: 16px;
+  line-height: 1.75; /* 与一行正文的首行同高 */
+}
+.feed-partial {
+  margin-top: var(--sp-4);
+}
+.feed-partial .compose-link {
+  margin: 0 var(--sp-1);
+}
+
+@media (max-width: 600px) {
+  /* 主表单收窄内边距，把省下的宽度让给情绪行（7 个等分格子本来就紧） */
+  .compose {
+    padding: var(--sp-5) var(--sp-4);
+  }
+  .mood-row {
+    gap: var(--sp-1);
+  }
+  .mood-dot {
+    font-size: 1.125rem;
+  }
+  /* 手机上主按钮整行：拇指够得着，也不用和强度行抢宽度 */
+  .compose-submit {
+    width: 100%;
+    justify-content: center;
+    margin-left: 0;
+  }
+  /* 标题与筛选分行：三个胶囊挤在标题右边会把「记过的」压成两行 */
+  .feed-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--sp-2);
+  }
+  .feed-filter {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .feed-filter .chip {
+    justify-content: center;
+    padding-left: var(--sp-2);
+    padding-right: var(--sp-2);
+  }
+  .note-quick-row {
+    padding-left: var(--sp-4);
+  }
+  .note-quick-hint {
+    margin-left: var(--sp-3);
+  }
+  /* 导航位在手机上最紧：徽标只留「访客」两个字（信息不丢，title 与读屏仍在） */
+  .visitor-badge-tail {
+    display: none;
+  }
+  .visitor-badge {
+    max-width: none;
+  }
 }

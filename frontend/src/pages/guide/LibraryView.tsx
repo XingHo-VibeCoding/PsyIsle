@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { ListEmpty, ListError, ListLoading } from '../../components/ListStates'
 import { fetchLibrary } from '../../lib/api'
-import { kindLabel, kindOrder, type LibraryKind } from '../../data/library'
+import { kindLabel, kindOrder, type LibraryItem, type LibraryKind } from '../../data/library'
 import { matchThemes } from '../../data/themes'
 import { readJson, writeJson } from '../../lib/storage'
 import { useListData } from '../../lib/useListData'
@@ -24,6 +24,21 @@ const kindOptions: { id: KindFilter; label: string }[] = [
 const readKind = (): KindFilter => {
   const saved = readJson<KindFilter>(KIND_KEY)
   return saved === 'all' || kindOrder.includes(saved as LibraryKind) ? (saved as KindFilter) : 'all'
+}
+
+// 封面：有图用图；图挂了或没有图，退回同族渐变占位（绝不破图）
+function LibCover({ item }: { item: LibraryItem }) {
+  const [err, setErr] = useState(false)
+  const showImg = Boolean(item.cover) && !err
+  return (
+    <div className={`lib-cover lib-cover-${item.kind}`}>
+      {showImg ? (
+        <img src={item.cover} alt="" loading="lazy" onError={() => setErr(true)} />
+      ) : (
+        <span className="lib-cover-ph">{kindLabel[item.kind]}</span>
+      )}
+    </div>
+  )
 }
 
 function LibraryView() {
@@ -58,7 +73,7 @@ function LibraryView() {
   return (
     <section className="zone zone-flat">
       <h2>可以看看这些</h2>
-      <p className="zone-tip">只给条目和一句话，不用写读后感，看完也不用告诉谁</p>
+      <p className="zone-tip">只给条目和一句话，不用写读后感，看完也不用告诉谁。点卡片去你常用的地方看。</p>
 
       <div className="chips" role="group" aria-label="按类型筛选">
         {kindOptions.map((k) => {
@@ -91,14 +106,25 @@ function LibraryView() {
           return (
             <div key={group} className="lib-group">
               <h3 className="lib-kind">{kindLabel[group]}</h3>
-              <ul className="lib-list">
+              <ul className="lib-grid">
                 {groupItems.map((item) => (
-                  <li key={item.id} className="lib-item">
-                    <div className="lib-head">
-                      <strong>{item.title}</strong>
-                      <span className="lib-by">{item.by}</span>
-                    </div>
-                    <p className="lib-note">{item.note}</p>
+                  <li key={item.id} className="lib-card-wrap">
+                    <a
+                      className="lib-card"
+                      href={item.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <LibCover item={item} />
+                      <div className="lib-body">
+                        <div className="lib-head">
+                          <strong>{item.title}</strong>
+                          <span className="lib-by">{item.by}</span>
+                        </div>
+                        <p className="lib-note">{item.note}</p>
+                        <span className="lib-go">去看看 ›</span>
+                      </div>
+                    </a>
                   </li>
                 ))}
               </ul>

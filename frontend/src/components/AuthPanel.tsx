@@ -138,7 +138,7 @@ export default function AuthPanel() {
     state.mode === 'password'
       ? `已登录${state.email ? '：' + state.email : ''}`
       : state.mode === 'anonymous'
-      ? '访客（匿名）'
+      ? '登录'
       : state.ready
       ? '未连接'
       : '连接中…'

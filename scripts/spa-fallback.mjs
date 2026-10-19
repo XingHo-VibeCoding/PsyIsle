@@ -18,11 +18,14 @@ const ROUTES = [
   'talk',
   'guide',
   'guide/library',
+  'guide/check',
   'daily',
   'help',
   'breathe',
   'about',
   'suggest',
+  'comfort',
+  'ai',
 ]
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')

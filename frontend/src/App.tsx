@@ -1,16 +1,56 @@
 import { Link, NavLink, Route, Routes, useLocation } from 'react-router-dom'
+import { useSyncExternalStore } from 'react'
 import Home from './pages/Home'
 import Help from './pages/Help'
 import Breathe from './pages/Breathe'
 import Guide from './pages/Guide'
 import LibraryView from './pages/guide/LibraryView'
 import TasksView from './pages/guide/TasksView'
+import AssessView from './pages/guide/AssessView'
 import About from './pages/About'
 import Daily from './pages/Daily'
 import UnderConstruction from './pages/UnderConstruction'
 import Suggest from './pages/Suggest'
+import Comfort from './pages/Comfort'
+import AiView from './pages/AiView'
 import Fireflies from './components/Fireflies'
 import AuthPanel from './components/AuthPanel'
+import { getAuthState, subscribe, type AuthState } from './lib/auth'
+
+// 导航布局（2026-10-19）：
+//  · 左上角放「访客（匿名）」小徽标，随登录态变化，不占太多空间；
+//  · 右上角归一组：AI 之后是「求助」「提建议」（求助仍全站 1 次点击可达，红线不可砍）；
+//  · 登录入口（AuthPanel）匿名态显示「登录」，避免在左上角徽标之外再重复念一遍「访客」。
+function useAuth(): AuthState {
+  return useSyncExternalStore(subscribe, getAuthState)
+}
+
+function VisitorBadge() {
+  const state = useAuth()
+  const text =
+    state.mode === 'anonymous'
+      ? '访客（匿名）'
+      : state.mode === 'password'
+        ? state.email
+          ? '已登录'
+          : '已登录'
+        : state.ready
+          ? '未连接'
+          : '连接中…'
+  return (
+    <span className="visitor-badge" title="你正在以访客身份浏览，记录只存在这台设备上">
+      {/* 手机上括号会把这枚徽标撑到 90px、挤掉一个导航位，所以「（匿名）」单独包一层，
+          窄屏只留「访客」两个字：信息没少（title 与读屏文案仍在），只是不再抢位置 */}
+      {state.mode === 'anonymous' ? (
+        <>
+          访客<span className="visitor-badge-tail">（匿名）</span>
+        </>
+      ) : (
+        text
+      )}
+    </span>
+  )
+}
 
 // 导航 = 三扇门 + 求助。名字统一用户视角（听你说/找方向/写一写），
 // 不用「功能/板块/专区」这类行业词，也全站只保留这一套称呼（改名必须连 PRD 一起想，别留两个名字）。
@@ -23,10 +63,12 @@ function App() {
   return (
     <div className={pathname === '/' ? 'app app-immersive' : 'app'}>
       <nav className="nav" aria-label="全站导航">
+        <VisitorBadge />
         <Link to="/" className="logo">心汐</Link>
         <NavLink to="/talk">听你说</NavLink>
         <NavLink to="/guide">找方向</NavLink>
         <NavLink to="/daily">写一写</NavLink>
+        <NavLink to="/ai">AI</NavLink>
         {/* 危机入口常驻导航：全站任意页 1 次点击可达，永久不可砍 */}
         <NavLink to="/help" className="nav-help">求助</NavLink>
         {/* 提建议：放在求助右边，鼓励用户反馈；纯本地收集，不触碰危机红线 */}
@@ -40,18 +82,21 @@ function App() {
           <Route path="/" element={<Home />} />
           {/* 听你说与写一写按排期还没轮到，先占位（不做出死路：能回首页、能到危机页） */}
           <Route path="/talk" element={<UnderConstruction name="听你说" />} />
-          {/* 找方向：阶段 1（课程 Day 7–12）做内容层——主题多选 + 行动小任务 + 书影音，全部是静态内容，零依赖。
-              阶段 1 收尾时把一个长页面拆成三个子视图，改用嵌套路由切换：
-              地址栏能直接落到某一个子视图，返回键与刷新都照常工作。 */}
+          {/* 找方向：阶段 1（课程 Day 7–12）做内容层——主题多选 + 行动小任务 + 书影音 + 小测评，
+              全部是静态内容，零依赖。三个子视图走嵌套路由切换：地址栏能直接落到某一个子视图，
+              返回键与刷新都照常工作。 */}
           <Route path="/guide" element={<Guide />}>
             <Route index element={<TasksView />} />
             <Route path="library" element={<LibraryView />} />
+            {/* 小测评（2026-10-19 补内容）：无评分自测，不破红线 */}
+            <Route path="check" element={<AssessView />} />
           </Route>
           {/* 写一写：Day 17 接入云端真实读接口（心情打卡 + 小进步） */}
           <Route path="/daily" element={<Daily />} />
-          {/* 检查台（Day 20 引入）实际一直未真正下线——/guide/check 仍公网可达且 anon 可写，踩契约 §7 红线。
-              本次 Day 26 补做真正下线：删除路由与 spa-fallback 入口，使 /guide/check/ 返回 404。
-              恢复须先接登录加权限；CheckView.tsx 暂留仓库（git 历史可找回），待登录接通后按需重新挂载。 */}
+          {/* 我 emo 了 · 安慰卡（2026-10-19 从找方向移出，独立成页，抽屉式滑动） */}
+          <Route path="/comfort" element={<Comfort />} />
+          {/* AI 板块（2026-10-19 新增）：本地聚类归纳，不生成内容、不破红线 */}
+          <Route path="/ai" element={<AiView />} />
           {/* 已实现页面原样沿用：危机页不可砍；呼吸练习已并入「找方向 · 行动小任务」 */}
           <Route path="/help" element={<Help />} />
           <Route path="/breathe" element={<Breathe />} />
@@ -64,9 +109,7 @@ function App() {
       {/* 萤火层挂在 .app 里、.main 之后：同一个父层下的 DOM 顺序就是它的层序。
           z-index:-1 把它放进根堆叠层的负层，于是首页浮在插画与薄纱之上、
           内页躲在实心白卡之下（卡片是不透明的，粒子只在留白里看得见，不会爬到字上）。
-          它不承载任何信息，所以 aria-hidden 且不可点。
-          ⚠️ 2026-10-17 深夜补记：这一行曾被并行会话的 checkout 冲掉过一次，
-          结果 CSS 还在、组件没了——改完 App.tsx 务必确认它在。 */}
+          它不承载任何信息，所以 aria-hidden 且不可点。 */}
       <Fireflies />
 
       <footer className="footer">
