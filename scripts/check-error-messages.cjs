@@ -21,6 +21,9 @@ let identityOk = true
 // 平时各路都返回库错误，走不到分页分支。
 let pageMode = false
 
+// Day 28：转正凭证用例的开关（dbError / ok / notFound / used / expired）
+let claimMode = 'dbError'
+
 // 51 条假数据：第一页应该是 50 条 + nextCursor 指向第 50 条。
 const fakeRows = Array.from({ length: 51 }, (_, i) => ({
   id: 'm_' + String(2000 + i),
@@ -54,6 +57,19 @@ const fakeDb = {
   // 入口层的 handleGet 会调这两个：不给的话会 TypeError，被 catch 成 INTERNAL —— 用例就假过了
   encodeCursor: realMoodsDb.encodeCursor,
   decodeCursor: realMoodsDb.decodeCursor,
+  // Day 28：匿名记录转正的凭证接口。入口层只做 action 分发 + 错误信封，
+  // 数据层返回哪种结果由 claimMode 控制（默认「库报错」）。
+  issueTicket: async () =>
+    claimMode === 'ok'
+      ? { code: 'a'.repeat(32), expiresAt: '2026-10-19T12:15:00.000Z' }
+      : { error: { message: 'permission denied for table account_claims', code: '42501' } },
+  redeemTicket: async () => {
+    if (claimMode === 'ok') return { moods: 2, notes: 1, skipped: 0 }
+    if (claimMode === 'notFound') return { notFound: true }
+    if (claimMode === 'used') return { used: true }
+    if (claimMode === 'expired') return { expired: true }
+    return { error: { message: 'relation "public.account_claims" does not exist', code: '42P01' } }
+  },
 }
 
 const origLoad = Module._load
@@ -64,6 +80,7 @@ Module._load = function (req, parent, isMain) {
 
 const moods = require(base + 'moods' + require('path').sep + 'index.js')
 const notes = require(base + 'notes' + require('path').sep + 'index.js')
+const claim = require(base + 'claim' + require('path').sep + 'index.js')
 
 // 日志静音（脚本只关心响应体；想看云函数日志把这些行删掉）
 const origLog = console.log
@@ -98,6 +115,16 @@ const CASES = [
   // 这条防的是「为了别整页崩，又悄悄回退到某个默认身份」——那会让所有访客共用一份数据。
   ['身份缺失 · GET /api/moods 取不到登录身份', 'UNAUTHORIZED', () => { identityOk = false; return moods.main({ httpMethod: 'GET', path: '/api/moods' }) }],
   ['身份缺失 · POST /api/notes 取不到登录身份', 'UNAUTHORIZED', () => { identityOk = false; return notes.main({ httpMethod: 'POST', path: '/api/notes', body: JSON.stringify({ text: '今天走了一步' }) }) }],
+  // Day 28：匿名记录转正。这一段防的是「凭证接口把库里的英文错误、或者把
+  // 『这个券为什么不能用』的细节原样甩给用户」——券是内部机制，用户只需要知道
+  // 「不对/过期了，重新领一张」。
+  ['服务端错 · POST /api/claim issue 库报错', 'INTERNAL', () => { claimMode = 'dbError'; return claim.main({ httpMethod: 'POST', path: '/api/claim', body: JSON.stringify({ action: 'issue' }) }) }],
+  ['输入错 · POST /api/claim 未知 action', 'INVALID_INPUT', () => claim.main({ httpMethod: 'POST', path: '/api/claim', body: JSON.stringify({ action: 'xx' }) })],
+  ['输入错 · POST /api/claim redeem 缺 code', 'INVALID_INPUT', () => claim.main({ httpMethod: 'POST', path: '/api/claim', body: JSON.stringify({ action: 'redeem' }) })],
+  ['输入错 · POST /api/claim code 形状不对', 'INVALID_INPUT', () => claim.main({ httpMethod: 'POST', path: '/api/claim', body: JSON.stringify({ action: 'redeem', code: '../../etc/passwd' }) })],
+  ['输入错 · POST /api/claim 凭证不存在或已用', 'NOT_FOUND', () => { claimMode = 'notFound'; return claim.main({ httpMethod: 'POST', path: '/api/claim', body: JSON.stringify({ action: 'redeem', code: 'a'.repeat(32) }) }) }],
+  ['输入错 · POST /api/claim 凭证过期', 'INVALID_INPUT', () => { claimMode = 'expired'; return claim.main({ httpMethod: 'POST', path: '/api/claim', body: JSON.stringify({ action: 'redeem', code: 'a'.repeat(32) }) }) }],
+  ['身份缺失 · POST /api/claim 取不到登录身份', 'UNAUTHORIZED', () => { identityOk = false; return claim.main({ httpMethod: 'POST', path: '/api/claim', body: JSON.stringify({ action: 'issue' }) }) }],
 ]
 
 ;(async () => {
@@ -157,6 +184,33 @@ const CASES = [
   const paged = page1 && page1.ok && page1.data && page1.data.nextCursor ? '50 + 下一页' : '异常'
   const pagedEnd = page2 && page2.ok && page2.data && page2.data.nextCursor === null ? '50 + 到底' : '异常'
 
+  // ---- 转正凭证的成功形状（Day 28）----
+  // 这两条防的都是「前端拿不到能用的字段」：code 不是 32 位十六进制就当形状校验写岔了；
+  // 兑换结果里三个计数缺一个，前端那句「搬了几条」就会显示 undefined。
+  claimMode = 'ok'
+  const issued = await claim.main({
+    httpMethod: 'POST',
+    path: '/api/claim',
+    body: JSON.stringify({ action: 'issue' }),
+  })
+  const redeemed = await claim.main({
+    httpMethod: 'POST',
+    path: '/api/claim',
+    body: JSON.stringify({ action: 'redeem', code: 'a'.repeat(32) }),
+  })
+  if (!issued || !issued.ok || !issued.data || !/^[0-9a-f]{32}$/.test(issued.data.code))
+    problems.push('凭证 · issue 应回 32 位十六进制 code，实际 ' + JSON.stringify(issued))
+  if (!issued || !issued.data || typeof issued.data.expiresAt !== 'string')
+    problems.push('凭证 · issue 应回 expiresAt，实际 ' + JSON.stringify(issued))
+  const rd = redeemed && redeemed.data
+  if (!redeemed || !redeemed.ok || !rd || typeof rd.moods !== 'number' || typeof rd.notes !== 'number' || typeof rd.skipped !== 'number')
+    problems.push('凭证 · redeem 应回 moods/notes/skipped 三个数字，实际 ' + JSON.stringify(redeemed))
+  claimMode = 'dbError'
+  const claimOk =
+    issued && issued.ok && issued.data && /^[0-9a-f]{32}$/.test(issued.data.code) && rd && typeof rd.moods === 'number'
+      ? '发券 + 兑换都成形'
+      : '异常'
+
   console.log = origLog
   console.error = origErr
   console.warn = origWarn
@@ -170,6 +224,7 @@ const CASES = [
   })
 
   process.stdout.write('  分页编排：51 条 → ' + paged + '；50 条 → ' + pagedEnd + '\n')
+  process.stdout.write('  转正凭证：' + claimOk + '\n')
 
   if (problems.length) {
     process.stdout.write('\n✗ 未通过 ' + problems.length + ' 项：\n')

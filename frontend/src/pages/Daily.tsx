@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Trash2 } from 'lucide-react'
 import { usePageTitle } from '../lib/usePageTitle'
 import { usePagedList } from '../lib/useListData'
@@ -14,6 +14,8 @@ import {
   type NoteRow,
 } from '../lib/api'
 import { toUserMessage } from '../lib/errors'
+import { ensureClaimTicket, subscribeClaim } from '../lib/claim'
+import { getAuthState, subscribe as subscribeAuth } from '../lib/auth'
 
 // 写一写 · 心情 + 小进步
 //
@@ -336,6 +338,37 @@ function Daily() {
     setFilter('all')
   }
 
+  // Day 28：匿名时期写的东西在注册/登录成功后会被搬到这个账号名下。
+  // 搬完必须重新取数 —— 否则「记录确实搬过来了，但界面还是空的」，用户会以为搬失败了。
+  // 这里订阅的是「搬完了」这个事件，而不是登录态变化：两个身份的 uid 都拿到了，
+  // 但搬家请求可能还在路上，早一步刷新就又看到空的。
+  // 依赖只写一次是刻意的：refreshAll 里用到的 moods.retry / notes.retry 都是稳定引用
+  // （usePagedList 用 useCallback 包的），订阅只需要绑一次，不必每次渲染重订。
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => subscribeClaim(() => refreshAll()), [])
+
+  // 身份换了（注册 / 登录 / 退出到匿名）也要重新取数。这条不是锦上添花：
+  // 退出到匿名之后如果还留着上一个账号的列表，等于把别人的记录摆在屏幕上 ——
+  // 在这类应用里这是事故，不是小瑕疵。
+  useEffect(() => {
+    let lastUid = getAuthState().uid
+    return subscribeAuth(() => {
+      const uid = getAuthState().uid
+      if (uid === lastUid) return
+      lastUid = uid
+      refreshAll()
+    })
+    // 同上：只订阅一次，refreshAll 依赖的两个 retry 是稳定引用
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // 记完一条就顺手领一张转正凭证（见 lib/claim.ts）：没有数据就没有要搬的东西，
+  // 所以不在这里之前领，省掉「只逛不写的人」那一次数据库写入。
+  function handleSaved() {
+    refreshAll()
+    void ensureClaimTicket()
+  }
+
   // 删除一条心情：先 window.confirm 二次确认（Day 22），确认后才发请求，
   // 成功后刷新列表——软删除后这条就不会再出现在 GET 结果里。
   async function handleDeleteMood(id: string) {
@@ -410,8 +443,8 @@ function Daily() {
         <p className="page-sub">记一笔今天。三十秒，不写也行。</p>
       </header>
 
-      <MoodCompose onSaved={refreshAll} />
-      <NoteQuick onSaved={refreshAll} />
+      <MoodCompose onSaved={handleSaved} />
+      <NoteQuick onSaved={handleSaved} />
 
       <section className="feed">
         <div className="feed-toolbar">

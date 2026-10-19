@@ -20,7 +20,7 @@
 import { spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const FRONTEND = path.join(REPO, 'frontend')
@@ -54,6 +54,8 @@ const feEnv = readEnvFile(path.join(FRONTEND, '.env'))
 const API_BASE = (feEnv.VITE_API_BASE || DEFAULT_API).replace(/\/$/, '')
 const SITE_ORIGIN = (feEnv.VITE_SITE_BASE || DEFAULT_SITE).replace(/\/$/, '')
 const API_HOST = API_BASE.replace(/^https?:\/\//, '')
+// 环境 ID 从接口域名里取（就是公网域名的那一段，不是密钥）
+const ENV_ID = (API_BASE.match(/https:\/\/([a-z0-9-]+)\.service\.tcloudbase\.com/) || [])[1] || 'psyisle-prod-d9g109suw53257aed'
 
 // 幂等 / 软删两项要真写库：固定用一个不会碰演示数据的日期（演示数据都在 2026-10）
 const TEST_DATE = '2020-01-01'
@@ -93,7 +95,14 @@ const TEXT_EXT = new Set(['.ts', '.tsx', '.js', '.mjs', '.cjs', '.json', '.md', 
 const isText = (f) => TEXT_EXT.has(path.extname(f).toLowerCase()) || path.basename(f).startsWith('.env')
 
 async function fetchJson(url, init = {}, timeoutMs = 15000) {
-  const res = await fetch(url, { ...init, signal: AbortSignal.timeout(timeoutMs) })
+  // 网关自 Day 26 起要求登录态（enableAuth）：不带 token 一律 401 MISSING_CREDENTIALS。
+  // 这里用匿名登录拿一个 token —— 和真实访客走同一条路，不另造凭据、不碰任何密钥。
+  const headers = { ...(init.headers || {}) }
+  if (url.startsWith(API_BASE)) {
+    const t = await apiToken()
+    if (t) headers.Authorization = 'Bearer ' + t
+  }
+  const res = await fetch(url, { ...init, headers, signal: AbortSignal.timeout(timeoutMs) })
   const text = await res.text()
   let json = null
   try {
@@ -102,6 +111,41 @@ async function fetchJson(url, init = {}, timeoutMs = 15000) {
     /* 非 JSON 也算一种结果，交给调用方判断 */
   }
   return { res, text, json }
+}
+
+// 匿名 token：懒加载、只取一次。拿不到就返回 null（各检查项会据此报 SKIP 而不是 FAIL ——
+// 「脚本没身份」和「接口真的坏了」是两件事，混在一起会让发布前检查失去意义）。
+let tokenPromise = null
+function apiToken() {
+  if (!tokenPromise) {
+    tokenPromise = (async () => {
+      try {
+        const sdk = path.join(REPO, 'frontend', 'node_modules', '@cloudbase', 'js-sdk', 'dist', 'index.node.esm.js')
+        if (!existsSync(sdk)) return null
+        const mod = await import(pathToFileURL(sdk).href)
+        const cloudbase = mod.default || mod
+        const app = cloudbase.init({ env: ENV_ID })
+        const auth = app.auth({ persistence: 'none' })
+        await auth.signInAnonymously()
+        const r = typeof auth.getAccessToken === 'function' ? await auth.getAccessToken() : null
+        let t = r && (r.accessToken || (r.data && r.data.accessToken))
+        if (!t) {
+          const s = await auth.getSession()
+          t = s && s.data && s.data.session && s.data.session.access_token
+        }
+        return t || null
+      } catch {
+        return null
+      }
+    })()
+  }
+  return tokenPromise
+}
+
+// 网关/函数说「没认出这个身份」：这不是接口坏了，是脚本没拿到身份。
+function isAuthMissing(json) {
+  const code = json && (json.code || (json.error && json.error.code))
+  return code === 'MISSING_CREDENTIALS' || code === 'UNAUTHORIZED'
 }
 
 // ============================================================
@@ -345,8 +389,23 @@ async function v7() {
   if (SKIP_NET) return record('V7', '接口字段形状（camelCase）', 'Day 17', 'SKIP', '--skip-net 已跳过公网项', [])
   try {
     const { json } = await fetchJson(`${API_BASE}/api/moods?limit=1`)
-    const item = json && json.data && json.data.items && json.data.items[0]
-    if (!item) return record('V7', '接口字段形状（camelCase）', 'Day 17', 'FAIL', '接口没返回任何一行，无法比对形状', [`响应：${JSON.stringify(json).slice(0, 200)}`])
+    // 没拿到身份（网关 401）不是接口坏了：标 SKIP 并写明原因，别让「脚本没登录」
+    // 伪装成「接口有问题」——那种假 FAIL 会让真正的回归被淹没。
+    if (isAuthMissing(json)) return record('V7', '接口字段形状（camelCase）', 'Day 17', 'SKIP', '网关需要登录态，本次没拿到匿名身份', [`响应：${JSON.stringify(json).slice(0, 200)}`])
+    let item = json && json.data && json.data.items && json.data.items[0]
+    // 新身份名下没有记录时，读接口拿不到样本 —— 写一条固定的测试记录再从响应里比对形状。
+    // 不这样做的话，「空账号」会被报成「字段形状不对」，又是一条假 FAIL。
+    let source = 'GET /api/moods?limit=1'
+    if (!item) {
+      const post = await fetchJson(`${API_BASE}/api/moods`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ date: TEST_DATE, emoji: 'calm', level: 1, note: TEST_NOTE }),
+      })
+      item = post.json && post.json.data && post.json.data.item
+      source = 'POST /api/moods（该身份还没有记录，写一条固定测试记录取样本）'
+      if (!item) return record('V7', '接口字段形状（camelCase）', 'Day 17', 'FAIL', '接口没返回任何一行，无法比对形状', [`响应：${JSON.stringify(post.json).slice(0, 200)}`])
+    }
     const snake = Object.keys(item).filter((k) => k.includes('_'))
     const need = ['id', 'date', 'emoji', 'createdAt'].filter((k) => !(k in item))
     const pass = snake.length === 0 && need.length === 0 && EMOJI_WHITELIST.includes(item.emoji)
@@ -356,7 +415,7 @@ async function v7() {
       'Day 17：库里是 created_at，契约写 createdAt，前端取到 undefined 页面空白',
       pass ? 'PASS' : 'FAIL',
       pass ? '字段齐全、camelCase、emoji 在白名单内' : `形状不符：${[...snake.map((s) => `混进 snake_case ${s}`), ...need.map((n) => `缺字段 ${n}`), EMOJI_WHITELIST.includes(item.emoji) ? '' : `emoji 越界 ${item.emoji}`].filter(Boolean).join('；')}`,
-      [`单行样本：${JSON.stringify(item)}`, `白名单：${EMOJI_WHITELIST.join('/')}`],
+      [`单行样本：${JSON.stringify(item)}`, `样本来源：${source}`, `白名单：${EMOJI_WHITELIST.join('/')}`],
     )
   } catch (e) {
     record('V7', '接口字段形状（camelCase）', 'Day 17', 'FAIL', `请求失败：${e.message}`, [])
@@ -375,6 +434,7 @@ async function v8() {
       body: JSON.stringify({ emoji: '__not_a_mood__' }),
     })
     const msg = json && json.error ? json.error.message : ''
+    if (isAuthMissing(json)) return record('V8', '错误信封不外泄内部细节', 'Day 23', 'SKIP', '网关需要登录态，本次没拿到匿名身份', [`POST /api/moods → ${res.status}`])
     const LEAK = /RDB_ERR|THROW|Error:|stack|select |public\.|postgres|\bat \b/i
     const checks = {
       'HTTP 仍是 200（Event 型函数特性）': res.status === 200,
@@ -404,6 +464,8 @@ async function v9() {
       })
     const a = await post('calm')
     const b = await post('low')
+    if (isAuthMissing(a.json) || isAuthMissing(b.json))
+      return record('V9', '写入幂等（同日不产生第二行）', 'Day 18', 'SKIP', '网关需要登录态，本次没拿到匿名身份', [`第一次 POST → ${JSON.stringify(a.json).slice(0, 160)}`])
     const id1 = a.json?.data?.item?.id
     const id2 = b.json?.data?.item?.id
     const { json: list } = await fetchJson(`${API_BASE}/api/moods?limit=200`)
@@ -527,6 +589,8 @@ async function v12Concurrent() {
       ),
     )
     const oks = shots.filter((s) => s.json?.ok === true).length
+    if (oks === 0 && shots.some((s) => isAuthMissing(s.json)))
+      return record('V12', '并发连点不产生第二行', 'Day 24', 'SKIP', '网关需要登录态，本次没拿到匿名身份', [`并发 POST ×5 → ${JSON.stringify(shots[0].json).slice(0, 160)}`])
     const { json } = await fetchJson(`${API_BASE}/api/moods?limit=200`)
     const rows = (json?.data?.items || []).filter((r) => r.date === TEST_DATE)
     const pass = oks === 5 && rows.length === 1

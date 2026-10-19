@@ -173,3 +173,41 @@ create policy progress_notes_owner_only on public.progress_notes
 grant select, insert, update, delete on public.profiles       to authenticated;
 grant select, insert, update, delete on public.moods          to authenticated;
 grant select, insert, update, delete on public.progress_notes to authenticated;
+
+
+-- ===============================================================
+-- 5. account_claims —— 匿名记录「转正」的一次性凭证（Day 28）
+-- ===============================================================
+-- 要解决的问题：注册走的是 auth.signUp，会发一个新的 uid；匿名身份名下写过的记录
+-- owner_id 还指着旧 uid，于是注册完界面上一条都看不见，用户以为记录丢了。
+-- 做法：写东西时先领一张凭证；注册 / 登录成功后拿凭证兑换，把旧 uid 的行搬到新 uid 名下。
+-- 搬家只发生在服务端（cloudfunctions/claim），前端拿到的只是一张兑完即废的随机串 ——
+-- 「搬哪些行」由凭证里的 owner_id 决定，客户端说自己是谁不算数。
+--
+-- 为什么这一列叫 code_hash 而不是 code：这里存的是 sha256，明文只在签发那一刻回给客户端一次。
+-- 其他表目前还没恢复 RLS（登录收尾时要一起收），万一这张表被翻出来，
+-- 有哈希也兑不了 —— 和「不存明文密码」是同一个道理。
+create table if not exists public.account_claims (
+  code_hash  text        primary key,
+  owner_id   text        not null,           -- 领凭证时的身份（匿名 uid）
+  created_at timestamptz not null default now(),
+  expires_at timestamptz not null,           -- 签发后 1 小时
+  claimed_by text,                           -- 兑到哪个账号；null = 还没兑
+  claimed_at timestamptz
+);
+
+comment on table  public.account_claims            is '匿名记录转正的一次性凭证。1 小时过期、一次性，只由 /api/claim 云函数读写';
+comment on column public.account_claims.code_hash  is '凭证明文的 sha256。明文不落库 —— 库被翻出来也兑不了';
+comment on column public.account_claims.owner_id   is '领凭证时的匿名 uid，也就是「要搬哪些行」的依据';
+comment on column public.account_claims.claimed_by is '兑换后的账号 uid。非 null 即已用，不允许二次兑换';
+
+-- 清理过期凭证用的索引（历史行不影响功能，只是占地方）
+create index if not exists account_claims_expires_idx
+  on public.account_claims (expires_at);
+
+-- 授权的口径与 moods / progress_notes 一致：云函数以 anon 角色访问数据库。
+-- 这张表刻意不建 RLS 策略，理由见文件头「本文件不写 drop table」那段之外的补充：
+-- moods / progress_notes 现在也还没开 RLS（那是接登录收尾时要统一收的三条 🔴 之一），
+-- 届时这三张表要一起处理；本表因为只存哈希，即使漏网也不会直接泄漏数据。
+grant select, insert, update on public.account_claims to anon;
+grant select, insert, update on public.account_claims to authenticated;

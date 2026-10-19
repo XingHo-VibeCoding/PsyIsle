@@ -261,3 +261,27 @@ export const postMood = (body: {
 
 export const postNote = (body: { text: string }): Promise<NoteRow> =>
   postItem<NoteRow>('/api/notes', body)
+
+// ---- Day 28：匿名记录转正（契约 §4.10）----
+// 注册会发新的 uid，匿名名下写过的记录 owner_id 还指着旧 uid —— 注册完界面上就看不见了。
+// 这里只做两次请求：领一张一次性凭证、拿它换「把旧 uid 的行搬到现在这个账号」。
+// 「搬哪些行」由服务端根据凭证里的 owner_id 决定；前端只有一张随机串，说自己是谁不算数。
+export type ClaimTicket = { code: string; expiresAt: string }
+export type ClaimResult = { moods: number; notes: number; skipped: number }
+
+type ClaimEnvelope<T> = { ok: boolean; data?: T; error?: { code?: string; message: string } }
+
+async function postClaim<T>(payload: unknown): Promise<T> {
+  const body = await callApi<ClaimEnvelope<T>>('/api/claim', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify(payload),
+  })
+  if (!body.ok || !body.data) throw envelopeError(body.error?.code, body.error?.message)
+  return body.data
+}
+
+export const issueClaimTicket = (): Promise<ClaimTicket> => postClaim<ClaimTicket>({ action: 'issue' })
+
+export const redeemClaim = (code: string): Promise<ClaimResult> =>
+  postClaim<ClaimResult>({ action: 'redeem', code })

@@ -1,0 +1,13 @@
+{
+  "name": "claim",
+  "version": "0.1.0",
+  "private": true,
+  "description": "匿名记录转正：一次性凭证（HTTP 网关路由 /api/claim）",
+  "main": "index.js",
+  "dependencies": {
+    "@cloudbase/node-sdk": "^3.18.3"
+  },
+  "scripts": {
+    "test": "node --test"
+  }
+}

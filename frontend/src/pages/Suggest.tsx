@@ -4,8 +4,9 @@ import { usePageTitle } from '../lib/usePageTitle'
 import { readJson, writeJson } from '../lib/storage'
 
 // 提建议：一份大学生能看懂、不过于复杂的问卷。
-// 现在这一版没有后端收集通道（与全站「数据只存在你浏览器里」的口径一致），
+// 现在这一版没有收集通道：写一写那类记录已经上了云端，但建议这里刻意还没接，
 // 所以提交后存在本机，并给一个「复制全部」把建议发到任何方便的地方告诉我们。
+// 页面上说的「只存在这台设备上」就是字面意思，别在文案里改口。
 const STORAGE_KEY = 'xinxin_suggestions'
 
 type Suggestion = {
@@ -280,7 +281,7 @@ export default function Suggest() {
           <Link to="/" className="btn btn-quiet">先回首页逛逛</Link>
         </div>
         <p className="suggest-note">
-          现在这一版，建议只存在你这台设备上，我们暂时收不到。等接上账号同步，会改成能直接发给我们——在那之前，你可以点下面的「复制全部」，把建议发到任何你觉得方便的地方告诉我们。
+          现在这一版，建议只存在你这台设备上，我们暂时收不到。等以后有了收集通道，会改成能直接发给我们——在那之前，你可以点下面的「复制全部」，把建议发到任何你觉得方便的地方告诉我们。
         </p>
       </form>
 
