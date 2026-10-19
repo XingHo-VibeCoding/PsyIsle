@@ -3051,3 +3051,29 @@ a.door:active {
     animation: none;
   }
 }
+
+/* ---- 28. 翻更早的记录（Day 27）----
+   分页之后第一屏只有 50 条，所以这里的「更早的没有了」不是装饰文案，
+   而是「你写过的都还在」唯一能被看见的证据。它必须在到底时出现，
+   不能只在还有下一页时才吭声 —— 只吭声不结尾，等于告诉用户「后面还有，但我不给你」。
+   居中、不用强调色：这是列表的自然结尾，不是需要行动的地方。 */
+.feed-more {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-top: var(--sp-5);
+  padding-top: var(--sp-4);
+  border-top: 1px solid var(--line);
+}
+.feed-more .btn {
+  /* 按钮不该和正文一样宽：它是「继续往下看」的一个动作，不是主要行动 */
+  min-width: 11rem;
+}
+.feed-end {
+  margin: 0;
+  color: var(--ink-mute);
+  font-size: var(--fs-meta);
+  text-align: center;
+  line-height: 1.7;
+}

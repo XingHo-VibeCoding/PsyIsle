@@ -1,12 +1,12 @@
 import { useMemo, useState } from 'react'
 import { Trash2 } from 'lucide-react'
 import { usePageTitle } from '../lib/usePageTitle'
-import { useListData } from '../lib/useListData'
+import { usePagedList } from '../lib/useListData'
 import { ListLoading, ListError, ListEmpty } from '../components/ListStates'
 import { moodMeta, MOODS } from '../data/moods'
 import {
-  fetchMoods,
-  fetchNotes,
+  fetchMoodsPage,
+  fetchNotesPage,
   postMood,
   postNote,
   deleteMood,
@@ -320,12 +320,16 @@ function FeedRow({
 
 function Daily() {
   usePageTitle('写一写')
-  const moods = useListData(fetchMoods)
-  const notes = useListData(fetchNotes)
+  // 分页取数（Day 27）：一页 50 条，往下还能翻更早的。
+  // 改之前是一次性取最近 50 条且再也没有下一页 —— 记录多起来以后，更早的那些
+  // 明明在库里，页面上却永远看不到，用户会以为丢了。
+  const moods = usePagedList(fetchMoodsPage)
+  const notes = usePagedList(fetchNotesPage)
   const [filter, setFilter] = useState<FeedFilter>('all')
   const [del, setDel] = useState<DeleteState>({ phase: 'idle' })
 
   // 记完回到「全部」，否则用户刚记的那条可能被当前筛选挡住 —— 会以为没记上。
+  // 同时把分页重置回第一页：新记的那条在最前面，本来就该在第一页看到。
   function refreshAll() {
     moods.retry()
     notes.retry()
@@ -380,6 +384,24 @@ function Daily() {
   const bothLoading = moods.status === 'loading' && notes.status === 'loading'
   const bothError = moods.status === 'error' && notes.status === 'error'
   const partlyError = moods.status === 'error' || notes.status === 'error'
+
+  // 两个接口各自分页，合并成一条时间流展示。所以「还有更早的吗」要看当前筛选：
+  // 只看小进步时，心情那一路有没有下一页跟用户无关，按钮不该在。
+  const canLoadMore =
+    filter === 'all'
+      ? moods.hasMore || notes.hasMore
+      : filter === 'mood'
+        ? moods.hasMore
+        : notes.hasMore
+  const moreLoading = moods.loadingMore || notes.loadingMore
+  const moreError = moods.moreError || notes.moreError
+
+  // 一次把两边各自的下一页都推进去：合并后的时间流才不会出现
+  // 「心情停在 3 月、小进步已经翻到 1 月」这种断层。
+  function loadEarlier() {
+    if (moods.hasMore) moods.loadMore()
+    if (notes.hasMore) notes.loadMore()
+  }
 
   return (
     <div className="page page-write">
@@ -440,6 +462,32 @@ function Daily() {
               </ul>
             </section>
           ))}
+
+        {/* 翻更早的记录（Day 27）。为什么一定要有这个按钮，且一定要有「到底了」那句话：
+            分页之后第一屏只有 50 条，如果界面不说，用户会以为更早写的东西丢了。
+            「到底了」是「数据一直都在」唯一能被看见的证据，所以它必须出现，不能只在
+            还有下一页时才吭声。 */}
+        {shown.length > 0 && (
+          <div className="feed-more">
+            {canLoadMore ? (
+              <button
+                type="button"
+                className="btn btn-quiet"
+                onClick={loadEarlier}
+                disabled={moreLoading}
+              >
+                {moreLoading ? '正在取回…' : '看更早的记录'}
+              </button>
+            ) : (
+              <p className="feed-end">更早的没有了 —— 你写过的都在上面。</p>
+            )}
+            {moreError && (
+              <p className="write-hint" role="alert">
+                更早的那一页没取回来，再点一次试试。
+              </p>
+            )}
+          </div>
+        )}
 
         {/* 一半取回来了：先显示有的，别让一条链路挂了把整页清空 */}
         {partlyError && entries.length > 0 && (

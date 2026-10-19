@@ -17,18 +17,43 @@ const base = require('path').join(__dirname, '..', 'cloudfunctions') + require('
 // Day 27 加：数据层不再回退共享演示身份，取不到 uid 一律 UNAUTHORIZED。
 let identityOk = true
 
+// 分页开关：true 时假装库里有 51 条，用来验「多取一条判断有没有下一页」那段编排。
+// 平时各路都返回库错误，走不到分页分支。
+let pageMode = false
+
+// 51 条假数据：第一页应该是 50 条 + nextCursor 指向第 50 条。
+const fakeRows = Array.from({ length: 51 }, (_, i) => ({
+  id: 'm_' + String(2000 + i),
+  date: '2026-10-' + String(31 - Math.floor(i / 2)).padStart(2, '0'),
+  emoji: 'calm',
+  level: null,
+  note: null,
+  createdAt: '2026-10-01T00:00:00.000Z',
+}))
+
+// 游标编解码用真实实现，不在这里复制一份：这份脚本要验的是入口层的分页编排，
+// 连编解码都换成脚本自己写的就成了「脚本测脚本」。真实实现另有单测（db.test.js）。
+const realMoodsDb = require(base + 'moods' + require('path').sep + 'db.js')
+
 const fakeDb = {
   hasOwner: () => identityOk,
-  listMoods: async () => ({
-    error: { message: 'relation "public.moods" does not exist', code: '42P01' },
-  }),
+  listMoods: async () =>
+    pageMode
+      ? { items: fakeRows }
+      : { error: { message: 'relation "public.moods" does not exist', code: '42P01' } },
   upsertMood: async () => ({ error: { message: 'permission denied for table moods', code: '42501' } }),
   findMoodByDate: async () => ({ item: { id: 'm_1', date: '2026-10-15', emoji: 'calm', level: null, note: null, createdAt: 'x' } }),
   patchMood: async () => ({ error: { message: 'connection to server at "10.0.0.5" failed', code: '08006' } }),
   softDeleteMood: async () => ({ notFound: true }),
-  listNotes: async () => ({ error: { message: 'SSL connection has been closed unexpectedly', code: 'XX000' } }),
+  listNotes: async () =>
+    pageMode
+      ? { items: fakeRows.map((r) => ({ ...r, id: 'n_' + r.id, text: 'x' })) }
+      : { error: { message: 'SSL connection has been closed unexpectedly', code: 'XX000' } },
   insertNote: async () => ({ error: { message: 'new row violates check constraint "progress_notes_text_len_chk"', code: '23514' } }),
   findLatestNoteByDate: async () => ({ item: { id: 'n_1', date: '2026-10-15', text: 'x', createdAt: 'x' } }),
+  // 入口层的 handleGet 会调这两个：不给的话会 TypeError，被 catch 成 INTERNAL —— 用例就假过了
+  encodeCursor: realMoodsDb.encodeCursor,
+  decodeCursor: realMoodsDb.decodeCursor,
 }
 
 const origLoad = Module._load
@@ -61,6 +86,10 @@ const CASES = [
   ['输入错 · GET /api/moods?limit=-1（负数）', 'INVALID_INPUT', () => moods.main({ httpMethod: 'GET', path: '/api/moods', queryStringParameters: { limit: '-1' } })],
   ['输入错 · GET /api/moods?limit=abc（不是数字）', 'INVALID_INPUT', () => moods.main({ httpMethod: 'GET', path: '/api/moods', queryStringParameters: { limit: 'abc' } })],
   ['输入错 · GET /api/notes?limit=-1（负数）', 'INVALID_INPUT', () => notes.main({ httpMethod: 'GET', path: '/api/notes', queryStringParameters: { limit: '-1' } })],
+  // Day 27：游标是用户可见的输入（在 URL 里），拼坏了要明确报，不能悄悄退回第一页 ——
+  // 悄悄退回会让「看更早的记录」变成原地重读，用户以为记录只剩这些。
+  ['输入错 · GET /api/moods?cursor=乱码', 'INVALID_INPUT', () => moods.main({ httpMethod: 'GET', path: '/api/moods', queryStringParameters: { cursor: '这不是游标' } })],
+  ['输入错 · GET /api/notes?cursor=乱码', 'INVALID_INPUT', () => notes.main({ httpMethod: 'GET', path: '/api/notes', queryStringParameters: { cursor: '%%%' } })],
   ['服务端错 · GET /api/moods 数据库报错', 'INTERNAL', () => moods.main({ httpMethod: 'GET', path: '/api/moods' })],
   ['服务端错 · PATCH /api/moods 数据库报错', 'INTERNAL', () => moods.main({ httpMethod: 'PATCH', path: '/api/moods', queryStringParameters: { id: 'm_1' }, body: JSON.stringify({ emoji: 'calm' }) })],
   ['服务端错 · GET /api/notes 数据库报错', 'INTERNAL', () => notes.main({ httpMethod: 'GET', path: '/api/notes' })],
@@ -91,6 +120,43 @@ const CASES = [
     rows.push([code, msg, leaked.length ? '泄漏:' + leaked.join(',') : '无', res.error && res.error.requestId ? '有' : '—'])
   }
 
+  // ---- 分页编排自检（Day 27）----
+  // 这段防的是「接口带着 nextCursor 字段、却永远回 null」——那正是改之前的状态：
+  // 前端以为到底了，用户以为一个月前写的东西丢了。字段在、值恒为 null，是最难被发现的那种错。
+  pageMode = true
+  const page1 = await moods.main({
+    httpMethod: 'GET',
+    path: '/api/moods',
+    queryStringParameters: { limit: '50' },
+  })
+  if (!page1 || !page1.ok || !page1.data) {
+    problems.push('分页 · GET /api/moods 应成功，实际 ' + JSON.stringify(page1 && page1.error))
+  } else {
+    if (page1.data.items.length !== 50)
+      problems.push('分页 · 第一页应回 50 条，实际 ' + page1.data.items.length)
+    if (typeof page1.data.nextCursor !== 'string')
+      problems.push('分页 · 还有下一页时 nextCursor 应是字符串，实际 ' + JSON.stringify(page1.data.nextCursor))
+    if (page1.data.items.some((r) => 'created_at' in r))
+      problems.push('分页 · 响应里不该出现表字段名 created_at（应映射成 createdAt）')
+  }
+
+  // 反向：库里正好 50 条时，nextCursor 必须是 null。
+  // 不然前端会挂一个永远翻不完的「看更早的记录」，点一次转一次次次没有新内容。
+  fakeRows.length = 50
+  const page2 = await moods.main({
+    httpMethod: 'GET',
+    path: '/api/moods',
+    queryStringParameters: { limit: '50' },
+  })
+  if (!page2 || !page2.ok || !page2.data) {
+    problems.push('分页 · 正好 50 条时应成功，实际 ' + JSON.stringify(page2 && page2.error))
+  } else if (page2.data.nextCursor !== null) {
+    problems.push('分页 · 只有 50 条时 nextCursor 应为 null，实际 ' + JSON.stringify(page2.data.nextCursor))
+  }
+  pageMode = false
+  const paged = page1 && page1.ok && page1.data && page1.data.nextCursor ? '50 + 下一页' : '异常'
+  const pagedEnd = page2 && page2.ok && page2.data && page2.data.nextCursor === null ? '50 + 到底' : '异常'
+
   console.log = origLog
   console.error = origErr
   console.warn = origWarn
@@ -102,6 +168,8 @@ const CASES = [
         '     泄漏内部细节：' + rows[i][2] + ' ｜ requestId：' + rows[i][3] + '\n'
     )
   })
+
+  process.stdout.write('  分页编排：51 条 → ' + paged + '；50 条 → ' + pagedEnd + '\n')
 
   if (problems.length) {
     process.stdout.write('\n✗ 未通过 ' + problems.length + ' 项：\n')

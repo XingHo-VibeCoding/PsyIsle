@@ -108,22 +108,65 @@ async function ensureProfile(owner) {
   return { ok: false, error: r.error }
 }
 
+// ---- Day 27：游标分页（口径与 moods/db.js 完全相同，理由见那里）----
+// 游标不透明，内容是 { d: date, c: createdAt, i: id }，与排序键一一对应。
+function encodeCursor(item) {
+  if (!item) return null
+  const raw = JSON.stringify({ d: item.date, c: item.createdAt || null, i: item.id })
+  return Buffer.from(raw, 'utf8').toString('base64url')
+}
+
+function decodeCursor(s) {
+  if (!s) return null
+  try {
+    const o = JSON.parse(Buffer.from(String(s), 'base64url').toString('utf8'))
+    if (!o || typeof o.d !== 'string' || typeof o.i !== 'string') return null
+    let c = null
+    if (o.c) {
+      const t = new Date(o.c)
+      // 解析不出来就置 null，退化成只按日期翻页；带 `+00:00` 的串塞进 PostgREST 过滤条件
+      // 会被 URL 解码成空格，整条请求直接 400。
+      c = isNaN(t.getTime()) ? null : t.toISOString()
+    }
+    return { d: o.d, c, i: o.i }
+  } catch (_) {
+    return null
+  }
+}
+
+function cursorFilter(cursor) {
+  if (!cursor) return null
+  const d = cursor.d
+  const parts = ['date.lt.' + d]
+  if (cursor.c) {
+    parts.push('and(date.eq.' + d + ',created_at.lt.' + cursor.c + ')')
+    parts.push('and(date.eq.' + d + ',created_at.eq.' + cursor.c + ',id.lt.' + cursor.i + ')')
+  } else {
+    parts.push('and(date.eq.' + d + ',id.lt.' + cursor.i + ')')
+  }
+  return parts.join(',')
+}
+
 // 读列表：按 date 倒序，同日多行再用 created_at 倒序做次级排序键，避免同日 tie 顺序在多次调用间跳变
 // （Day 21 周验收登记的遗留：progress_notes 不限一天一条，只按 date 倒序时同日多行的先后不稳定）。
 // 只返回「当前登录用户」的行。成功回 { items }，失败回 { error }（原始库错误）。
-async function listNotes(limit, event) {
+// Day 27：加游标（第 2 个参数），没有游标就是第一页。
+async function listNotes(limit, cursor, event) {
   const owner = requireOwner(event)
-  const q = withPublicSchema(
-    app
-      .rdb()
-      .from('progress_notes')
-      .select('id,date,text,created_at')
-      .eq('owner_id', owner)
-      .order('date', { ascending: false })
-      .order('created_at', { ascending: false })
-      .limit(limit)
-  )
-  const { data, error } = await q
+  let q = app
+    .rdb()
+    .from('progress_notes')
+    .select('id,date,text,created_at')
+    .eq('owner_id', owner)
+    .order('date', { ascending: false })
+    .order('created_at', { ascending: false })
+    // 第三级：created_at 精度到微秒，同一天连写两条仍可能撞上同一时刻，
+    // 加 id 保证「排序」与「游标比较」用的是同一组绝对位置，不会两页之间来回读到同一行。
+    .order('id', { ascending: false })
+    .limit(limit)
+  const filter = cursorFilter(cursor)
+  if (filter) q = q.or(filter)
+  const { data, error } = await withPublicSchema(q)
   if (error) return { error }
   return { items: (data || []).map(rowToItem) }
 }
@@ -164,6 +207,9 @@ module.exports = {
   insertNote,
   findLatestNoteByDate,
   rowToItem,
+  encodeCursor,
+  decodeCursor,
+  cursorFilter,
   ownerFromInfo,
   requireOwner,
   hasOwner,

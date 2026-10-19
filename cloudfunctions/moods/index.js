@@ -206,17 +206,48 @@ function validateMoodFields(body, { requireEmoji }) {
   return { ok: true, value: { emoji, level, note } }
 }
 
+// 游标：客户端把上一页的 nextCursor 原样带回来，这里只负责取出字符串。
+// 解析交给数据层（只有它知道游标里装的是哪几个排序键）。
+// 与 limit 同一原则：传了却读不出来就报错，不用默认值悄悄糊过去。
+function pickCursor(event) {
+  if (!event) return null
+  const cands = [
+    event.cursor,
+    event.queryString && event.queryString.cursor,
+    event.queryStringParameters && event.queryStringParameters.cursor,
+  ]
+  for (const c of cands) {
+    if (c != null && c !== '') return String(c)
+  }
+  return null
+}
+
 async function handleGet(event = {}, reqId = '-') {
   try {
     const picked = pickLimit(event)
     if (!picked.ok) return fail('INVALID_INPUT', 'limit 必须是 1 到 200 之间的整数，或留空不传')
     const limit = Math.min(picked.value, 200)
-    const r = await db.listMoods(limit, event)
+
+    // 游标解析不出来就明确报，不要静悄悄退回第一页 —— 那样用户点「更早的记录」
+    // 会反复看到同一页，以为记录只剩这些了。这类「看着正常、其实在原地打转」的错最难被发现。
+    const rawCursor = pickCursor(event)
+    const cursor = db.decodeCursor(rawCursor)
+    if (rawCursor && !cursor) {
+      return fail('INVALID_INPUT', '翻页位置不正确，回到第一页重新打开就好')
+    }
+
+    // 多取一条用来判断「还有没有下一页」：只比「长度 === limit」的话，
+    // 最后一页正好填满时会多打一次空请求，用户也要多点一次才知道到底了。
+    const r = await db.listMoods(limit + 1, cursor, event)
 
     // 库出错 = 服务端错：细节进日志，用户只看到一句人话
     if (r.error) return serverError('moods:GET', r.error, reqId)
 
-    return { ok: true, data: { items: r.items, nextCursor: null } }
+    const hasMore = r.items.length > limit
+    const items = hasMore ? r.items.slice(0, limit) : r.items
+    const nextCursor = hasMore ? db.encodeCursor(items[items.length - 1]) : null
+
+    return { ok: true, data: { items, nextCursor } }
   } catch (e) {
     if (isAuthMissing(e)) return authMissing('moods:GET', reqId)
     return serverError('moods:GET', e, reqId)

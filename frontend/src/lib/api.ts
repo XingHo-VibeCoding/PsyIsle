@@ -140,9 +140,42 @@ async function getList<T>(path: string): Promise<T[]> {
   return body.data?.items ?? []
 }
 
-// 余力加练：limit 查询参数服务端已支持；这里默认不传＝取全部，传入即限制条数。
-export const fetchMoods = (): Promise<MoodRow[]> => getList<MoodRow>('/api/moods')
-export const fetchNotes = (): Promise<NoteRow[]> => getList<NoteRow>('/api/notes')
+// 全量读（服务端上限 200 条）：AI 整理页要在一屏里归纳主题，不适合分页。
+// 更早的记录走下面的 fetchMoodsPage / fetchNotesPage 一页页翻。
+export const fetchMoods = (): Promise<MoodRow[]> => getList<MoodRow>('/api/moods?limit=200')
+export const fetchNotes = (): Promise<NoteRow[]> => getList<NoteRow>('/api/notes?limit=200')
+
+// ---- Day 27：游标分页 ----
+// 契约 §3 写死的是游标分页：请求带 cursor，响应带 nextCursor（null = 到底了）。
+// 改之前 nextCursor 恒为 null、前端也从不传 cursor —— 于是「默认 50 条」就悄悄变成了
+// 「只能看到 50 条」。数据一直在库里，是页面拿不到，而这种「看起来正常」的缺失最伤人：
+// 用户会以为一个月前写的东西丢了。
+export type ApiPage<T> = { items: T[]; nextCursor: string | null }
+
+const PAGE_SIZE = 50
+
+async function getPage<T>(path: string): Promise<ApiPage<T>> {
+  const body = await callApi<{
+    ok: boolean
+    data?: { items: T[]; nextCursor?: string | null }
+    error?: { code?: string; message: string }
+  }>(path)
+  if (!body.ok) throw envelopeError(body.error?.code, body.error?.message)
+  return { items: body.data?.items ?? [], nextCursor: body.data?.nextCursor ?? null }
+}
+
+// cursor 是不透明串：前端只负责原样带回去，绝不解析、绝不拼装。
+// 里面装的是哪几个排序键属于后端，将来换排序方式，这里一行都不用改。
+function pagePath(base: string, cursor: string | null): string {
+  const q = `?limit=${PAGE_SIZE}`
+  return cursor ? `${base}${q}&cursor=${encodeURIComponent(cursor)}` : `${base}${q}`
+}
+
+export const fetchMoodsPage = (cursor: string | null = null): Promise<ApiPage<MoodRow>> =>
+  getPage<MoodRow>(pagePath('/api/moods', cursor))
+
+export const fetchNotesPage = (cursor: string | null = null): Promise<ApiPage<NoteRow>> =>
+  getPage<NoteRow>(pagePath('/api/notes', cursor))
 
 // ---- Day 20：首页与检查台新增的三个取数 ----
 

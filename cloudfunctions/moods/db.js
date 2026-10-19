@@ -144,22 +144,79 @@ async function ensureProfile(owner) {
   return { ok: false, error: r.error }
 }
 
+// ---- Day 27：游标分页（契约 §3 已经写死「用游标，不用 offset」）----
+// 为什么不能用 offset：记录只会不断新增，offset 是「跳过前 N 条」的相对位置。
+// 用户翻到第 2 页时如果新写了一条，整张表往后挪一位，第 2 页的第一条就是第 1 页的最后一条
+// （重复读）；同一天记两条也可能被跳过（漏读）。游标记的是「上一页最后一行在哪」这个绝对位置，
+// 插入多少条都不影响，删除一条也不会错位。
+//
+// 游标是不透明字符串：客户端只负责原样带回来，不许解析、不许拼装。
+// 内容是 { d: date, c: createdAt, i: id } —— 和排序键严格一一对应，
+// 少一级就会出现「同一天多行」时分页顺序抖动、反复读到同一行。
+function encodeCursor(item) {
+  if (!item) return null
+  const raw = JSON.stringify({ d: item.date, c: item.createdAt || null, i: item.id })
+  return Buffer.from(raw, 'utf8').toString('base64url')
+}
+
+// 解析失败一律返回 null（= 当成第一页），由入口层决定要不要报错。
+// 注意 created_at 在 PostgREST 的过滤串里必须不带 `+`（URL 里 + 会被解码成空格，
+// 条件就变成错的时间戳，PostgREST 会整条请求报 400）。统一转成 `...Z` 形式。
+function decodeCursor(s) {
+  if (!s) return null
+  try {
+    const o = JSON.parse(Buffer.from(String(s), 'base64url').toString('utf8'))
+    if (!o || typeof o.d !== 'string' || typeof o.i !== 'string') return null
+    let c = null
+    if (o.c) {
+      const t = new Date(o.c)
+      // 解析不出来就置 null：宁可退化成「只按 date 比较」（同日的几条会重读，前端按 id 去重兜住），
+      // 也不要把一个格式可疑的串塞进过滤条件里换成 400。
+      c = isNaN(t.getTime()) ? null : t.toISOString()
+    }
+    return { d: o.d, c, i: o.i }
+  } catch (_) {
+    return null
+  }
+}
+
+// 把游标翻译成 PostgREST 的过滤条件：与 order by date desc, created_at desc, id desc 完全一致。
+// 语义是「严格排在这三行之后」：date 更早，或同一天但 created_at 更早，或都相同但 id 更小。
+function cursorFilter(cursor) {
+  if (!cursor) return null
+  const d = cursor.d
+  const parts = ['date.lt.' + d]
+  if (cursor.c) {
+    parts.push('and(date.eq.' + d + ',created_at.lt.' + cursor.c + ')')
+    parts.push('and(date.eq.' + d + ',created_at.eq.' + cursor.c + ',id.lt.' + cursor.i + ')')
+  } else {
+    // 没有可靠的时间戳就只在日期上翻页；同日的行可能重读，由前端按 id 去重。
+    parts.push('and(date.eq.' + d + ',id.lt.' + cursor.i + ')')
+  }
+  return parts.join(',')
+}
+
 // 读列表：按 date 倒序，最多 limit 条。只返回「当前登录用户」且「没被软删」的行。
 // 成功回 { items }，失败回 { error }（原始库错误）。
 // Day 22：排除已软删（is_deleted = false）。Day 26：加 owner_id 过滤，每人只看自己的。
-async function listMoods(limit, event) {
+// Day 27：加游标（第 3 个参数），没有游标就是第一页。
+async function listMoods(limit, cursor, event) {
   const owner = requireOwner(event)
-  const q = withPublicSchema(
-    app
-      .rdb()
-      .from('moods')
-      .select('id,date,emoji,level,note,created_at')
-      .eq('owner_id', owner)
-      .eq('is_deleted', false)
-      .order('date', { ascending: false })
-      .limit(limit)
-  )
-  const { data, error } = await q
+  let q = app
+    .rdb()
+    .from('moods')
+    .select('id,date,emoji,level,note,created_at')
+    .eq('owner_id', owner)
+    .eq('is_deleted', false)
+    .order('date', { ascending: false })
+    // 次级排序键：moods 有 unique(owner_id, date) 保证一天一行，理论上 date 就唯一；
+    // 但列表和游标比较必须用同一组键，多写两级不花钱，能挡住「约束被改动」这种将来的意外。
+    .order('created_at', { ascending: false })
+    .order('id', { ascending: false })
+    .limit(limit)
+  const filter = cursorFilter(cursor)
+  if (filter) q = q.or(filter)
+  const { data, error } = await withPublicSchema(q)
   if (error) return { error }
   return { items: (data || []).map(rowToItem) }
 }
@@ -293,6 +350,9 @@ module.exports = {
   patchMood,
   softDeleteMood,
   rowToItem,
+  encodeCursor,
+  decodeCursor,
+  cursorFilter,
   ownerFromInfo,
   requireOwner,
   hasOwner,

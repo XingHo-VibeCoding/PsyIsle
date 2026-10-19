@@ -115,17 +115,44 @@ function todayInShanghai() {
   }).format(new Date())
 }
 
+// 游标：原样收回上一页的 nextCursor，解析交给数据层（口径同 moods/index.js）。
+function pickCursor(event) {
+  if (!event) return null
+  const cands = [
+    event.cursor,
+    event.queryString && event.queryString.cursor,
+    event.queryStringParameters && event.queryStringParameters.cursor,
+  ]
+  for (const c of cands) {
+    if (c != null && c !== '') return String(c)
+  }
+  return null
+}
+
 async function handleGet(event = {}, reqId = '-') {
   try {
     const picked = pickLimit(event)
     if (!picked.ok) return fail('INVALID_INPUT', 'limit 必须是 1 到 200 之间的整数，或留空不传')
     const limit = Math.min(picked.value, 200)
-    const r = await db.listNotes(limit, event)
+
+    // 解析不出来就明确报，不退化成第一页：否则「看更早的记录」会变成原地重读。
+    const rawCursor = pickCursor(event)
+    const cursor = db.decodeCursor(rawCursor)
+    if (rawCursor && !cursor) {
+      return fail('INVALID_INPUT', '翻页位置不正确，回到第一页重新打开就好')
+    }
+
+    // 多取一条判断有没有下一页（口径同 moods/index.js）
+    const r = await db.listNotes(limit + 1, cursor, event)
 
     // 库出错 = 服务端错：细节进日志，用户只看到一句人话
     if (r.error) return serverError('notes:GET', r.error, reqId)
 
-    return { ok: true, data: { items: r.items, nextCursor: null } }
+    const hasMore = r.items.length > limit
+    const items = hasMore ? r.items.slice(0, limit) : r.items
+    const nextCursor = hasMore ? db.encodeCursor(items[items.length - 1]) : null
+
+    return { ok: true, data: { items, nextCursor } }
   } catch (e) {
     if (isAuthMissing(e)) return authMissing('notes:GET', reqId)
     return serverError('notes:GET', e, reqId)
