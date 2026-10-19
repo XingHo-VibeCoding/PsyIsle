@@ -56,21 +56,72 @@
   - 失败路径（`/api/claim` 一律 500）：写入照常成功、表单照常回「记下了」、localStorage 不留残缺值。
 - **构建**：`tsc --noEmit` 通过；`npm run build` 通过；`npm run lint` 0 error。
 
-## 6. 上线步骤（**尚未执行**，需先确认）
+## 6. 上线步骤（✅ 2026-10-19 21:0x 已全部执行）
 
-1. 建表（控制台 SQL 或 `tcb db execute`）：跑 `db/schema.sql` §5 那一段。
-2. 部署云函数：
+1. **建表**：`db/schema.sql` §5 那段已通过 `tcb db` 在生产库执行（`create table if not exists`），
+   `account_claims` + `expires_idx` + anon/authenticated 授权均已就位。
+2. **部署云函数**：
    ```
    tcb fn deploy claim -e psyisle-prod-d9g109suw53257aed \
      --dir cloudfunctions/claim --force --deployMode zip --install-dependency true
    ```
-   （`--force` 必加：非 TTY 会卡在交互确认；一次只发一个函数。）
-3. 加网关路由：`/api/claim` → SCF `claim`，**开启身份认证**（与 `/api/moods` 同款）。
-4. 前端三步：`npm run build` → `node scripts/spa-fallback.mjs` → `tcb hosting deploy frontend/dist -e <env> --verify`。
+   ⚠️ 新建函数时 `--force` **不足以**跳过确认：CLI 还会问一句
+   「Function [claim] config not found in config file / Continue deployment with the default configuration? (y/N)」，
+   非 TTY 下会无限卡住（本次卡了 9 分钟才被发现）。管道喂答即可：
+   `printf 'y\n' | tcb fn deploy claim ...`。
+3. **加网关路由** `/api/claim` → SCF `claim`，开启身份认证。**这一步踩了两个坑**：
+   - `tcb routes add --data '{"domain":"*",...}'` 直接报 `invalid custom domain *`；
+     换 `service.tcloudbase.com` / `*-1506897881.tcloudbaseapp.com` 又报
+     `is a system internal domain, manual creation or modification is not supported`。
+   - 真相在 `DescribeHTTPServiceRoute` 里：现有三条 SCF 路由挂在 **`Domain: "*"`（DomainType HTTPSERVICE、
+     AccessType NONE）** 这一组，而这个组**不允许通过 API 新建**（只能 Modify）。
+   - 最终做法：对 `*` 组调 **`ModifyHTTPServiceRoute`**，把「现有三条 + `/api/claim`」一次性提交
+     （幂等，不会动其它路由）。⚠️ 但 Modify **只更新已存在的 path，新增会被静默忽略** ——
+     所以还要再对 HTTP 访问服务默认域名 `…-1506897881.ap-shanghai.app.tcloudbase.com`
+     调一次 `CreateHTTPServiceRoute` 把 `/api/claim` 建出来（该域名与 `service.tcloudbase.com`
+     指向同一套路由，前端 `VITE_API_BASE` 不用改）。
+   - 判据：`POST <老域名>/api/claim` 从 `404 INVALID_PATH` 变成 `401 MISSING_CREDENTIALS` = 路由已匹配。
+4. **前端三步**：`npm run build` → `node scripts/spa-fallback.mjs` → `tcb hosting deploy frontend/dist -e <env> --verify`
+   （16 个文件，发布后一致性校验通过）。
 
-## 7. 已知限制
+## 7. 线上验证（2026-10-19）
+
+- **发布前 15 项检查**：15 PASS / 0 FAIL / 0 SKIP；V13 确认线上 bundle 与本地逐字节一致
+  （`index-DQLeX0zd.js`，1200594 字节）。
+- **接口冒烟**（`/api/claim` 七项）：issue 返回 32 位十六进制 code、两次 code 不同、
+  同 uid 兑换回 `{moods:0,notes:0,skipped:0}`、重复兑换 `NOT_FOUND`、非法 action 与坏 code 都是中文 `INVALID_INPUT`。
+- **双身份端到端**（`.workbuddy/_claim_e2e.mjs`，**7/7 PASS**，用的是真实密码账号，不是模拟）：
+
+  | 断言 | 结果 |
+  |---|---|
+  | 匿名身份能写入心情与小进步 | mood=200 note=200 |
+  | 匿名身份能领凭证 | code 32 位 |
+  | 兑换前新账号看不到这些记录（隔离仍成立） | D1 行数=0 |
+  | 兑换成功且计数正确 | `{moods:1,notes:1,skipped:0}` |
+  | 新账号读到的是原文，不只是计数 | mood/note 文案一致 |
+  | 旧匿名身份读不到了（是搬家不是复制） | D1 行数=0 |
+  | 同一凭证不能兑第二次 | `NOT_FOUND` |
+
+## 8. ⚠️ 阻塞项：自助「注册」现在用不了（与 claim 无关，是环境配置）
+
+验证过程中发现的真问题：**邮箱自助注册整条路走不通**。
+
+- `auth.signUp({email,password})` 在 SDK 里并不是「建号」，而是「发验证码」；
+  当前环境发码这步就失败 —— `USER_NOT_FOUND`，底层 message 是 **`provider email not found`**。
+- 同源的 `signInWithOtp({email})` 报同一个错，说明缺的是**邮箱身份源/邮件发送通道**，不是代码。
+- 反证：用 `tcb user create` 预置账号后，`signInWithPassword({email,password})` **完全正常**
+  （`is_anonymous:false`，能拿到 uid 并正常读写）——所以「邮箱密码登录」是通的，
+  不通的只有「自助建号（需要验证码确认邮箱）」。
+
+**结论**：`/api/claim` 的搬家能力已上线可用，但「用户自己注册一个账号」这一步需要先去
+云开发控制台 → 身份认证 → 登录方式，开通**邮箱验证码/邮箱登录**并配置邮件发送通道。
+在开通之前，「注册」按钮对用户只会得到一句看不懂的错误。
+
+## 9. 已知限制
 
 - `progress_notes` 没有 `DELETE` 接口，转正后「小进步」仍然删不掉（与本次无关，登记在案）。
 - 三张业务表（`profiles` / `moods` / `progress_notes`）的 RLS 仍是「登录收尾时统一收」的状态；
   `account_claims` 因为只存哈希，即使漏网也不会直接泄漏记录。
 - 「提建议」的问卷仍是本地存储，「关于」页已经按这件事分开写了：云端的是什么、只在本机的是什么。
+- 转正只在**领券后 1 小时内**有效；超时就要重新写一条再领（产品上可接受，暂不做长有效期券）。
+
