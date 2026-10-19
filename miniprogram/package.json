@@ -1,0 +1,8 @@
+{
+  "name": "xinyu-miniprogram",
+  "version": "1.0.0",
+  "description": "心汐微信小程序（原生）",
+  "dependencies": {
+    "@cloudbase/js-sdk": "^3.10.2"
+  }
+}

@@ -1,0 +1,72 @@
+.page {
+  padding-bottom: 40rpx;
+}
+
+.title {
+  font-size: 34rpx;
+  font-weight: 600;
+  color: #3a3530;
+  margin-bottom: 12rpx;
+}
+
+.hint-sub {
+  font-size: 26rpx;
+  color: #9a928a;
+  margin-bottom: 24rpx;
+}
+
+.field {
+  margin-bottom: 24rpx;
+  position: relative;
+}
+
+.text {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 180rpx;
+  background: #f3ede4;
+  border-radius: 16rpx;
+  padding: 20rpx;
+  font-size: 28rpx;
+}
+
+.counter {
+  position: absolute;
+  right: 20rpx;
+  bottom: 16rpx;
+  font-size: 22rpx;
+  color: #bdb4aa;
+}
+
+.submit {
+  margin-top: 8rpx;
+  background: #6a9b78;
+  color: #ffffff;
+  border-radius: 16rpx;
+  font-size: 30rpx;
+}
+
+.submit[disabled] {
+  background: #b9c9bd;
+}
+
+.note-item {
+  padding: 20rpx 0;
+  border-bottom: 1rpx solid #f0ebe3;
+}
+
+.note-item:last-child {
+  border-bottom: none;
+}
+
+.note-text {
+  font-size: 28rpx;
+  color: #3a3530;
+  line-height: 1.5;
+}
+
+.note-date {
+  font-size: 24rpx;
+  color: #9a928a;
+  margin-top: 8rpx;
+}

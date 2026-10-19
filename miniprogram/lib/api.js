@@ -1,21 +1,32 @@
 // 小程序端请求封装（围绕 wx.request）。与前端 src/lib/api.ts 同构：
 // 统一走契约信封 { ok, data } / { ok:false, error:{code,message} }，调用方只判 ok。
 //
-// 鉴权（演示期）：当前后端按网关注入的身份或固定演示身份处理（cloudfunctions/moods/db.js 的 currentOwner）。
-// 小程序直连 HTTP API 即可写入/读取演示数据，无需 token。
-// 接登录后（下一步）：在这里给 wx.request 加 header
-//   Authorization: Bearer <token>
-// token 取得方式：wx.login() 拿 code → 调一个换发 token 的后端接口（或由 CloudBase 小程序 SDK 取得）。
+// 鉴权（Day 26 接登录）：网关注入的身份要求每个请求带 Bearer token。这里先确保匿名会话、
+// 取出 accessToken 加进请求头；拿不到（极端异常 / 尚未登录）就发不带 token 的请求，
+// 由网关 401 + 后端中文报错兜底。换登录方式只动 lib/cloudbase.js，本文件不动。
 const { API_BASE } = require('./config.js')
+const { ensureSession, getAccessToken } = require('./cloudbase.js')
 
 // 统一出口：业务成功返回 data，业务失败或网络失败抛出 Error（message 给人看，不抛原文）。
-function request(method, path, body) {
+async function request(method, path, body) {
+  // 先确保登录态并取 token（不阻塞失败——失败就发无 token 请求，让网关/后端报错兜底）。
+  let token = null
+  try {
+    await ensureSession()
+    token = await getAccessToken()
+  } catch (e) {
+    token = null
+  }
+
+  const header = { 'content-type': 'application/json' }
+  if (token) header['Authorization'] = 'Bearer ' + token
+
   return new Promise((resolve, reject) => {
     wx.request({
       url: API_BASE + path,
       method: method,
       data: body || {},
-      header: { 'content-type': 'application/json' },
+      header,
       success(res) {
         const d = res.data
         if (res.statusCode >= 200 && res.statusCode < 300 && d && d.ok === true) {
@@ -23,6 +34,9 @@ function request(method, path, body) {
         } else if (d && d.ok === false) {
           // 业务错误：直接把后端的中文 message 上屏（契约 §3，前端只判 ok、不解析 message 做逻辑）
           reject(new Error((d.error && d.error.message) || '出错了'))
+        } else if (res.statusCode === 401) {
+          // 网关鉴权失败：多半是 token 没拿到 / 过期。给人一句能懂的，不暴露 401 等技术词。
+          reject(new Error('需要先登录才能使用，请稍后重试。'))
         } else {
           reject(new Error('网络连接失败，请检查网络后重试。'))
         }
@@ -47,4 +61,18 @@ function createMood(payload) {
   return request('POST', '/api/moods', payload)
 }
 
-module.exports = { getMoods, createMood }
+// GET /api/notes?limit= —— 读回「小进步」列表（契约 §4.3 / §5.2 的 notes 段）
+// 单项：{ id, date, text, createdAt }。小进步不评分，没有 level/emoji。
+function getNotes(limit) {
+  const l = limit || 50
+  return request('GET', '/api/notes?limit=' + encodeURIComponent(l), null)
+}
+
+// POST /api/notes —— 记一件小事（契约 §4.5 / §5.2）
+// { text(必填 1–200 字), date(可选，省略=服务端按 +08:00 判今天) }
+// 一天可记多件（不像 mood 有「同日覆盖」），所以这里只追加、不破坏现有数据。
+function createNote(payload) {
+  return request('POST', '/api/notes', payload)
+}
+
+module.exports = { getMoods, createMood, getNotes, createNote }

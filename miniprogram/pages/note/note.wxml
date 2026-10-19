@@ -1,0 +1,32 @@
+<view class="page">
+  <view class="card">
+    <view class="title">今天，有一件小事发生了吗？</view>
+    <view class="hint-sub">不评分、不考核——小到「把袜子洗了」也算。</view>
+
+    <view class="field">
+      <textarea
+        class="text"
+        maxlength="200"
+        bindinput="onTextInput"
+        placeholder="写一句今天做得成的小事"
+        value="{{text}}"
+      ></textarea>
+      <view class="counter">{{text.length}}/200</view>
+    </view>
+
+    <button class="submit" bindtap="onSubmit" loading="{{submitting}}" disabled="{{submitting}}">记下来</button>
+    <view wx:if="{{errorMsg}}" class="error">{{errorMsg}}</view>
+  </view>
+
+  <view class="card">
+    <view class="title">这些天的小事</view>
+    <view wx:if="{{loading}}" class="hint">加载中…</view>
+    <view wx:elif="{{items.length === 0}}" class="hint">还没有记录，记下今天的第一件吧。</view>
+    <view wx:else>
+      <view wx:for="{{items}}" wx:key="id" class="note-item">
+        <view class="note-text">{{item.text}}</view>
+        <view class="note-date">{{item.date}}</view>
+      </view>
+    </view>
+  </view>
+</view>

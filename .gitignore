@@ -15,6 +15,9 @@ secrets.*
 credentials*.json
 *.keystore
 
+# 小程序本地私钥（publishable key，只本地存在，绝不入库；网页端同策略见 .env.production）
+miniprogram/lib/secret.js
+
 # ============ 绝不上传：依赖与构建产物 ============
 # 依赖目录（有 package.json 就能重装，体积巨大）
 node_modules/

@@ -81,8 +81,9 @@
 │   ├── verify-project/          # 发布前检查（用法见 README「发布前检查」）
 │   └── filter-audit/            # 找方向页筛选交互验收
 ├── miniprogram/      # 微信小程序（原生）：复用现有 CloudBase HTTP API 的第二个客户端
-│   ├── lib/                    # 配置 + 请求封装（wx.request，走契约信封）
-│   └── pages/mood/             # 日常管家 · 心情打卡（演示页：打通 GET/POST /api/moods）
+│   ├── lib/                    # 配置 + CloudBase 登录(@cloudbase/js-sdk) + 请求封装（带 Bearer token）
+│   ├── pages/mood/             # 日常管家 · 心情打卡（打通 GET/POST /api/moods）
+│   └── pages/note/             # 日常管家 · 小进步（打通 GET/POST /api/notes）
 ├── docs/
 │   ├── 开发原则.md              # 开发工作规则唯一源
 │   ├── 设计规范.md              # 视觉令牌与组件约束（数值唯一源在 index.css）

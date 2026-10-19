@@ -1,12 +1,23 @@
 {
   "pages": [
-    "pages/mood/mood"
+    "pages/mood/mood",
+    "pages/note/note"
   ],
   "window": {
     "navigationBarTitleText": "心汐 · 日常管家",
     "navigationBarBackgroundColor": "#faf7f2",
     "navigationBarTextStyle": "black",
     "backgroundColor": "#faf7f2"
+  },
+  "tabBar": {
+    "color": "#9a928a",
+    "selectedColor": "#2f5d3a",
+    "backgroundColor": "#faf7f2",
+    "borderStyle": "white",
+    "list": [
+      { "pagePath": "pages/mood/mood", "text": "心情" },
+      { "pagePath": "pages/note/note", "text": "小进步" }
+    ]
   },
   "style": "v2",
   "sitemapLocation": "sitemap.json"
