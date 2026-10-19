@@ -1,0 +1,118 @@
+.page {
+  padding-bottom: 40rpx;
+}
+
+.emoji-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16rpx;
+  margin-bottom: 24rpx;
+}
+
+.emoji {
+  padding: 16rpx 24rpx;
+  background: #f3ede4;
+  border-radius: 16rpx;
+  font-size: 28rpx;
+  color: #5a5249;
+}
+
+.emoji.active {
+  background: #cfe3d4;
+  color: #2f5d3a;
+  font-weight: 600;
+}
+
+.field {
+  margin-bottom: 24rpx;
+}
+
+.label {
+  display: block;
+  font-size: 26rpx;
+  color: #9a928a;
+  margin-bottom: 12rpx;
+}
+
+.level-row {
+  display: flex;
+  gap: 16rpx;
+}
+
+.level {
+  width: 72rpx;
+  height: 72rpx;
+  line-height: 72rpx;
+  text-align: center;
+  background: #f3ede4;
+  border-radius: 16rpx;
+  font-size: 30rpx;
+  color: #5a5249;
+}
+
+.level.active {
+  background: #cfe3d4;
+  color: #2f5d3a;
+  font-weight: 600;
+}
+
+.note {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 140rpx;
+  background: #f3ede4;
+  border-radius: 16rpx;
+  padding: 20rpx;
+  font-size: 28rpx;
+}
+
+.submit {
+  margin-top: 8rpx;
+  background: #6a9b78;
+  color: #ffffff;
+  border-radius: 16rpx;
+  font-size: 30rpx;
+}
+
+.submit[disabled] {
+  background: #b9c9bd;
+}
+
+.mood-item {
+  display: flex;
+  align-items: flex-start;
+  padding: 20rpx 0;
+  border-bottom: 1rpx solid #f0ebe3;
+}
+
+.mood-item:last-child {
+  border-bottom: none;
+}
+
+.mood-emoji {
+  font-size: 32rpx;
+  width: 96rpx;
+  flex: none;
+  color: #2f5d3a;
+}
+
+.mood-body {
+  flex: 1;
+}
+
+.mood-date {
+  font-size: 26rpx;
+  color: #9a928a;
+}
+
+.mood-note {
+  font-size: 28rpx;
+  color: #3a3530;
+  margin-top: 6rpx;
+}
+
+.mood-level {
+  font-size: 24rpx;
+  color: #9a928a;
+  margin-top: 6rpx;
+}

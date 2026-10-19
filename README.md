@@ -80,6 +80,9 @@
 ├── skills/            # 项目级 Skill（课程交付物：可复用的检查清单 + 用法）
 │   ├── verify-project/          # 发布前检查（用法见 README「发布前检查」）
 │   └── filter-audit/            # 找方向页筛选交互验收
+├── miniprogram/      # 微信小程序（原生）：复用现有 CloudBase HTTP API 的第二个客户端
+│   ├── lib/                    # 配置 + 请求封装（wx.request，走契约信封）
+│   └── pages/mood/             # 日常管家 · 心情打卡（演示页：打通 GET/POST /api/moods）
 ├── docs/
 │   ├── 开发原则.md              # 开发工作规则唯一源
 │   ├── 设计规范.md              # 视觉令牌与组件约束（数值唯一源在 index.css）

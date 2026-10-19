@@ -1,0 +1,13 @@
+{
+  "pages": [
+    "pages/mood/mood"
+  ],
+  "window": {
+    "navigationBarTitleText": "心汐 · 日常管家",
+    "navigationBarBackgroundColor": "#faf7f2",
+    "navigationBarTextStyle": "black",
+    "backgroundColor": "#faf7f2"
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json"
+}

@@ -1,0 +1,58 @@
+<view class="page">
+  <view class="card">
+    <view class="title">今天感觉怎么样？</view>
+
+    <view class="emoji-row">
+      <view
+        wx:for="{{emojiOptions}}"
+        wx:key="id"
+        class="emoji {{selectedEmoji === item.id ? 'active' : ''}}"
+        bindtap="onPickEmoji"
+        data-id="{{item.id}}"
+      >{{item.label}}</view>
+    </view>
+
+    <view class="field">
+      <text class="label">强度（1–5，可留空）</text>
+      <view class="level-row">
+        <view
+          wx:for="{{levels}}"
+          wx:key="*this"
+          class="level {{selectedLevel === item ? 'active' : ''}}"
+          bindtap="onPickLevel"
+          data-level="{{item}}"
+        >{{item}}</view>
+      </view>
+    </view>
+
+    <view class="field">
+      <text class="label">想说点什么（可留空，≤200 字）</text>
+      <textarea
+        class="note"
+        maxlength="200"
+        bindinput="onNoteInput"
+        placeholder="一句话就够"
+        value="{{note}}"
+      ></textarea>
+    </view>
+
+    <button class="submit" bindtap="onSubmit" loading="{{submitting}}" disabled="{{submitting}}">记下来</button>
+    <view wx:if="{{errorMsg}}" class="error">{{errorMsg}}</view>
+  </view>
+
+  <view class="card">
+    <view class="title">这些天的打卡</view>
+    <view wx:if="{{loading}}" class="hint">加载中…</view>
+    <view wx:elif="{{items.length === 0}}" class="hint">还没有记录，记下今天的第一条吧。</view>
+    <view wx:else>
+      <view wx:for="{{items}}" wx:key="id" class="mood-item">
+        <view class="mood-emoji">{{item.emojiLabel}}</view>
+        <view class="mood-body">
+          <view class="mood-date">{{item.date}}</view>
+          <view class="mood-note" wx:if="{{item.note}}">{{item.note}}</view>
+          <view class="mood-level" wx:if="{{item.level}}">强度 {{item.level}}/5</view>
+        </view>
+      </view>
+    </view>
+  </view>
+</view>

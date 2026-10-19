@@ -1,0 +1,32 @@
+/* 全局样式：暖米色底，卡片白，深色字。全站禁红色（项目安全红线）。 */
+page {
+  background: #faf7f2;
+  color: #3a3530;
+  font-family: -apple-system, "PingFang SC", "Helvetica Neue", Helvetica, sans-serif;
+}
+
+.card {
+  background: #ffffff;
+  border-radius: 20rpx;
+  padding: 32rpx;
+  margin: 24rpx;
+  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);
+}
+
+.title {
+  font-size: 32rpx;
+  font-weight: 600;
+  margin-bottom: 24rpx;
+}
+
+.hint {
+  font-size: 28rpx;
+  color: #9a928a;
+  padding: 16rpx 0;
+}
+
+.error {
+  margin-top: 16rpx;
+  font-size: 26rpx;
+  color: #b06a2c;
+}
