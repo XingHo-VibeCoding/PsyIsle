@@ -1,5 +1,5 @@
 import { Link, NavLink, Route, Routes, useLocation } from 'react-router-dom'
-import { useSyncExternalStore } from 'react'
+import { useEffect, useSyncExternalStore } from 'react'
 import Home from './pages/Home'
 import Help from './pages/Help'
 import Breathe from './pages/Breathe'
@@ -17,6 +17,7 @@ import Fireflies from './components/Fireflies'
 import AuthPanel from './components/AuthPanel'
 import AnonymousNotice from './components/AnonymousNotice'
 import { getAuthState, subscribe, type AuthState } from './lib/auth'
+import { setLastPage } from './lib/lastPage'
 
 // 导航布局（2026-10-19）：
 //  · 左上角放「访客（匿名）」小徽标，随登录态变化，不占太多空间；
@@ -89,6 +90,11 @@ function VisitorBadge() {
 // 颜色 + 字重随之变化，不必为「我在哪一页」再想一套视觉。
 function App() {
   const { pathname } = useLocation()
+  // 记住「刚才在哪一页」给提建议页猜模块用。刻意不记 /suggest 本身：
+  // 否则从写一写点进来，lastPage 会被覆盖成 /suggest，猜出来的就是「猜不到」。
+  useEffect(() => {
+    if (pathname !== '/suggest') setLastPage(pathname)
+  }, [pathname])
   return (
     <div className={pathname === '/' ? 'app app-immersive' : 'app'}>
       <nav className="nav" aria-label="全站导航">

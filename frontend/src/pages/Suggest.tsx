@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { usePageTitle } from '../lib/usePageTitle'
 import { readJson, writeJson } from '../lib/storage'
+import { getLastPage, moduleFromPath } from '../lib/lastPage'
 
 // 提建议：一份大学生能看懂、不过于复杂的问卷。
 // 现在这一版没有收集通道：写一写那类记录已经上了云端，但建议这里刻意还没接，
@@ -21,11 +22,14 @@ type Suggestion = {
   contact: string
 }
 
+// 模块名与导航上用户看到的那套称呼**必须是同一套**（听你说/找方向/写一写）。
+// 原来这里写的是内部叫法（倾诉树洞/指路灯/日常管家），用户在导航里从没见过这几个词，
+// 「帮我们对上号」反而先把人问住了。改名必须连导航一起改，别留两套名字。
 const MODULES = [
-  { value: 'treehole', label: '倾诉树洞' },
-  { value: 'guide', label: '指路灯' },
-  { value: 'daily', label: '日常管家' },
-  { value: 'none', label: '还没怎么用过' },
+  { value: 'treehole', label: '听你说' },
+  { value: 'guide', label: '找方向' },
+  { value: 'daily', label: '写一写' },
+  { value: 'none', label: '整个 App，说不清' },
 ]
 
 const RATING_WORDS = ['', '不太顺手', '一般般', '还行', '挺顺手', '很顺手']
@@ -80,7 +84,7 @@ function buildText(items: Suggestion[]) {
     .map((s, i) => {
       const m = MODULES.find((x) => x.value === s.module)?.label ?? '未选'
       let t = `建议 #${i + 1}（${formatDate(s.createdAt)}）\n`
-      t += `· 最常来的板块：${m}\n`
+      t += `· 说的是哪一块：${m}\n`
       t += `· 整体打分：${s.rating || '未打分'} / 5\n`
       t += `· 最想改 / 最想加：${s.main}\n`
       if (s.liked) t += `· 觉得懂我的瞬间：${s.liked}\n`
@@ -94,7 +98,11 @@ function buildText(items: Suggestion[]) {
 export default function Suggest() {
   usePageTitle('提建议')
 
-  const [moduleKey, setModuleKey] = useState('')
+  // 先按「刚才在哪一页」猜一个模块，用户不用回忆自己的使用习惯。
+  // 在 state 初始化时算，不放 effect：猜得到就预选上、提示语换成「先选了一个，不对就点别的」。
+  const initialGuess = moduleFromPath(getLastPage())
+  const [moduleKey, setModuleKey] = useState(initialGuess ?? '')
+  const [guessed, setGuessed] = useState(initialGuess !== null)
   const [rating, setRating] = useState(0)
   const [main, setMain] = useState('')
   const [liked, setLiked] = useState('')
@@ -135,6 +143,7 @@ export default function Suggest() {
     setCopied('idle')
     setError('')
     setModuleKey('')
+    setGuessed(false)
     setRating(0)
     setMain('')
     setLiked('')
@@ -209,11 +218,23 @@ export default function Suggest() {
 
       <form onSubmit={handleSubmit} noValidate>
         <section className="suggest-q">
-          <h2>1 · 你最常来的是哪一块？</h2>
-          <p className="hint">帮我们对上号，建议更好落到地方。</p>
+          <h2>1 · 这条建议说的是哪一块？</h2>
+          <p className="hint">
+            {guessed
+              ? '按你刚才在的页面先选了一个，不对就点别的；拿不准可以不选。'
+              : '选一个方便我们对上地方，拿不准也可以不选。'}
+          </p>
           <div className="suggest-seg">
             {MODULES.map((m) => (
-              <button type="button" key={m.value} aria-pressed={moduleKey === m.value} onClick={() => setModuleKey(m.value)}>
+              <button
+                type="button"
+                key={m.value}
+                aria-pressed={moduleKey === m.value}
+                onClick={() => {
+                  setModuleKey(m.value)
+                  setGuessed(false)
+                }}
+              >
                 {m.label}
               </button>
             ))}
