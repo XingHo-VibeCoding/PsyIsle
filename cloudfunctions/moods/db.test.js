@@ -133,3 +133,20 @@ test('坏游标一律当第一页（返回 null），不把垃圾串塞进查询
 test('没有游标就不加过滤条件（第一页）', () => {
   assert.equal(cursorFilter(null), null)
 })
+
+test('游标形状白名单：d/i 会被拼进 PostgREST or(...)，畸形字符一律拒绝', () => {
+  const enc = (o) => Buffer.from(JSON.stringify(o)).toString('base64url')
+  // 正常游标必须仍然可用
+  assert.ok(decodeCursor(enc({ d: '2026-10-19', c: '2026-10-19T01:02:03.000Z', i: 'm_abc123' })))
+  assert.ok(decodeCursor(enc({ d: '2026-10-19', i: 'n_abc-123_XYZ' })))
+  // 右括号能改变 or(...) 的分组结构；逗号能额外塞进一个条件；日期格式歪掉会变 400
+  const bad = [
+    enc({ d: '2026-10-19', i: 'zz),owner_id.neq.x' }),
+    enc({ d: '2026-10-19', i: 'a,b' }),
+    enc({ d: '2026-10-19', i: 'a b' }),
+    enc({ d: '2020-01-01),x', i: 'm_abc' }),
+    enc({ d: '2026-1-1', i: 'm_abc' }),
+    enc({ d: '2026-10-19', i: '' }),
+  ]
+  for (const b of bad) assert.equal(decodeCursor(b), null, '应拒绝: ' + b)
+})

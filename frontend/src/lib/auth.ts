@@ -51,7 +51,7 @@ export async function ensureSession(): Promise<void> {
       })
       return
     }
-  } catch (_) {
+  } catch {
     /* 忽略，走匿名 */
   }
   try {
@@ -59,7 +59,7 @@ export async function ensureSession(): Promise<void> {
     const { data } = await auth.getSession()
     const u = data?.user
     set({ ready: true, uid: u?.id ?? null, mode: 'anonymous', email: null })
-  } catch (_) {
+  } catch {
     set({ ready: true, uid: null, mode: 'none', email: null })
   }
 }

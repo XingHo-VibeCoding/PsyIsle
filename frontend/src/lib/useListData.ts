@@ -118,6 +118,10 @@ export function usePagedList<T extends { id: string }>(
     const mine = ++seq.current
     setStatus('loading')
     setMoreError(false)
+    // 新一轮首屏作废上一轮的「加载更多」：那次请求的 then 会因 seq 变化直接 return
+    // （见下面 loadMore），若不在这里复位，loadingMore 永远停在 true，
+    // 加载更多按钮会永久禁用。场景：点「更早」后请求还在飞，此时点「重试」。
+    setLoadingMore(false)
     load(null).then(
       (page) => {
         if (mine !== seq.current) return

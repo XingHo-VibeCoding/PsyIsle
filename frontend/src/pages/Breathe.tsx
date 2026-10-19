@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Home, Pause, Play, RotateCcw } from 'lucide-react'
 
@@ -34,32 +34,49 @@ function phaseAt(elapsed: number, reducedMotion: boolean) {
 
 function Breathe() {
   const [status, setStatus] = useState<'idle' | 'running' | 'paused' | 'done'>('idle')
-  const [, setTick] = useState(0)
-  const elapsedRef = useRef(0)
+  // elapsed 是 state 而不是「ref + 每帧 setTick 强制刷新」：
+  // 它直接决定渲染输出（相位名 / 缩放 / 第几个循环），本来就是渲染数据。
+  // 用 ref 在 render 期间读 .current 会让 React Compiler 跳过整个组件，
+  // 且要多维护一个只用来触发重渲染的计数 state。
+  const [elapsed, setElapsed] = useState(0)
+  const elapsedRef = useRef(0) // 与 elapsed 同步，供 interval 内部判断终点（避免闭包陈旧值）
   const originRef = useRef(0)
   const timerRef = useRef<number | null>(null)
-  const reducedMotion = useRef(prefersReducedMotion())
+  // 用 state 而不是 ref：这个值直接决定渲染输出（缩放是否走动画、副标题是否多一句）。
+  // 传函数引用给 useState = 惰性初始化，只在首帧算一次 matchMedia。
+  const [reducedMotion, setReducedMotion] = useState(prefersReducedMotion)
 
-  useEffect(() => () => stopTimer(), [])
-
-  const stopTimer = () => {
+  const stopTimer = useCallback(() => {
     if (timerRef.current !== null) {
       window.clearInterval(timerRef.current)
       timerRef.current = null
     }
-  }
+  }, [])
+
+  useEffect(() => () => stopTimer(), [stopTimer])
+
+  // 跟随系统设置实时变化
+  useEffect(() => {
+    const mq = window.matchMedia('(prefers-reduced-motion: reduce)')
+    const onChange = () => setReducedMotion(mq.matches)
+    mq.addEventListener('change', onChange)
+    return () => mq.removeEventListener('change', onChange)
+  }, [])
 
   const start = () => {
     originRef.current = performance.now() - elapsedRef.current
     stopTimer()
     timerRef.current = window.setInterval(() => {
-      elapsedRef.current = performance.now() - originRef.current
-      if (elapsedRef.current >= CYCLE * CYCLES) {
+      const e = performance.now() - originRef.current
+      elapsedRef.current = e
+      if (e >= CYCLE * CYCLES) {
         elapsedRef.current = CYCLE * CYCLES
         stopTimer()
+        setElapsed(CYCLE * CYCLES)
         setStatus('done')
+        return
       }
-      setTick((n) => n + 1)
+      setElapsed(e)
     }, TICK)
     setStatus('running')
   }
@@ -72,18 +89,19 @@ function Breathe() {
   const reset = () => {
     stopTimer()
     elapsedRef.current = 0
-    setTick((n) => n + 1)
+    setElapsed(0)
     setStatus('idle')
   }
 
   const total = CYCLE * CYCLES
-  const phase = phaseAt(Math.min(elapsedRef.current, total), reducedMotion.current)
-  const cycleNo = Math.min(Math.floor(elapsedRef.current / CYCLE) + 1, CYCLES)
+  const shown = Math.min(elapsed, total)
+  const phase = phaseAt(shown, reducedMotion)
+  const cycleNo = Math.min(Math.floor(shown / CYCLE) + 1, CYCLES)
 
   return (
     <div className="breathe">
       <h1>呼吸练习</h1>
-      <p className="breathe-sub">吸 4 秒 · 屏 7 秒 · 呼 8 秒，共 3 个循环。{reducedMotion.current && '已按系统设置关闭动画，跟着文字节奏就好。'}</p>
+      <p className="breathe-sub">吸 4 秒 · 屏 7 秒 · 呼 8 秒，共 3 个循环。{reducedMotion && '已按系统设置关闭动画，跟着文字节奏就好。'}</p>
 
       <div className="breathe-stage">
         <div

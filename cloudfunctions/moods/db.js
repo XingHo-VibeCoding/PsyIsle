@@ -162,11 +162,19 @@ function encodeCursor(item) {
 // 解析失败一律返回 null（= 当成第一页），由入口层决定要不要报错。
 // 注意 created_at 在 PostgREST 的过滤串里必须不带 `+`（URL 里 + 会被解码成空格，
 // 条件就变成错的时间戳，PostgREST 会整条请求报 400）。统一转成 `...Z` 形式。
+//
+// 形状白名单不是洁癖：d / i 会被拼进 PostgREST 的 or(...) 表达式字符串里，
+// 若放任任意字符，`i` 里塞一个右括号就能改变分组结构（owner_id 仍是独立参数、
+// 跨用户读不到，但能造畸形查询与服务端 400）。格式不符一律当第一页 —— 安全降级。
+const CURSOR_DATE_RE = /^\d{4}-\d{2}-\d{2}$/
+const CURSOR_ID_RE = /^[A-Za-z0-9_-]{1,64}$/
+
 function decodeCursor(s) {
   if (!s) return null
   try {
     const o = JSON.parse(Buffer.from(String(s), 'base64url').toString('utf8'))
     if (!o || typeof o.d !== 'string' || typeof o.i !== 'string') return null
+    if (!CURSOR_DATE_RE.test(o.d) || !CURSOR_ID_RE.test(o.i)) return null
     let c = null
     if (o.c) {
       const t = new Date(o.c)

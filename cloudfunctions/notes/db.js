@@ -116,11 +116,17 @@ function encodeCursor(item) {
   return Buffer.from(raw, 'utf8').toString('base64url')
 }
 
+// 形状白名单：d / i 会被拼进 PostgREST 的 or(...) 字符串，格式不符一律当第一页
+// （安全降级，理由见 moods/db.js 同一处注释）。
+const CURSOR_DATE_RE = /^\d{4}-\d{2}-\d{2}$/
+const CURSOR_ID_RE = /^[A-Za-z0-9_-]{1,64}$/
+
 function decodeCursor(s) {
   if (!s) return null
   try {
     const o = JSON.parse(Buffer.from(String(s), 'base64url').toString('utf8'))
     if (!o || typeof o.d !== 'string' || typeof o.i !== 'string') return null
+    if (!CURSOR_DATE_RE.test(o.d) || !CURSOR_ID_RE.test(o.i)) return null
     let c = null
     if (o.c) {
       const t = new Date(o.c)
