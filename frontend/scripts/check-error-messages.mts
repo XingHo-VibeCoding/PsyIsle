@@ -9,7 +9,11 @@
 
 import {
   AppError,
+  AUTH_FORM,
   ERROR_MESSAGES,
+  authEmailHint,
+  authErrorMessage,
+  authPasswordHint,
   kindOfCode,
   kindOfStatus,
   messageForStatus,
@@ -87,6 +91,32 @@ if (kindOfStatus(403) !== 'auth') problems.push('kindOfStatus(403) 期望 auth')
 if (kindOfCode('UNAUTHORIZED') !== 'auth') problems.push("kindOfCode('UNAUTHORIZED') 期望 auth")
 check('身份缺失 · 网关 401', messageForStatus(401), ERROR_MESSAGES.auth)
 check('身份缺失 · 信封 UNAUTHORIZED', new AppError(kindOfCode('UNAUTHORIZED')).message, ERROR_MESSAGES.auth)
+
+// Day 27 第三方真人试用：登录/注册路径不许把 SDK 英文原文漏上屏。
+// 现场那句原样钉在这里——改坏了 errors.ts 就会红。
+const REAL_BUG = "auth.signUp(params): missing required param 'email/phone'"
+check('登录注册 · 空字段被 SDK 拒（试用现场原句）', authErrorMessage(REAL_BUG))
+check('登录注册 · 环境没开邮箱登录（provider email not found）', authErrorMessage('provider email not found'))
+check('登录注册 · 账号或密码对不上（User not found）', authErrorMessage('User not found'))
+check('登录注册 · 邮箱已注册（already registered）', authErrorMessage('email already registered'))
+check('登录注册 · 验证码不对', authErrorMessage('invalid verification code'))
+check('登录注册 · 验证码过期', authErrorMessage('code expired'))
+check('登录注册 · 试得太勤', authErrorMessage('too many requests, rate limit'))
+check('登录注册 · 认不出的英文也必须是中文', authErrorMessage('some weird sdk error xyz'))
+check('登录注册 · 断网（Failed to fetch）', authErrorMessage('Failed to fetch'), ERROR_MESSAGES.network)
+
+// 映射结果里不许出现 SDK 的参数名 / 动作名——那正是用户看不懂的东西
+const mapped = authErrorMessage(REAL_BUG)
+for (const leak of ['signUp', 'param', 'email/phone', 'auth.']) {
+  if (mapped.includes(leak)) problems.push('登录注册 · 映射结果泄漏了「' + leak + '」：' + mapped)
+}
+
+// 表单先拦：空值 / 格式 / 位数，都不该走到 SDK（null = 无提示，用哨兵值让回归现形）
+check('登录注册 · 表单：邮箱为空', authEmailHint('') ?? '（无提示，不该有）', AUTH_FORM.emailEmpty)
+check('登录注册 · 表单：邮箱格式不对', authEmailHint('abc') ?? '（无提示，不该有）', AUTH_FORM.emailBad)
+check('登录注册 · 表单：邮箱合法时无提示', authEmailHint('me@example.com') ?? '（无提示，不该有）', '（无提示，不该有）')
+check('登录注册 · 表单：密码太短', authPasswordHint('123') ?? '（无提示，不该有）', AUTH_FORM.passwordShort)
+check('登录注册 · 表单：密码够长时无提示', authPasswordHint('123456') ?? '（无提示，不该有）', '（无提示，不该有）')
 
 console.log('\n前端错误提示自检（' + rows.length + ' 例 + 7 条类别边界）')
 rows.forEach((r) => console.log(r))

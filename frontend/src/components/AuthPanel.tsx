@@ -14,6 +14,7 @@ import {
   type AuthState,
 } from '../lib/auth'
 import { subscribeAuthPanel } from '../lib/authPanel'
+import { authEmailHint, authPasswordHint } from '../lib/errors'
 import { claimPending, ensureClaimTicket, resumePendingClaim, type PendingClaim } from '../lib/claim'
 
 function useAuth(): AuthState {
@@ -117,6 +118,14 @@ export default function AuthPanel() {
   }
 
   async function login() {
+    // Day 27 真人试用：空字段直接点登录/注册，SDK 会回一句没人看得懂的英文
+    // （auth.signUp(params): missing required param 'email/phone'）。
+    // 先拦一道——也省掉一次注定失败的领券写入（券是一次性的，烧了就没）。
+    const bad = authEmailHint(email) ?? authPasswordHint(password)
+    if (bad) {
+      setMsg(bad)
+      return
+    }
     setBusy(true)
     setMsg(null)
     // 领券要在「还是匿名」的时候做：换完身份就领不到了。领不到也照常登录（见 lib/claim.ts）
@@ -130,6 +139,11 @@ export default function AuthPanel() {
     await settle(ticket)
   }
   async function signup() {
+    const bad = authEmailHint(email) ?? authPasswordHint(password)
+    if (bad) {
+      setMsg(bad)
+      return
+    }
     setBusy(true)
     setMsg(null)
     const ticket = await ensureClaimTicket()
@@ -142,6 +156,11 @@ export default function AuthPanel() {
     await settle(ticket)
   }
   async function sendOtp() {
+    const bad = authEmailHint(email)
+    if (bad) {
+      setMsg(bad)
+      return
+    }
     setBusy(true)
     setMsg(null)
     // 验证码登录同样会换身份，所以券要在这时候领（此时还是匿名）

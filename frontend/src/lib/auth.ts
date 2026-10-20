@@ -3,6 +3,7 @@
 // 数据隔离由云函数侧 app.auth().getUserInfo().uid 落地（见 cloudfunctions/*/db.js），
 // 前端只负责拿到并持有登录态，不自己拼装 uid。
 import { auth } from './cloudbase'
+import { authErrorMessage } from './errors'
 
 export type AuthMode = 'none' | 'anonymous' | 'password'
 
@@ -69,7 +70,7 @@ export async function signInWithPassword(
   password: string
 ): Promise<string | null> {
   const { data, error } = await auth.signInWithPassword({ email, password })
-  if (error) return error.message || '登录失败'
+  if (error) return authErrorMessage(error.message || '登录失败')
   const u = data?.user
   set({ uid: u?.id ?? null, mode: 'password', email: u?.email ?? null })
   return null
@@ -81,7 +82,7 @@ export async function signUpWithEmail(
   password: string
 ): Promise<string | null> {
   const { data, error } = await auth.signUp({ email, password } as any)
-  if (error) return error.message || '注册失败'
+  if (error) return authErrorMessage(error.message || '注册失败')
   const u = data?.user
   set({ uid: u?.id ?? null, mode: 'password', email: u?.email ?? null })
   return null
@@ -92,12 +93,12 @@ export async function signInWithEmailOtp(
   email: string
 ): Promise<VerifyFn | string> {
   const { data, error } = await auth.signInWithOtp({ email })
-  if (error) return error.message || '发送验证码失败'
+  if (error) return authErrorMessage(error.message || '发送验证码失败')
   if (!data || typeof (data as any).verifyOtp !== 'function')
     return '未收到验证入口（请确认控制台已开启邮箱登录）'
   return async (code: string): Promise<string | null> => {
     const r = await (data as any).verifyOtp({ token: code })
-    if (r.error) return r.error.message || '验证失败'
+    if (r.error) return authErrorMessage(r.error.message || '验证失败')
     const u = r.data?.user
     set({ uid: u?.id ?? null, mode: 'password', email: u?.email ?? null })
     return null

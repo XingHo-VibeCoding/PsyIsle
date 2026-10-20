@@ -83,3 +83,64 @@ export function toUserMessage(e: unknown): string {
   }
   return ERROR_MESSAGES.unknown
 }
+
+// ---- 登录 / 注册路径（Day 27 第三方真人试用修复）----
+//
+// 试用现场（视频 0:13–0:37）：用户想注册，邮箱密码都没填就点了「注册新账号」，
+// 屏幕上出现 `auth.signUp(params): missing required param 'email/phone'` —— 一句裸英文。
+// 他看不懂，也没在文字反馈里提，直接关掉不注册了。同类问题在「邮箱验证码」标签页同样存在。
+// 这正是契约 §3 禁止的：英文原文、参数名、堆栈不上屏，细节只进日志。
+//
+// 两层防线：
+//   1) 表单先拦（authEmailHint / authPasswordHint）——空值、格式、位数不对，根本不给 SDK 报的机会；
+//   2) SDK 真报了错，也经 authErrorMessage 翻成中文——原文只 console.debug 进日志。
+
+// 表单校验文案（与后端提示同源思路：说「差什么 + 怎么办」）
+export const AUTH_FORM = {
+  emailEmpty: '先把邮箱填上。',
+  emailBad: '这个邮箱格式看起来不对，检查一下再试。',
+  passwordShort: '密码至少 6 位。',
+}
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+export function authEmailHint(email: string): string | null {
+  const s = email.trim()
+  if (!s) return AUTH_FORM.emailEmpty
+  if (!EMAIL_RE.test(s)) return AUTH_FORM.emailBad
+  return null
+}
+
+export function authPasswordHint(password: string): string | null {
+  return password.length >= 6 ? null : AUTH_FORM.passwordShort
+}
+
+// SDK 原始错误 → 用户看得懂的中文。认不出的统一一句兜底，绝不原文上屏。
+export function authErrorMessage(raw: string): string {
+  console.debug('[auth] 原始错误：', raw)
+  const s = raw.toLowerCase()
+  // 顺序有讲究：'User not found' 里也有 not found，必须排在「环境没开」之前
+  if (s.includes('missing required param') || s.includes('email/phone')) {
+    return '邮箱和密码还没填，先填好再试。'
+  }
+  if (s.includes('invalid email') || s.includes('email format') || s.includes('not a valid email')) {
+    return AUTH_FORM.emailBad
+  }
+  if (isNetworkError(new Error(raw))) return ERROR_MESSAGES.network
+  if (s.includes('too many') || s.includes('rate limit') || s.includes('frequency') || s.includes('throttl')) {
+    return '试得太勤了，歇一会儿再试。'
+  }
+  if (s.includes('password') || s.includes('user not found') || s.includes('credentials') || s.includes('invalid login')) {
+    return '邮箱或密码不对，再检查一下。'
+  }
+  if (s.includes('already') || s.includes('registered') || s.includes('exists')) {
+    return '这个邮箱已经注册过了，直接登录试试。'
+  }
+  if (s.includes('expired')) return '验证码过期了，再获取一次。'
+  if (s.includes('code') || s.includes('otp') || s.includes('verif')) return '验证码不对，再检查一下。'
+  // 本环境现状：邮箱身份源没配（provider email not found），注册/验证码都走不到
+  if (s.includes('provider email not found') || s.includes('not enabled') || s.includes('unsupported') || s.includes('login method')) {
+    return '邮箱登录还没开通。先匿名用着，想换设备看记录时再试。'
+  }
+  return '登录没成功，请稍后再试。'
+}
