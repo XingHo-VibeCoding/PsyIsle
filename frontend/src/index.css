@@ -986,6 +986,18 @@ a.door:focus-visible .door-icon {
   background: var(--forest-50) !important;
   border-color: var(--forest-300) !important;
 }
+/* 沉浸模式（首页深色插画）上的登录入口：AuthPanel 的内联样式把字色和描边写死了
+   深绿 + 浅灰，压在深色画面上等于看不见（2026-10-20 试用原话：「登录颜色不明显」）。
+   这里换成浅字 + 半透明浅描边；内联样式优先级高，必须 !important。
+   选择器比上面那条多一个 .app-immersive，同权重下也压得住。 */
+.app-immersive .nav .nav-auth {
+  border-color: rgba(255, 255, 255, 0.55) !important;
+  color: var(--on-dark) !important;
+}
+.app-immersive .nav .nav-auth:hover {
+  background: rgba(255, 255, 255, 0.16) !important;
+  border-color: var(--on-dark) !important;
+}
 
 /* 五个入口全部按 --tap 撑开：logo 40×36、求助 30×44 曾都点不中 */
 .logo {
@@ -2188,8 +2200,26 @@ a.door:active {
   .nav a.nav-help {
     padding-left: var(--sp-3);
   }
+  /* 手机上导航是两行（8 个入口 + 徽标 + 登录，390px 起就换行，见上面 .nav 的说明），
+     高约 120px。原来的 sp-12（48px）是「一行导航」时代的遗留，问候语正好滑到
+     第二行「登录」底下去（2026-10-20 试用原话：「登录挡在字的上面」）。
+     现在按两行导航让位：44×2 + 行距 8 + 导航内边距 24 + 一行呼吸 16 ≈ 136px。 */
   .scene-greet {
-    padding-top: var(--sp-12); /* 手机上导航一行放得下，顶部纱留够即可 */
+    padding-top: calc(var(--tap) * 2 + var(--sp-8) + var(--sp-3) * 2 + var(--sp-4));
+  }
+  /* 插画只铺上方约七成、底部渐隐（2026-10-20 试用原话：「背景人物被遮挡在按键下面」）：
+     整屏 cover 时少女坐在画面下 1/3，正被底部三张竖排门卡盖住。收到 72% 高以后，
+     她落在问候语与门卡之间的空地上；渐隐 + .scene 的深林底色接住下缘，没有拼缝。
+     object-fit 仍是 cover：左右裁、纵向按新框重新取景，人还在画面中心。 */
+  .scene-bg {
+    inset: 0 0 auto;
+    height: 72%;
+    -webkit-mask-image: linear-gradient(180deg, #000 0, #000 86%, transparent 100%);
+    mask-image: linear-gradient(180deg, #000 0, #000 86%, transparent 100%);
+  }
+  /* 插画渐隐之后的底色：取夜森林最深那档，和画面底边接近 */
+  .scene {
+    background: var(--forest-900);
   }
   /* 门卡单列：三列挤在手机上一张只有 110px 宽，标题和说明全被压成四五行，
      看着像三块路牌而不是三扇门。单列 + 图标在左、文字在右，读起来是一张清单。 */
@@ -2406,31 +2436,52 @@ a.door:active {
   height: 100%;
   object-fit: cover;
 }
-/* 无图 / 图挂了时的占位：同族渐变 + 类型字，视觉上仍是一张「封面」 */
+/* 无图 / 图挂了时的占位（2026-10-20 重做）：明说的排版卡，不是假封面。
+   试用原话「只有绿色的颜色，没有书影音图片」——渐变 + 类型字看起来像一张裂开的图。
+   现在排书名（主）+ 类型（次），一类没有封面图就说没有，不装。 */
 .lib-cover-ph {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: var(--sp-2);
   width: 100%;
   height: 100%;
-  color: var(--forest-700);
-  font-size: var(--fs-h3);
-  font-weight: var(--fw-bold);
-  background: linear-gradient(160deg, var(--forest-100), var(--forest-500));
+  padding: var(--sp-3);
+  text-align: center;
+  background: var(--forest-50);
+  border-bottom: 1px solid var(--line);
 }
+.lib-cover-title {
+  color: var(--forest-700);
+  font-size: var(--fs-body);
+  font-weight: var(--fw-bold);
+  line-height: var(--lh-title);
+  /* 书名可能很长：最多三行，再多也是占位不是正文 */
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.lib-cover-kind {
+  color: var(--ink-mute);
+  font-size: var(--fs-meta);
+}
+/* 不同种类给占位一点区分度：只换底色，不假装是海报 */
 .lib-cover-movie .lib-cover-ph {
-  background: linear-gradient(160deg, var(--forest-700), var(--forest-500));
-  color: var(--forest-50);
+  background: var(--forest-100);
 }
 .lib-cover-music .lib-cover-ph {
-  background: linear-gradient(140deg, var(--forest-500), var(--forest-300));
+  background: var(--lav-50);
 }
 .lib-cover-podcast .lib-cover-ph {
-  background: linear-gradient(140deg, var(--forest-100), var(--forest-300));
+  background: var(--sand);
 }
-.lib-cover-bilibili .lib-cover-ph {
-  background: linear-gradient(140deg, var(--forest-300), var(--forest-700));
-  color: var(--forest-50);
+.lib-cover-video .lib-cover-ph {
+  background: var(--forest-100);
+}
+.lib-cover-anime .lib-cover-ph {
+  background: var(--lav-100);
 }
 .lib-body {
   flex: 1 1 auto;
@@ -2466,6 +2517,20 @@ a.door:active {
 }
 .tasks-toolbar .zone-tip {
   margin: 0;
+}
+/* 2026-10-20 反馈⑦：加小事的存储说明 + 不强迫的登录入口。
+   语气压到最轻：一句实话 + 一个按钮，不弹模态、不写「否则」。 */
+.tasks-local-note {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-3);
+  margin: var(--sp-3) 0 0;
+  color: var(--ink-mute);
+  font-size: var(--fs-meta);
+}
+.tasks-local-note > span {
+  flex: 1 1 16rem;
 }
 .tasks-add {
   flex: none;
@@ -2599,6 +2664,53 @@ a.door:active {
 }
 .assess-warn {
   margin-top: var(--sp-4);
+  color: var(--ink-mute);
+  font-size: var(--fs-meta);
+}
+
+/* ---- 13.5b 测评结果页（2026-10-20 重做）----
+   「这一遍选从不/很少的几句」：整页唯一的新信息块，用户唯一能带走的东西。
+   每句三行：原话（用户的字）→ 他选的档 → 一句符合语境的实话（反着问的说明白）。
+   不折算分数、不排序、不下结论——排序就等于评级，踩红线。 */
+.assess-lows {
+  list-style: none;
+  margin: var(--sp-2) 0 0;
+  padding: 0;
+  display: grid;
+  gap: var(--sp-3);
+}
+.assess-low {
+  display: grid;
+  gap: 2px;
+  padding-left: var(--sp-4);
+  border-left: 2px solid var(--forest-300);
+}
+.assess-low-q {
+  color: var(--ink);
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
+}
+.assess-low-a {
+  color: var(--forest-700);
+  font-size: var(--fs-meta);
+  font-weight: var(--fw-bold);
+}
+.assess-low-note {
+  color: var(--ink-mute);
+  font-size: var(--fs-meta);
+}
+/* 下一步：不强迫的出口，语气和全站一致 */
+.assess-next {
+  margin-top: var(--sp-4);
+  color: var(--ink-soft);
+  font-size: var(--fs-body);
+}
+.assess-next a {
+  color: var(--forest-700);
+}
+/* 回放里反着问的标记：别让「我常觉得自己没什么可取之处 → 很少」吓人一跳 */
+.assess-flip {
+  margin-left: var(--sp-2);
   color: var(--ink-mute);
   font-size: var(--fs-meta);
 }

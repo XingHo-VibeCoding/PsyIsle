@@ -1,8 +1,10 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useSyncExternalStore } from 'react'
 import { Link } from 'react-router-dom'
 import { ListEmpty, ListError, ListLoading } from '../../components/ListStates'
 import { fetchTasks } from '../../lib/api'
 import { matchThemes, themeLabel, themes, type ThemeId } from '../../data/themes'
+import { getAuthState, subscribe } from '../../lib/auth'
+import { openAuthPanel } from '../../lib/authPanel'
 import { readJson, writeJson } from '../../lib/storage'
 import { useListData } from '../../lib/useListData'
 import { usePageTitle } from '../../lib/usePageTitle'
@@ -19,6 +21,18 @@ import { useGuideThemes } from './context'
 //  · 「我 emo 了」的安慰卡移出本页，单独成页 /comfort，这里只留一个入口。
 
 const USER_TASKS_KEY = 'xinyu.tasks.user'
+
+// 2026-10-20 真人试用反馈⑦：「只有在写一写才会出现注册登录界面，找方向添加小事的时候不会跳出来」。
+// 这里的小事是纯本地存储（localStorage），后端没有对应接口——不弹登录不是漏了，
+// 是它本来就不需要账号。但用户的困惑是真的：两个页面待遇不一样，得有人说清楚。
+// 所以加一件小事的地方常驻一句实话 + 一个不强迫的登录入口：存在哪、会不会丢、登录能带来什么。
+// 不弹模态：为一个本地功能弹「注册否则丢失」的模态，是拿焦虑推人，踩产品红线。
+const useAnon = () =>
+  useSyncExternalStore(
+    subscribe,
+    () => getAuthState().mode === 'anonymous',
+    () => true,
+  )
 
 export type TaskRow = {
   id: string
@@ -47,6 +61,7 @@ function TasksView() {
   const [showAdd, setShowAdd] = useState(false)
   const [editing, setEditing] = useState<TaskRow | null>(null)
   const [confirmId, setConfirmId] = useState<string | null>(null)
+  const anon = useAnon()
 
   const allTasks = useMemo<TaskRow[]>(() => [...seedTasks, ...userTasks], [seedTasks, userTasks])
   const visible = useMemo(
@@ -149,6 +164,17 @@ function TasksView() {
                 </button>
               )}
             </div>
+
+            {anon && (
+              <p className="tasks-local-note">
+                <span>
+                  你加的小事存在这台设备的浏览器里，换设备带不走；写一写的心情记录，可以注册账号跟着走。
+                </span>
+                <button type="button" className="btn btn-quiet" onClick={() => openAuthPanel()}>
+                  登录 / 注册
+                </button>
+              </p>
+            )}
 
             {(showAdd || editing) && (
               <TaskForm

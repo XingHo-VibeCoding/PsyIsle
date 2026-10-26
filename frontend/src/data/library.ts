@@ -2,15 +2,18 @@
 // 规则：只给「条目 + 一句话推荐语」，不做书评、不做心理分析、不剧透关键情节。
 // 不写「看完你就好了」这类承诺；条目本身是常见公开作品，用户在自己常用的平台搜名字即可。
 //
-// 2026-10-19 改版：
-//  · 每条约增加 `cover`（封面图 URL，缺省走渐变占位，绝不破图）与 `url`（点击跳转的目标页）；
-//  · 书的封面优先用 Open Library 按 ISBN 取的公开封面，其余种类用同族渐变占位（真实海报热链不稳定）；
-//  · 新增「视频·番剧」一类，收录哔哩哔哩上的优质公开视频与番剧，点击跳到 B 站搜索/对应页；
-//  · 点击整卡在新标签页打开 `url`，方便用户在自己常用的平台接着看。
+// 2026-10-19 改版：每约有 cover（封面图）与 url（跳转目标），封面缺省走排版占位，绝不破图。
+// 2026-10-20 按真人试用反馈再改三处：
+//  ⑤ 「只有绿色的颜色，没有书影音图片」——除书（Open Library 公开封面）外一律没有真封面，
+//     原来的渐变+类型字看起来像一张「加载失败的图」。改成明说的排版占位：大字书名 + 类型小字，
+//     一眼能看出「这一类没有封面图」，而不是「图炸了」。
+//  ⑤ 「搜索是空白的」——豆瓣桌面搜索页在手机浏览器里经常只剩白板，换移动版域名。
+//  ⑥ 「视频应该是科普视频，和番剧应该分开」——原「视频·番剧」一类拆成「视频」与「番剧」两类。
+// 主题轴 2026-10-20 扩到 8 个，存量条目同步补挂新标签（空主题筛不出东西）。
 
 import type { ThemeId } from './themes'
 
-export type LibraryKind = 'book' | 'movie' | 'music' | 'podcast' | 'bilibili'
+export type LibraryKind = 'book' | 'movie' | 'music' | 'podcast' | 'video' | 'anime'
 
 export type LibraryItem = {
   id: string
@@ -21,7 +24,7 @@ export type LibraryItem = {
   /** 一句话推荐语 */
   note: string
   themes: ThemeId[]
-  /** 封面图 URL；缺省时由页面用同族渐变占位，不会出现破图 */
+  /** 封面图 URL；缺省时由页面用排版占位，不会出现破图 */
   cover?: string
   /** 点击整卡跳转的目标（新标签页打开） */
   url?: string
@@ -32,16 +35,27 @@ export const kindLabel: Record<LibraryKind, string> = {
   movie: '电影',
   music: '音乐',
   podcast: '播客',
-  bilibili: '视频·番剧',
+  video: '视频',
+  anime: '番剧',
 }
 
-// 展示顺序：书 → 电影 → 音乐 → 播客 → 视频·番剧
-export const kindOrder: LibraryKind[] = ['book', 'movie', 'music', 'podcast', 'bilibili']
+// 点卡片之后去哪、按钮上就怎么写——别让用户点完才发现落进了别的地方
+export const kindGoLabel: Record<LibraryKind, string> = {
+  book: '去豆瓣',
+  movie: '去豆瓣',
+  music: '去网易云',
+  podcast: '去豆瓣',
+  video: '去 B 站',
+  anime: '去 B 站',
+}
 
-// Open Library 公开封面（按 ISBN，无密钥、CORS 友好）。取不到时页面自动退回渐变占位。
+// 展示顺序：书 → 电影 → 音乐 → 播客 → 视频 → 番剧
+export const kindOrder: LibraryKind[] = ['book', 'movie', 'music', 'podcast', 'video', 'anime']
+
+// Open Library 公开封面（按 ISBN，无密钥、CORS 友好）。取不到时页面自动退回排版占位。
 const ol = (isbn: string) => `https://covers.openlibrary.org/b/isbn/${isbn}-M.jpg`
-// 豆瓣搜索：永远能打开，用户在自己常用的平台接着看。
-const douban = (q: string) => `https://www.douban.com/search?q=${encodeURIComponent(q)}`
+// 豆瓣移动版搜索：桌面版 douban.com/search 在手机浏览器里经常只剩白板（试用原话：「搜索是空白的」）
+const douban = (q: string) => `https://m.douban.com/search?query=${encodeURIComponent(q)}`
 const netease = (q: string) => `https://music.163.com/#/search/m/?s=${encodeURIComponent(q)}`
 const bili = (q: string) => `https://search.bilibili.com/all?keyword=${encodeURIComponent(q)}`
 
@@ -53,7 +67,7 @@ export const library: LibraryItem[] = [
     title: '活出意义来',
     by: '维克多·弗兰克尔',
     note: '一个从集中营里活下来的人，认真回答「人到底靠什么撑下去」。',
-    themes: ['meaning', 'loss'],
+    themes: ['meaning', 'loss', 'future'],
     cover: ol('9787508647291'),
     url: douban('活出意义来 弗兰克尔'),
   },
@@ -73,7 +87,7 @@ export const library: LibraryItem[] = [
     title: '也许你该找个人聊聊',
     by: '洛莉·戈特利布',
     note: '一个心理咨询师自己去做咨询的故事，诊室两头都摊开给你看。',
-    themes: ['worth', 'relation'],
+    themes: ['worth', 'relation', 'family'],
     cover: ol('9787557670373'),
     url: douban('也许你该找个人聊聊'),
   },
@@ -83,7 +97,7 @@ export const library: LibraryItem[] = [
     title: '非暴力沟通',
     by: '马歇尔·卢森堡',
     note: '教你把「你怎么这样」换成「我看到……我感到……」，对越亲近的人越用得上。',
-    themes: ['relation'],
+    themes: ['relation', 'family'],
     cover: ol('9787508085690'),
     url: douban('非暴力沟通 卢森堡'),
   },
@@ -103,7 +117,7 @@ export const library: LibraryItem[] = [
     title: '山茶文具店',
     by: '小川糸',
     note: '替别人写信的人，一封信一段别人的关系，读起来很安静。',
-    themes: ['relation', 'lonely'],
+    themes: ['relation', 'lonely', 'family'],
     cover: ol('9787544295266'),
     url: douban('山茶文具店 小川糸'),
   },
@@ -123,7 +137,7 @@ export const library: LibraryItem[] = [
     title: '瓦尔登湖',
     by: '亨利·戴维·梭罗',
     note: '一个人去湖边住了两年，写他怎么把生活过到最精简。',
-    themes: ['lonely', 'meaning'],
+    themes: ['lonely', 'meaning', 'future'],
     cover: ol('9787020105465'),
     url: douban('瓦尔登湖 梭罗'),
   },
@@ -143,9 +157,18 @@ export const library: LibraryItem[] = [
     title: '安静：内向性格的竞争力',
     by: '苏珊·凯恩',
     note: '如果你在人群里容易累，这本书会告诉你那不是缺点。',
-    themes: ['lonely', 'worth'],
+    themes: ['lonely', 'worth', 'stress'],
     cover: ol('9787508638885'),
     url: douban('安静 苏珊凯恩'),
+  },
+  {
+    id: 'courage-disliked',
+    kind: 'book',
+    title: '被讨厌的勇气',
+    by: '岸见一郎 / 古贺史健',
+    note: '用对话讲「课题分离」：别人怎么看你，是别人的事。',
+    themes: ['worth', 'relation', 'future'],
+    url: douban('被讨厌的勇气'),
   },
 
   // ---------------- 电影 ----------------
@@ -191,7 +214,7 @@ export const library: LibraryItem[] = [
     title: '步履不停',
     by: '是枝裕和',
     note: '一家人聚一天，什么都没解决，但第二天都还在。',
-    themes: ['relation', 'loss'],
+    themes: ['relation', 'loss', 'family'],
     url: douban('步履不停'),
   },
   {
@@ -209,7 +232,7 @@ export const library: LibraryItem[] = [
     title: '寻梦环游记',
     by: '李·昂克里奇',
     note: '关于记住和被记住，哭完心里是暖的。',
-    themes: ['loss', 'relation'],
+    themes: ['loss', 'relation', 'family'],
     url: douban('寻梦环游记'),
   },
   {
@@ -256,7 +279,7 @@ export const library: LibraryItem[] = [
     title: '山丘',
     by: '李宗盛',
     note: '一个人回头看自己走过的路，不励志，很实在。',
-    themes: ['meaning', 'loss'],
+    themes: ['meaning', 'loss', 'future'],
     url: netease('山丘 李宗盛'),
   },
   {
@@ -274,7 +297,7 @@ export const library: LibraryItem[] = [
     title: 'Weightless',
     by: 'Marconi Union',
     note: '被拿来当「最放松的曲子」研究的那种，适合睡前。',
-    themes: ['lonely', 'worth'],
+    themes: ['lonely', 'worth', 'stress'],
     url: netease('Weightless Marconi Union'),
   },
 
@@ -312,63 +335,83 @@ export const library: LibraryItem[] = [
     title: 'Just Being 恰好',
     by: '几位主播',
     note: '聊情绪、关系和自我接纳，语速慢，适合一个人散步听。',
-    themes: ['lonely', 'worth'],
+    themes: ['lonely', 'worth', 'stress'],
     url: douban('恰好 播客'),
   },
 
-  // ---------------- 视频·番剧（哔哩哔哩） ----------------
+  // ---------------- 视频（哔哩哔哩，科普 / 治愈向） ----------------
   {
-    id: 'bili-healing',
-    kind: 'bilibili',
-    title: '【治愈系】一个人也要好好吃饭',
-    by: '美食区 UP 主合集',
-    note: '看别人认真做饭，自己也会被带得想好好吃一顿。',
-    themes: ['worth', 'lonely'],
-    url: bili('一个人也要好好吃饭 美食'),
+    id: 'bili-mind',
+    kind: 'video',
+    title: '心理学 UP 主：情绪是怎么来的',
+    by: '科普区 UP 主',
+    note: '用很通俗的话讲情绪是怎么回事，不诊断、不吓人。',
+    themes: ['worth', 'meaning'],
+    url: bili('认识自己的情绪 心理学'),
   },
   {
     id: 'bili-nature',
-    kind: 'bilibili',
-    title: '中国野生生物影像：慢下来的自然',
+    kind: 'video',
+    title: '纪录片：慢下来的自然',
     by: '纪录片 UP 主',
     note: '把镜头停在森林、湿地和星空，几分钟就能喘口气。',
     themes: ['lonely', 'meaning'],
     url: bili('中国野生生物 纪录片'),
   },
   {
+    id: 'bili-sleep',
+    kind: 'video',
+    title: '科普：睡不着的晚上可以试什么',
+    by: '科普区 UP 主',
+    note: '只讲有据可查的做法，不讲偏方。',
+    themes: ['stress'],
+    url: bili('睡眠 科普 睡不着'),
+  },
+  {
+    id: 'bili-healing',
+    kind: 'video',
+    title: '一个人也要好好吃饭',
+    by: '美食区 UP 主合集',
+    note: '看别人认真做饭，自己也会被带得想好好吃一顿。',
+    themes: ['worth', 'lonely'],
+    url: bili('一个人也要好好吃饭 美食'),
+  },
+  {
     id: 'bili-study',
-    kind: 'bilibili',
+    kind: 'video',
     title: '学习陪伴 · 云端自习室',
     by: '学习区 UP 主',
     note: '开着当背景音，像有人在陪你一起坐着做事。',
-    themes: ['lonely', 'worth'],
+    themes: ['lonely', 'worth', 'stress'],
     url: bili('云端自习室 学习陪伴'),
   },
   {
     id: 'bili-clay',
-    kind: 'bilibili',
-    title: '手工·陶艺与羊毛毡的慢时光',
+    kind: 'video',
+    title: '手工 · 陶艺与羊毛毡的慢时光',
     by: '手工区 UP 主',
     note: '看手一点点把东西做出来，很安神。',
     themes: ['meaning', 'lonely'],
     url: bili('陶艺 羊毛毡 手工'),
   },
+
+  // ---------------- 番剧（哔哩哔哩） ----------------
   {
-    id: 'bili-film',
-    kind: 'bilibili',
-    title: '番剧：对风说爱你 / 日常系动画',
+    id: 'bili-daily-anime',
+    kind: 'anime',
+    title: '日常系动画：对风说爱你',
     by: '哔哩哔哩番剧',
     note: '没有大起大落，就是普通的日子在慢慢过。',
     themes: ['lonely', 'relation'],
     url: bili('日常系 番剧 治愈'),
   },
   {
-    id: 'bili-mind',
-    kind: 'bilibili',
-    title: '心理学up：认识自己的情绪',
-    by: '科普区 UP 主',
-    note: '用很通俗的话讲情绪是怎么来的，不诊断、不吓人。',
-    themes: ['worth', 'meaning'],
-    url: bili('认识自己的情绪 心理学'),
+    id: 'bili-natsume',
+    kind: 'anime',
+    title: '夏目友人帐',
+    by: '动画剧集',
+    note: '人和妖怪互相搭把手的日子，很温柔，也讲失去。',
+    themes: ['lonely', 'relation', 'loss'],
+    url: bili('夏目友人帐'),
   },
 ]

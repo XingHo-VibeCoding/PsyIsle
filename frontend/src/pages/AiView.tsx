@@ -3,7 +3,7 @@ import { fetchMoods, fetchNotes } from '../lib/api'
 import { themeLabel, themes, type ThemeId } from '../data/themes'
 import { usePageTitle } from '../lib/usePageTitle'
 import { ListEmpty, ListError, ListLoading } from '../components/ListStates'
-import { useListData } from '../lib/useListData'
+import { useFetch } from '../lib/useListData'
 
 // AI 板块（2026-10-19 新增）
 // 合规定位：项目红线禁止 AI 生成安慰 / 建议 / 解读，也不接外部大模型。
@@ -13,10 +13,14 @@ import { useListData } from '../lib/useListData'
 
 const THEME_KEYWORDS: Record<ThemeId, string[]> = {
   lonely: ['孤独', '一个人', '孤单', '没人', '安静', '独处', '冷清'],
-  meaning: ['意义', '想做', '喜欢', '有意思', '目标', '方向', '为什么', '值得'],
-  worth: ['价值', '自信', '不行', '没用', '不够好', '值得', '肯定'],
+  meaning: ['意义', '想做', '喜欢', '有意思', '目标', '为什么', '值得'],
+  worth: ['价值', '自信', '不行', '没用', '不够好', '肯定'],
   relation: ['朋友', '家人', '关系', '聊天', '陪伴', '某人', '联系'],
   loss: ['失去', '离开', '想念', '过去', '忘了', '遗憾', '走'],
+  // 2026-10-20 主题轴扩充后同步补：关键词只用于归类用户自己写下的字，不做任何判断
+  stress: ['累', '压力', '疲惫', '撑不住', '紧张', '焦虑', '熬', '卷'],
+  family: ['家', '爸妈', '父母', '我妈', '我爸', '家里', '亲戚'],
+  future: ['以后', '未来', '选择', '毕业', '工作', '前途', '方向'],
 }
 
 // 没有真实记录时的示例，保证页面可演示；会明确标注「示例」。
@@ -33,40 +37,56 @@ const SAMPLE = [
 const nonEmpty = (v: (string | null)[]): string[] =>
   v.filter((s): s is string => typeof s === 'string' && s.trim().length > 0)
 
-// 取数走全站统一的 useListData（模块级函数＝稳定引用，不会重复请求）：
-// 拿不到云端记录时返回示例，保证页面永远可演示。
-const loadTexts = async (): Promise<string[]> => {
+// 取数结果分三种：真实记录 / 一条都没有（给示例演示）/ 取数失败（报错重试）。
+// 2026-10-20 真人试用原话：「你最近在意的，大概是这几件事」不符合事实，是系统固有的——
+// 因为「接口失败」和「真的没写过」都回落成了同一批示例句子，用户以为那是自己的记录。
+// 现在失败必须显性报错：宁可看不到归纳，也不拿示例冒充本人数据。
+type Loaded = { kind: 'real' | 'sample'; texts: string[] }
+
+const loadTexts = async (): Promise<Loaded> => {
   const [n, m] = await Promise.allSettled([fetchNotes(), fetchMoods()])
   const got: string[] = []
   if (n.status === 'fulfilled') got.push(...nonEmpty(n.value.map((x) => x.text)))
   if (m.status === 'fulfilled') got.push(...nonEmpty(m.value.map((x) => x.note)))
-  return got.length > 0 ? got : SAMPLE
+  if (got.length > 0) return { kind: 'real', texts: got }
+  // 两个都成功却都没有内容 = 真的没写过；只要有一个失败，就把失败原因抛出去
+  if (n.status === 'rejected') throw n.reason
+  if (m.status === 'rejected') throw m.reason
+  return { kind: 'sample', texts: SAMPLE }
 }
 
 function AiView() {
   usePageTitle('AI 整理')
-  const { status, data: texts, retry } = useListData(loadTexts)
-  // 引用相等即可判定：只有拿不到真实记录时 loadTexts 才会返回 SAMPLE 本身
-  const isSample = texts === SAMPLE
+  // 取的是「一批片段 + 它是不是示例」这个对象，不是列表——用单对象版的四态 hook
+  const { status, data, retry } = useFetch(loadTexts)
+  // 示例模式：整页都要让人看出「这不是你写的内容」——引导句、卡片标签都带「示例」
+  const isSample = data?.kind === 'sample'
+  const texts = data?.texts ?? []
 
   const clusters = useMemo(() => {
-    const map: Record<ThemeId, string[]> = {
-      lonely: [],
-      meaning: [],
-      worth: [],
-      relation: [],
-      loss: [],
-    }
+    // 按 themes 全量建桶：新增主题只改 data/themes.ts 一处，这里自动跟上
+    const map = Object.fromEntries(themes.map((t) => [t.id, [] as string[]])) as Record<
+      ThemeId,
+      string[]
+    >
     const other: string[] = []
-    for (const t of texts) {
+    for (const t of data?.texts ?? []) {
       const hits = themes.filter((th) => THEME_KEYWORDS[th.id].some((k) => t.includes(k)))
       if (hits.length === 0) other.push(t)
       else hits.forEach((h) => map[h.id].push(t))
     }
     return { map, other }
-  }, [texts])
+    // 依赖 data 而不是 texts：data 来自 state，身份稳定；texts 是渲染时拼出来的，每次都不同
+  }, [data])
 
   const active = themes.filter((t) => clusters.map[t.id].length > 0)
+
+  // 引导句跟着内容的真实程度走：示例明说示例；只有一两条也别夸大成「这几件事」
+  const lead = isSample
+    ? '下面是用示例演示的整理效果，不是你写的内容：'
+    : texts.length <= 2
+      ? '你记下的片段还不多，先归出这些：'
+      : '你最近在意的，大概是这几件事：'
 
   return (
     <div className="page ai-page">
@@ -91,11 +111,14 @@ function AiView() {
             <ListEmpty>暂时没有可整理的内容。</ListEmpty>
           ) : (
             <>
-              <p className="ai-lead">你最近在意的，大概是这几件事：</p>
+              <p className="ai-lead">{lead}</p>
               <div className="ai-clusters">
                 {active.map((t) => (
                   <div key={t.id} className="card ai-cluster">
-                    <span className="card-tag">{themeLabel(t.id)}</span>
+                    <span className="card-tag">
+                      {themeLabel(t.id)}
+                      {isSample ? ' · 示例' : ''}
+                    </span>
                     <p className="ai-count">{clusters.map[t.id].length} 段相关</p>
                     <ul className="ai-snips">
                       {clusters.map[t.id].slice(0, 3).map((s, i) => (
@@ -106,7 +129,9 @@ function AiView() {
                 ))}
                 {clusters.other.length > 0 && (
                   <div className="card ai-cluster">
-                    <span className="card-tag">还没归类的</span>
+                    <span className="card-tag">
+                      还没归类的{isSample ? ' · 示例' : ''}
+                    </span>
                     <p className="ai-count">{clusters.other.length} 段</p>
                     <ul className="ai-snips">
                       {clusters.other.slice(0, 3).map((s, i) => (

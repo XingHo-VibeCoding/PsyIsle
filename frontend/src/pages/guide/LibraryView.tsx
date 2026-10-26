@@ -1,7 +1,13 @@
 import { useMemo, useState } from 'react'
 import { ListEmpty, ListError, ListLoading } from '../../components/ListStates'
 import { fetchLibrary } from '../../lib/api'
-import { kindLabel, kindOrder, type LibraryItem, type LibraryKind } from '../../data/library'
+import {
+  kindGoLabel,
+  kindLabel,
+  kindOrder,
+  type LibraryItem,
+  type LibraryKind,
+} from '../../data/library'
 import { matchThemes } from '../../data/themes'
 import { readJson, writeJson } from '../../lib/storage'
 import { useListData } from '../../lib/useListData'
@@ -26,7 +32,10 @@ const readKind = (): KindFilter => {
   return saved === 'all' || kindOrder.includes(saved as LibraryKind) ? (saved as KindFilter) : 'all'
 }
 
-// 封面：有图用图；图挂了或没有图，退回同族渐变占位（绝不破图）
+// 封面：有图用图；没图或图挂了，退回「明说没封面」的排版占位。
+// 2026-10-20 试用反馈：「只有绿色的颜色，没有书影音图片」——原来的渐变+类型字
+// 看起来像一张加载失败的图。现在占位直接排书名 + 类型小字：这一类确实没有封面图，
+// 一眼看得出是设计如此，不是裂图。书（Open Library）仍是真封面。
 function LibCover({ item }: { item: LibraryItem }) {
   const [err, setErr] = useState(false)
   const showImg = Boolean(item.cover) && !err
@@ -35,7 +44,10 @@ function LibCover({ item }: { item: LibraryItem }) {
       {showImg ? (
         <img src={item.cover} alt="" loading="lazy" onError={() => setErr(true)} />
       ) : (
-        <span className="lib-cover-ph">{kindLabel[item.kind]}</span>
+        <span className="lib-cover-ph">
+          <span className="lib-cover-title">{item.title}</span>
+          <span className="lib-cover-kind">{kindLabel[item.kind]}</span>
+        </span>
       )}
     </div>
   )
@@ -122,7 +134,7 @@ function LibraryView() {
                           <span className="lib-by">{item.by}</span>
                         </div>
                         <p className="lib-note">{item.note}</p>
-                        <span className="lib-go">去看看 ›</span>
+                        <span className="lib-go">{kindGoLabel[item.kind]} ›</span>
                       </div>
                     </a>
                   </li>
